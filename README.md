@@ -1,6 +1,24 @@
-# VINS-Fusion
+# VINS-Fusion-gpu
 This repository is a version of VINS-Fusion with GPU acceleration. It can run on Nvidia TX2 in real-time. 
+## 1. Prerequisites  
+The essential software environment is same as VINS-Fusion. Besides, it requires OpenCV cuda version.(I only test it on OpenCV 3.4.1).
+## 2. Usage
+### 2.1 Change the opencv path in the CMakeLists
+In /vins_estimator/CMakeLists.txt, change Line 20 to your path.  
+In /loop_fusion/CmakeLists.txt, change Line 19 to your path.
+### 2.2 Change the acceleration parameters as you need.
+In the config file, there are two parameters for gpu acceleration.  
+use_gpu: 0 for off, 1 for on  
+use_gpu_acc_flow:  0 for off, 1 for on  
+If your GPU resources is limitted or you want to use GPU for other computaion. You can set  
+use_gpu: 1  
+use_gpu_acc_flow: 0  
+If your other application do not require much GPU resources, I recommanded you to set  
+use_gpu: 1  
+use_gpu_acc_flow: 1  
+According to my test, on TX2 if you set this two parameters to 1 at the same time, the GPU usage is about 20%.
 
+# VINS-Fusion
 ## An optimization-based multi-sensor state estimator
 
 <img src="https://github.com/HKUST-Aerial-Robotics/VINS-Fusion/blob/master/support_files/image/vins_logo.png" width = 55% height = 55% div align=left />
