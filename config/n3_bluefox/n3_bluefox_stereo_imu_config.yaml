@@ -1,0 +1,96 @@
+%YAML:1.0
+
+#common parameters
+#support: 1 imu 1 cam; 1 imu 2 cam: 2 cam; 
+imu: 1         
+num_of_cam: 2  
+
+imu_topic: "/djiros/imu"
+image0_topic: "/djiros/image0"
+image1_topic: "/djiros/image1"
+output_path: "/home/dji/output/"
+
+cam0_calib: "left.yaml"
+cam1_calib: "right.yaml"
+image_width: 752
+image_height: 480
+   
+
+# Extrinsic parameter between IMU and Camera.
+estimate_extrinsic: 1   # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
+                        # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
+
+body_T_cam0: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ -2.0835482005977957e-02, -5.7890547164455852e-03,
+       9.9976615742635988e-01, 1.2072544178136486e-01,
+     -9.9954271001275696e-01, -2.1798463910720933e-02,
+     -2.0957047298866993e-02, 4.1007283444890859e-02,
+       2.1914687995326754e-02, -9.9974562455487814e-01,
+       -5.3322259371184622e-03, 3.4322777164835054e-02, 0., 0., 0., 1. ]
+
+body_T_cam1: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ -7.3084308459536729e-03, 4.5434749606132474e-03,
+       9.9996297115135846e-01, 1.2346479648537345e-01,
+      -9.9994784208392895e-01, -7.1677427201168875e-03, 
+      -7.2757526065997391e-03, -7.8171712032385154e-02,
+       7.1344201070686619e-03, -9.9996398950141241e-01,
+       4.5956229344190636e-03,  3.5758400966779694e-02, 0., 0., 0., 1. ]
+
+#Multiple thread support
+multiple_thread: 1
+#Gpu accleration support
+use_gpu: 1
+use_gpu_acc_flow: 1
+
+#feature traker paprameters
+max_cnt: 200            # max feature number in feature tracking
+min_dist: 30            # min distance between two features 
+freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
+F_threshold: 1.0        # ransac threshold (pixel)
+show_track: 0           # publish tracking image as topic
+flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
+
+#optimization parameters
+max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
+max_num_iterations: 8   # max solver itrations, to guarantee real time
+keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
+
+#imu parameters       The more accurate parameters you provide, the better performance
+acc_n: 0.1          # accelerometer measurement noise standard deviation. #0.2   0.04
+gyr_n: 0.01         # gyroscope measurement noise standard deviation.     #0.05  0.004
+acc_w: 0.001         # accelerometer bias random work noise standard deviation.  #0.002
+gyr_w: 0.0001       # gyroscope bias random work noise standard deviation.     #4.0e-5
+g_norm: 9.805         # gravity magnitude
+
+#unsynchronization parameters
+estimate_td: 1                      # online estimate time offset between camera and imu
+td: 0.00                             # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)
+
+#loop closure parameters
+load_previous_pose_graph: 0        # load and reuse previous pose graph; load from 'pose_graph_save_path'
+pose_graph_save_path: "/home/dji/output/pose_graph/" # save and load path
+save_image: 0                   # save image in pose graph for visualization prupose; you can close this function by setting 0 
+
+#rectify
+publish_rectify: 1              # whether publish rectified pose
+cam0_rectify: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 0.9999794402722955, 0.005971027935946018, 0.002337917469648631,
+         -0.005978666381574051, 0.9999767681029859, 0.003273958247306185,
+         -0.002318314259234973, -0.003287868564194767, 0.9999919076369068 ]
+cam1_rectify: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 0.9998915742446248, -0.01007564660075198, -0.01073876623186388,
+           0.0100404509454154, 0.9999440608735217, -0.00332632959632902,
+           0.01077168043615163, 0.00321814688096462, 0.9999368052188268 ]
+
