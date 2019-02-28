@@ -15,8 +15,8 @@ find_package(catkin REQUIRED COMPONENTS
     roslib
     )
 
-#find_package(OpenCV)
-include(/home/dji/opencv/build/OpenCVConfig.cmake)
+find_package(OpenCV)
+#include(/home/dji/opencv/build/OpenCVConfig.cmake)
 
 
 find_package(Ceres REQUIRED)
@@ -44,4 +44,4 @@ add_executable(loop_fusion_node
     src/ThirdParty/VocabularyBinary.cpp
     )
 
-target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES}) 
+target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES})

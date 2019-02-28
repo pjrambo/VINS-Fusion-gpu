@@ -54,7 +54,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 //     if(begin_time_count<=0)
 //         inputImageCnt++;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
-    // TicToc featureTrackerTime;
+    TicToc featureTrackerTime;
     if(_img1.empty())
         featureFrame = featureTracker.trackImage(t, _img);
     else
@@ -64,7 +64,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     //     sum_t_feature += featureTrackerTime.toc();
     //     printf("featureTracker time: %f\n", sum_t_feature/(float)inputImageCnt);
     // }
-    
+    printf("featureTracker time: %f\n", featureTrackerTime.toc() );
     if(MULTIPLE_THREAD)  
     {     
         if(inputImageCnt % 2 == 0)
