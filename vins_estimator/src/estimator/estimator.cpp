@@ -19,7 +19,7 @@ Estimator::Estimator(): f_manager{Rs}
     openExEstimation = 0;
     initP = Eigen::Vector3d(0, 0, 0);
     initR = Eigen::Matrix3d::Identity();
-    // inputImageCnt = 0;
+    inputImageCnt = 0;
     // sum_t_feature = 0.0;
     // begin_time_count = 10;
     initFirstPoseFlag = false;
@@ -52,7 +52,7 @@ void Estimator::setParameter()
 void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
 //     if(begin_time_count<=0)
-//         inputImageCnt++;
+    inputImageCnt++;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     // TicToc featureTrackerTime;
     if(_img1.empty())
