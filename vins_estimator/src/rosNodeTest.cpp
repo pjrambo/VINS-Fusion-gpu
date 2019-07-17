@@ -32,6 +32,11 @@ std::mutex m_buf;
 
 void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
 {
+    static int lc = 0;
+    if (lc ++ % 3 == 2) {
+        return;
+    }
+
     m_buf.lock();
     img0_buf.push(img_msg);
     m_buf.unlock();
@@ -39,6 +44,11 @@ void img0_callback(const sensor_msgs::ImageConstPtr &img_msg)
 
 void img1_callback(const sensor_msgs::ImageConstPtr &img_msg)
 {
+    static int rc = 0;
+    if (rc ++ % 3 == 2) {
+        return;
+    }
+    
     m_buf.lock();
     img1_buf.push(img_msg);
     m_buf.unlock();

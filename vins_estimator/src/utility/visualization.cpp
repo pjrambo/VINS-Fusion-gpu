@@ -58,6 +58,7 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
     nav_msgs::Odometry odometry;
     odometry.header.stamp = ros::Time(t);
     odometry.header.frame_id = "world";
+    odometry.child_frame_id = "odometry";
     odometry.pose.pose.position.x = P.x();
     odometry.pose.pose.position.y = P.y();
     odometry.pose.pose.position.z = P.z();
@@ -121,7 +122,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         nav_msgs::Odometry odometry;
         odometry.header = header;
         odometry.header.frame_id = "world";
-        odometry.child_frame_id = "world";
+        odometry.child_frame_id = "odometry";
         Quaterniond tmp_Q;
         tmp_Q = Quaterniond(estimator.Rs[WINDOW_SIZE]);
         odometry.pose.pose.position.x = estimator.Ps[WINDOW_SIZE].x();
