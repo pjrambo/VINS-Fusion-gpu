@@ -95,7 +95,8 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vec
     mBuf.unlock();
 
     fastPredictIMU(t, linearAcceleration, angularVelocity);
-    if (solver_flag == NON_LINEAR)
+    // if (solver_flag == NON_LINEAR)
+    if (fast_prop_inited)
         pubLatestOdometry(latest_P, latest_Q, latest_V, t);
 }
 
@@ -290,6 +291,10 @@ void Estimator::clearState()
     sum_of_front = 0;
     frame_count = 0;
     solver_flag = INITIAL;
+    latest_P = Eigen::Vector3d::Zero();
+    latest_V = Eigen::Vector3d::Zero();
+    latest_Q = Eigen::Quaterniond::Identity();
+    fast_prop_inited = false;
     initial_timestamp = 0;
     all_image_frame.clear();
 
@@ -1518,10 +1523,12 @@ void Estimator::updateLatestStates()
 {
     latest_time = Headers[frame_count] + td;
     latest_P = Ps[frame_count];
+    std::cout << "Ps[frame_count] is " << Ps[frame_count].transpose();
     latest_Q = Rs[frame_count];
     latest_V = Vs[frame_count];
     latest_Ba = Bas[frame_count];
     latest_Bg = Bgs[frame_count];
+    fast_prop_inited = true;
     latest_acc_0 = acc_0;
     latest_gyr_0 = gyr_0;
     mBuf.lock();
