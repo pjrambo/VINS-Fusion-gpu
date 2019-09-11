@@ -45,7 +45,6 @@ message(STATUS "    catkin libraries: ${catkin_LIBRARIES}")
 
 add_library(vins_lib
     src/estimator/parameters.cpp
-    src/estimator/estimator.cpp
     src/estimator/feature_manager.cpp
     src/factor/pose_local_parameterization.cpp
     src/factor/projectionTwoFrameOneCamFactor.cpp
@@ -60,15 +59,19 @@ add_library(vins_lib
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
     src/featureTracker/feature_tracker.cpp)
+
+add_library(estimator_lib
+    src/estimator/estimator.cpp
+)
 target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES})
 
 
 add_executable(vins_node src/rosNodeTest.cpp)
-target_link_libraries(vins_node vins_lib)
+target_link_libraries(vins_node vins_lib estimator_lib)
 
-add_executable(kitti_odom_test src/KITTIOdomTest.cpp)
-target_link_libraries(kitti_odom_test vins_lib)
+# add_executable(kitti_odom_test src/KITTIOdomTest.cpp)
+# target_link_libraries(kitti_odom_test vins_lib estimator_lib)
 
-add_executable(kitti_gps_test src/KITTIGPSTest.cpp)
-target_link_libraries(kitti_gps_test vins_lib)
+# add_executable(kitti_gps_test src/KITTIGPSTest.cpp)
+# target_link_libraries(kitti_gps_test vins_lib estimator_lib)
 

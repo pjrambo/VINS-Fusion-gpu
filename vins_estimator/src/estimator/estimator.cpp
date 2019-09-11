@@ -89,19 +89,37 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     }
     
 }
+double base = 0;
 
 void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity)
 {
+    static double last_t = 0;
+    
+    last_t = t;    
     mBuf.lock();
     accBuf.push(make_pair(t, linearAcceleration));
     gyrBuf.push(make_pair(t, angularVelocity));
     //printf("input imu with time %f \n", t);
+
+    // ROS_INFO("t %4.2fms latest %4.2fms last %4.2fms", (t-base)*1000, (latest_time - base)*1000,  (last_t-base)*1000);
+
+    if (t - last_t > 0.1 || last_t - latest_time > 0.1 ) {
+        ROS_INFO("A DT %4.2fms last - latest %4.2fms t %4.2fms latest %4.2fms", (t - last_t)*1000, (last_t - latest_time)*1000, (t-base)*1000,
+        latest_time*1000
+        );
+    }
+    fastPredictIMU(t, linearAcceleration, angularVelocity);
+    // if (solver_flag == NON_LINEAR && fast_prop_inited) {
+    if (fast_prop_inited) {
+    //if (fast_prop_inited) {
+        if (solver_flag !=  NON_LINEAR) {
+            ROS_ERROR("Is not non linear!!!!");
+            exit(-1);
+        }
+        pubLatestOdometry(latest_P, latest_Q, latest_V, t);
+    }
     mBuf.unlock();
 
-    fastPredictIMU(t, linearAcceleration, angularVelocity);
-    // if (solver_flag == NON_LINEAR)
-    if (fast_prop_inited)
-        pubLatestOdometry(latest_P, latest_Q, latest_V, t);
 }
 
 void Estimator::inputFeature(double t, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &featureFrame)
@@ -397,6 +415,9 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 
     if (solver_flag == INITIAL)
     {
+
+        base = ros::Time::now().toSec();
+
         // monocular + IMU initilization
         if (!STEREO && USE_IMU)
         {
@@ -499,6 +520,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
             clearState();
             setParameter();
             ROS_WARN("system reboot!");
+            //exit(-1);
             return;
         }
 
@@ -1510,8 +1532,26 @@ void Estimator::outliersRejection(set<int> &removeIndex)
 
 void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Eigen::Vector3d angular_velocity)
 {
+    // ROS_INFO
+    if (latest_time < 10) {
+        return;
+    }
+
     double dt = t - latest_time;
+    if (dt > 0.03) {
+        printf("LA %f %f %f\n", 
+            linear_acceleration.x(),
+            linear_acceleration.y(),
+            linear_acceleration.z()
+        );
+        ROS_ERROR("DT %4.2fms t %f lt %f", dt*1000, (t-base)*1000, (latest_time-base)*1000);
+        // exit(-1);
+    }
+
     latest_time = t;
+    
+    // ROS_INFO("fastpredic t %f %d", (t-base)*1000, flg);
+
     Eigen::Vector3d un_acc_0 = latest_Q * (latest_acc_0 - latest_Ba) - g;
     Eigen::Vector3d un_gyr = 0.5 * (latest_gyr_0 + angular_velocity) - latest_Bg;
     latest_Q = latest_Q * Utility::deltaQ(un_gyr * dt);
@@ -1525,6 +1565,8 @@ void Estimator::fastPredictIMU(double t, Eigen::Vector3d linear_acceleration, Ei
 
 void Estimator::updateLatestStates()
 {
+    mBuf.lock();
+
     latest_time = Headers[frame_count] + td;
     latest_P = Ps[frame_count];
     std::cout << "Ps[frame_count] is " << Ps[frame_count].transpose();
@@ -1535,7 +1577,6 @@ void Estimator::updateLatestStates()
     fast_prop_inited = true;
     latest_acc_0 = acc_0;
     latest_gyr_0 = gyr_0;
-    mBuf.lock();
     queue<pair<double, Eigen::Vector3d>> tmp_accBuf = accBuf;
     queue<pair<double, Eigen::Vector3d>> tmp_gyrBuf = gyrBuf;
     while(!tmp_accBuf.empty())
@@ -1543,6 +1584,13 @@ void Estimator::updateLatestStates()
         double t = tmp_accBuf.front().first;
         Eigen::Vector3d acc = tmp_accBuf.front().second;
         Eigen::Vector3d gyr = tmp_gyrBuf.front().second;
+        double dt = t - latest_time;
+        if (dt > 0.03) {
+            ROS_ERROR("DTRE %4.2fms", dt*1000);
+            // exit(-1);
+        }
+        
+        
         fastPredictIMU(t, acc, gyr);
         tmp_accBuf.pop();
         tmp_gyrBuf.pop();
