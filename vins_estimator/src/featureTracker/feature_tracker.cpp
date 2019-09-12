@@ -278,7 +278,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
         if(!USE_GPU)
         {
-            if (n_max_cnt > 0)
+            if (n_max_cnt > MAX_CNT/4)
             {
                 TicToc t_t;
                 if(mask.empty())
@@ -299,7 +299,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         // printf("good feature to track costs: %fms\n", t_t.toc());
         else
         {
-            if (n_max_cnt > 0)
+            if (n_max_cnt > MAX_CNT/4)
             {
                 if(mask.empty())
                     cout << "mask is empty " << endl;

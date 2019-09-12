@@ -53,7 +53,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
     static int img_count = 0 ;
     if (img_count ++ % 3 == 0) {
-        return;
+       return;
     }
 //     if(begin_time_count<=0)
     inputImageCnt++;
