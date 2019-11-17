@@ -7,6 +7,8 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
 find_package(catkin REQUIRED COMPONENTS
+    message_generation
+    message_runtime
     roscpp
     std_msgs
     geometry_msgs
@@ -15,12 +17,10 @@ find_package(catkin REQUIRED COMPONENTS
     cv_bridge
     camera_models
     image_transport
-    )
+)
 
 SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
-
-find_package(OpenCV 3.4 REQUIRED
-NO_DEFAULT_PATH)
+find_package(OpenCV 3.4 REQUIRED)
 
 message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
 
@@ -35,7 +35,6 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
 )
-catkin_package()
 message(STATUS "OpenCV library status:")
 message(STATUS "    version: ${OpenCV_VERSION}")
 message(STATUS "    libraries: ${OpenCV_LIBS}")
@@ -43,6 +42,19 @@ message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
 message(STATUS "    catkin libraries: ${catkin_LIBRARIES}")
 #catkin_package()
 
+add_message_files(
+    FILES
+    VIOKeyframe.msg
+)
+
+generate_messages(
+    DEPENDENCIES
+    geometry_msgs
+    std_msgs
+)
+
+catkin_package()
+    
 add_library(vins_lib
     src/estimator/parameters.cpp
     src/estimator/feature_manager.cpp
