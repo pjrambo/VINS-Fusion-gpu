@@ -11,6 +11,8 @@
 
 #include "feature_tracker.h"
 
+#define USE_ORB
+
 bool FeatureTracker::inBorder(const cv::Point2f &pt)
 {
     const int BORDER_SIZE = 1;
@@ -47,6 +49,11 @@ void reduceVector(vector<int> &v, vector<uchar> status)
 
 FeatureTracker::FeatureTracker()
 {
+    if (USE_GPU) {
+        orb_cuda = cv::cuda::ORB::create();
+    } else {
+        orb = cv::ORB::create();
+    }
     stereo_cam = 0;
     n_id = 0;
     hasPrediction = false;
@@ -307,18 +314,40 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                     cout << "mask type wrong " << endl;
                 TicToc t_g;
                 cv::cuda::GpuMat cur_gpu_img(cur_img);
-                cv::cuda::GpuMat d_prevPts;
                 TicToc t_gg;
-                cv::cuda::GpuMat gpu_mask(mask);
+
+             
+
+
+
                 // printf("gpumat cost: %fms\n",t_gg.toc());
-                cv::Ptr<cv::cuda::CornersDetector> detector = cv::cuda::createGoodFeaturesToTrackDetector(cur_gpu_img.type(), MAX_CNT - cur_pts.size(), 0.01, MIN_DIST);
+                // cv::Ptr<cv::cuda::CornersDetector> detector = cv::cuda::createGoodFeaturesToTrackDetector(cur_gpu_img.type(), MAX_CNT - cur_pts.size(), 0.01, MIN_DIST);
+                
                 // cout << "new gpu points: "<< MAX_CNT - cur_pts.size()<<endl;
+#ifdef USE_ORB
+                std::vector<cv::KeyPoint> d_prevPts;
+                cv::Mat gpu_mask(mask);
+                orb_cuda->detect(cur_gpu_img, d_prevPts, gpu_mask);
+#else
+                cv::Ptr<cv::cuda::CornersDetector> detector = cv::cuda::createGoodFeaturesToTrackDetector(cur_gpu_img.type(), MAX_CNT - cur_pts.size(), 0.01, MIN_DIST);
+                cv::cuda::GpuMat d_prevPts;
+                cv::cuda::GpuMat gpu_mask(mask);
                 detector->detect(cur_gpu_img, d_prevPts, gpu_mask);
+#endif
                 // std::cout << "d_prevPts size: "<< d_prevPts.size()<<std::endl;
-                if(!d_prevPts.empty())
+                if(!d_prevPts.empty()) {
+#ifdef USE_ORB    
+	                for (auto & kp : d_prevPts) {
+                        n_pts.push_back(kp.pt);
+                    }
+#else
                     n_pts = cv::Mat_<cv::Point2f>(cv::Mat(d_prevPts));
-                else
+#endif
+                }
+                else {
                     n_pts.clear();
+                }
+
                 // sum_n += n_pts.size();
                 // printf("total point from gpu: %d\n",sum_n);
                 // printf("gpu good feature to track cost: %fms\n", t_g.toc());
