@@ -50,9 +50,9 @@ void reduceVector(vector<int> &v, vector<uchar> status)
 FeatureTracker::FeatureTracker()
 {
     if (USE_GPU) {
-        orb_cuda = cv::cuda::ORB::create();
+        orb_cuda = cv::cuda::ORB::create(MAX_CNT);
     } else {
-        orb = cv::ORB::create();
+        orb = cv::ORB::create(MAX_CNT);
     }
     stereo_cam = 0;
     n_id = 0;
@@ -292,9 +292,25 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                     cout << "mask is empty " << endl;
                 if (mask.type() != CV_8UC1)
                     cout << "mask type wrong " << endl;
+#ifdef USE_ORB
+                std::vector<cv::KeyPoint> d_prevPts;
+                // cv::Mat tmp_mask;
+                auto _orb = cv::ORB::create( MAX_CNT - cur_pts.size());
+                _orb->detect(cur_img, d_prevPts, mask);
+
+	            for (auto & kp : d_prevPts) {
+                    n_pts.push_back(kp.pt);
+                }
+
+                std::cout << "ORB n_pts size: "<< d_prevPts.size()<<std::endl;
+
+
+#else
                 cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01, MIN_DIST, mask);
+                std::cout << "GFTT n_pts size: "<< n_pts.size()<<std::endl;
+
+#endif
                 // printf("good feature to track costs: %fms\n", t_t.toc());
-                std::cout << "n_pts size: "<< n_pts.size()<<std::endl;
             }
             else
                 n_pts.clear();
