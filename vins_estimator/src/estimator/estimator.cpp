@@ -103,11 +103,12 @@ void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vec
 
     // ROS_INFO("t %4.2fms latest %4.2fms last %4.2fms", (t-base)*1000, (latest_time - base)*1000,  (last_t-base)*1000);
 
-    if (t - last_t > 0.1 || last_t - latest_time > 0.1 ) {
+    /*if (t - last_t > 0.1 || last_t - latest_time > 0.1 ) {
         ROS_INFO("A DT %4.2fms last - latest %4.2fms t %4.2fms latest %4.2fms", (t - last_t)*1000, (last_t - latest_time)*1000, (t-base)*1000,
         latest_time*1000
         );
-    }
+    }*/
+
     fastPredictIMU(t, linearAcceleration, angularVelocity);
     // if (solver_flag == NON_LINEAR && fast_prop_inited) {
     if (fast_prop_inited) {
@@ -900,7 +901,7 @@ void Estimator::double2vector()
             ric[i] = Quaterniond(para_Ex_Pose[i][6],
                                  para_Ex_Pose[i][3],
                                  para_Ex_Pose[i][4],
-                                 para_Ex_Pose[i][5]).toRotationMatrix();
+                                 para_Ex_Pose[i][5]).normalized().toRotationMatrix();
         }
     }
 
