@@ -426,6 +426,7 @@ void pubKeyframe(const Estimator &estimator)
         //This is pose of left camera!!!!
         Vector3d P_r = P + R * estimator.tic[0];
         Quaterniond R_r = Quaterniond(R * estimator.ric[0]);
+        R_r.normalize();
         //printf("time: %f t: %f %f %f r: %f %f %f %f\n", odometry.header.stamp.toSec(), P.x(), P.y(), P.z(), R.w(), R.x(), R.y(), R.z());
         vkf.pose_cam.position.x = P_r.x();
         vkf.pose_cam.position.y = P_r.y();
@@ -434,6 +435,18 @@ void pubKeyframe(const Estimator &estimator)
         vkf.pose_cam.orientation.y = R_r.y();
         vkf.pose_cam.orientation.z = R_r.z();
         vkf.pose_cam.orientation.w = R_r.w();
+
+        vkf.camera_extrisinc.position.x = estimator.tic[0].x();
+        vkf.camera_extrisinc.position.y = estimator.tic[0].y();
+        vkf.camera_extrisinc.position.z = estimator.tic[0].z();
+
+        Quaterniond ric = Quaterniond(estimator.ric[0]);
+        ric.normalize();
+
+        vkf.camera_extrisinc.orientation.x = ric.x();
+        vkf.camera_extrisinc.orientation.y = ric.y();
+        vkf.camera_extrisinc.orientation.z = ric.z();
+        vkf.camera_extrisinc.orientation.w = ric.w();
 
         vkf.pose_drone = odometry.pose.pose;
         
