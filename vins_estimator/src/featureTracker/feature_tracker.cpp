@@ -11,7 +11,7 @@
 
 #include "feature_tracker.h"
 
-#define USE_ORB
+// #define USE_ORB
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt)
 {
