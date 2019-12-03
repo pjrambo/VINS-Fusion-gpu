@@ -27,6 +27,7 @@ ros::Publisher pub_keyframe_pose;
 ros::Publisher pub_keyframe_point;
 ros::Publisher pub_extrinsic;
 ros::Publisher pub_viokeyframe;
+ros::Publisher pub_viononkeyframe;
 
 CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 static double sum_of_path = 0;
@@ -51,6 +52,7 @@ void registerPub(ros::NodeHandle &n)
     pub_keyframe_point = n.advertise<sensor_msgs::PointCloud>("keyframe_point", 1000);
     pub_extrinsic = n.advertise<nav_msgs::Odometry>("extrinsic", 1000);
     pub_viokeyframe = n.advertise<vins::VIOKeyframe>("viokeyframe", 1000);
+    pub_viononkeyframe = n.advertise<vins::VIOKeyframe>("viononkeyframe", 1000);
 
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
@@ -169,6 +171,63 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         Eigen::Vector3d tmp_T = estimator.Ps[WINDOW_SIZE];
         printf("time: %f, t: %f %f %f q: %f %f %f %f \n", header.stamp.toSec(), tmp_T.x(), tmp_T.y(), tmp_T.z(),
                                                           tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
+
+        static int count = 0;
+        if (count ++ % 10 == 0) {
+            vins::VIOKeyframe vkf;
+            int i = WINDOW_SIZE;
+            Vector3d P = estimator.Ps[i];
+            Quaterniond R = Quaterniond(estimator.Rs[i]);
+            Vector3d P_r = P + R * estimator.tic[0];
+            Quaterniond R_r = Quaterniond(R * estimator.ric[0]);
+            vkf.pose_cam.position.x = P_r.x();
+            vkf.pose_cam.position.y = P_r.y();
+            vkf.pose_cam.position.z = P_r.z();
+            vkf.pose_cam.orientation.x = R_r.x();
+            vkf.pose_cam.orientation.y = R_r.y();
+            vkf.pose_cam.orientation.z = R_r.z();
+            vkf.pose_cam.orientation.w = R_r.w();
+
+            vkf.camera_extrisinc.position.x = estimator.tic[0].x();
+            vkf.camera_extrisinc.position.y = estimator.tic[0].y();
+            vkf.camera_extrisinc.position.z = estimator.tic[0].z();
+
+            Quaterniond ric = Quaterniond(estimator.ric[0]);
+            ric.normalize();
+
+            vkf.camera_extrisinc.orientation.x = ric.x();
+            vkf.camera_extrisinc.orientation.y = ric.y();
+            vkf.camera_extrisinc.orientation.z = ric.z();
+            vkf.camera_extrisinc.orientation.w = ric.w();
+
+            vkf.pose_drone = odometry.pose.pose;
+            
+            vkf.header.stamp = odometry.header.stamp;
+
+            for (auto &it_per_id : estimator.f_manager.feature)
+            {
+                int frame_size = it_per_id.feature_per_frame.size();
+                if(it_per_id.start_frame < WINDOW_SIZE && it_per_id.start_frame + frame_size - 1 >= WINDOW_SIZE && it_per_id.solve_flag == 1)
+                {
+                    geometry_msgs::Point32 fp2d_uv;
+                    geometry_msgs::Point32 fp2d_norm;
+                    int imu_j = WINDOW_SIZE - it_per_id.start_frame;
+                    fp2d_uv.x = it_per_id.feature_per_frame[imu_j].uv.x();
+                    fp2d_uv.y = it_per_id.feature_per_frame[imu_j].uv.y();
+                    fp2d_uv.z = 0;
+
+                    fp2d_norm.x = it_per_id.feature_per_frame[imu_j].point.x();
+                    fp2d_norm.y = it_per_id.feature_per_frame[imu_j].point.y();
+                    fp2d_norm.z = 0;
+
+                    vkf.feature_points_id.push_back(it_per_id.feature_id);
+                    vkf.feature_points_2d_uv.push_back(fp2d_uv);
+                    vkf.feature_points_2d_norm.push_back(fp2d_norm);
+                }
+
+            }
+            pub_viononkeyframe.publish(vkf);
+        }
     }
 }
 
