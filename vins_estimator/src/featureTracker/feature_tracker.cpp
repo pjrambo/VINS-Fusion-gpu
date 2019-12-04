@@ -11,7 +11,13 @@
 
 #include "feature_tracker.h"
 
-// #define USE_ORB
+#define BACKWARD_HAS_DW 1
+#include <backward.hpp>
+namespace backward
+{
+    backward::SignalHandling sh;
+}
+
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt)
 {
@@ -49,11 +55,6 @@ void reduceVector(vector<int> &v, vector<uchar> status)
 
 FeatureTracker::FeatureTracker()
 {
-    if (USE_GPU) {
-        orb_cuda = cv::cuda::ORB::create(MAX_CNT);
-    } else {
-        orb = cv::ORB::create(MAX_CNT);
-    }
     stereo_cam = 0;
     n_id = 0;
     hasPrediction = false;
@@ -113,10 +114,26 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
 {
     TicToc t_r;
     cur_time = _cur_time;
-    cur_img = _img;
-    row = cur_img.rows;
-    col = cur_img.cols;
-    cv::Mat rightImg = _img1;
+    cv::Mat rightImg;
+    cv::cuda::GpuMat right_gpu_img;
+
+    if (USE_GPU_ACC_FLOW) {
+        TicToc t_g;
+        cur_gpu_img = cv::cuda::GpuMat(_img);
+        right_gpu_img = cv::cuda::GpuMat(_img1);
+        printf("gpumat cost: %fms\n",t_g.toc());
+
+        row = _img.rows;
+        col = _img.cols;
+        if(SHOW_TRACK) {
+            cur_img = _img;
+            rightImg = _img1;
+        }
+    } else {
+        cur_img = _img;
+        rightImg = _img1;
+    }
+
     /*
     {
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
@@ -175,8 +192,6 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         else
         {
             TicToc t_og;
-            cv::cuda::GpuMat prev_gpu_img(prev_img);
-            cv::cuda::GpuMat cur_gpu_img(cur_img);
             cv::cuda::GpuMat prev_gpu_pts(prev_pts);
             cv::cuda::GpuMat cur_gpu_pts(cur_pts);
             cv::cuda::GpuMat gpu_status;
@@ -272,105 +287,61 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     for (auto &n : track_cnt)
         n++;
 
-    if (1)
+    //rejectWithF();
+    ROS_DEBUG("set mask begins");
+    TicToc t_m;
+    setMask();
+    // ROS_DEBUG("set mask costs %fms", t_m.toc());
+    // printf("set mask costs %fms\n", t_m.toc());
+    ROS_DEBUG("detect feature begins");
+    
+    int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
+    if(!USE_GPU)
     {
-        //rejectWithF();
-        ROS_DEBUG("set mask begins");
-        TicToc t_m;
-        setMask();
-        // ROS_DEBUG("set mask costs %fms", t_m.toc());
-        // printf("set mask costs %fms\n", t_m.toc());
-        ROS_DEBUG("detect feature begins");
-        
-        int n_max_cnt = MAX_CNT - static_cast<int>(cur_pts.size());
-        if(!USE_GPU)
+        if (n_max_cnt > MAX_CNT/4)
         {
-            if (n_max_cnt > MAX_CNT/4)
-            {
-                TicToc t_t;
-                if(mask.empty())
-                    cout << "mask is empty " << endl;
-                if (mask.type() != CV_8UC1)
-                    cout << "mask type wrong " << endl;
-#ifdef USE_ORB
-                std::vector<cv::KeyPoint> d_prevPts;
-                // cv::Mat tmp_mask;
-                auto _orb = cv::ORB::create( MAX_CNT - cur_pts.size());
-                _orb->detect(cur_img, d_prevPts, mask);
-
-	            for (auto & kp : d_prevPts) {
-                    n_pts.push_back(kp.pt);
-                }
-
-                std::cout << "ORB n_pts size: "<< d_prevPts.size()<<std::endl;
-
-
-#else
-                cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01, MIN_DIST, mask);
-                std::cout << "GFTT n_pts size: "<< n_pts.size()<<std::endl;
-
-#endif
-                // printf("good feature to track costs: %fms\n", t_t.toc());
-            }
-            else
-                n_pts.clear();
-            // sum_n += n_pts.size();
-            // printf("total point from non-gpu: %d\n",sum_n);
+            TicToc t_t;
+            if(mask.empty())
+                cout << "mask is empty " << endl;
+            if (mask.type() != CV_8UC1)
+                cout << "mask type wrong " << endl;
+            cv::goodFeaturesToTrack(cur_img, n_pts, MAX_CNT - cur_pts.size(), 0.01, MIN_DIST, mask);
         }
-        
-        // ROS_DEBUG("detect feature costs: %fms", t_t.toc());
-        // printf("good feature to track costs: %fms\n", t_t.toc());
         else
+            n_pts.clear();
+        // sum_n += n_pts.size();
+        // printf("total point from non-gpu: %d\n",sum_n);
+    }
+    
+    // ROS_DEBUG("detect feature costs: %fms", t_t.toc());
+    // printf("good feature to track costs: %fms\n", t_t.toc());
+    else
+    {
+        if (n_max_cnt > MAX_CNT/4)
         {
-            if (n_max_cnt > MAX_CNT/4)
-            {
-                if(mask.empty())
-                    cout << "mask is empty " << endl;
-                if (mask.type() != CV_8UC1)
-                    cout << "mask type wrong " << endl;
-                TicToc t_g;
-                cv::cuda::GpuMat cur_gpu_img(cur_img);
-                TicToc t_gg;
-
-             
-
-
-
-                // printf("gpumat cost: %fms\n",t_gg.toc());
-                // cv::Ptr<cv::cuda::CornersDetector> detector = cv::cuda::createGoodFeaturesToTrackDetector(cur_gpu_img.type(), MAX_CNT - cur_pts.size(), 0.01, MIN_DIST);
-                
-                // cout << "new gpu points: "<< MAX_CNT - cur_pts.size()<<endl;
-#ifdef USE_ORB
-                std::vector<cv::KeyPoint> d_prevPts;
-                cv::Mat gpu_mask(mask);
-                orb_cuda->detect(cur_gpu_img, d_prevPts, gpu_mask);
-#else
-                cv::Ptr<cv::cuda::CornersDetector> detector = cv::cuda::createGoodFeaturesToTrackDetector(cur_gpu_img.type(), MAX_CNT - cur_pts.size(), 0.01, MIN_DIST);
-                cv::cuda::GpuMat d_prevPts;
-                cv::cuda::GpuMat gpu_mask(mask);
-                detector->detect(cur_gpu_img, d_prevPts, gpu_mask);
-#endif
-                // std::cout << "d_prevPts size: "<< d_prevPts.size()<<std::endl;
-                if(!d_prevPts.empty()) {
-#ifdef USE_ORB    
-	                for (auto & kp : d_prevPts) {
-                        n_pts.push_back(kp.pt);
-                    }
-#else
-                    n_pts = cv::Mat_<cv::Point2f>(cv::Mat(d_prevPts));
-#endif
-                }
-                else {
-                    n_pts.clear();
-                }
-
-                // sum_n += n_pts.size();
-                // printf("total point from gpu: %d\n",sum_n);
-                // printf("gpu good feature to track cost: %fms\n", t_g.toc());
+            if(mask.empty())
+                cout << "mask is empty " << endl;
+            if (mask.type() != CV_8UC1)
+                cout << "mask type wrong " << endl;
+          
+            cv::Ptr<cv::cuda::CornersDetector> detector = cv::cuda::createGoodFeaturesToTrackDetector(cur_gpu_img.type(), MAX_CNT - cur_pts.size(), 0.01, MIN_DIST);
+            cv::cuda::GpuMat d_prevPts;
+            cv::cuda::GpuMat gpu_mask(mask);
+            detector->detect(cur_gpu_img, d_prevPts, gpu_mask);
+            // std::cout << "d_prevPts size: "<< d_prevPts.size()<<std::endl;
+            if(!d_prevPts.empty()) {
+                n_pts = cv::Mat_<cv::Point2f>(cv::Mat(d_prevPts));
             }
-            else 
+            else {
                 n_pts.clear();
+            }
+
+            // sum_n += n_pts.size();
+            // printf("total point from gpu: %d\n",sum_n);
+            // printf("gpu good feature to track cost: %fms\n", t_g.toc());
         }
+        else 
+            n_pts.clear();
 
         ROS_DEBUG("add feature begins");
         TicToc t_a;
@@ -418,14 +389,12 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             else
             {
                 TicToc t_og1;
-                cv::cuda::GpuMat cur_gpu_img(cur_img);
-                cv::cuda::GpuMat right_gpu_Img(rightImg);
                 cv::cuda::GpuMat cur_gpu_pts(cur_pts);
                 cv::cuda::GpuMat cur_right_gpu_pts;
                 cv::cuda::GpuMat gpu_status;
                 cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
                 cv::Size(21, 21), 3, 30, false);
-                d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_Img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
+                d_pyrLK_sparse->calc(cur_gpu_img, right_gpu_img, cur_gpu_pts, cur_right_gpu_pts, gpu_status);
 
                 vector<cv::Point2f> tmp_cur_right_pts(cur_right_gpu_pts.cols);
                 cur_right_gpu_pts.download(tmp_cur_right_pts);
@@ -441,7 +410,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
                     cv::cuda::GpuMat status_gpu_RightLeft;
                     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
                     cv::Size(21, 21), 3, 30, false);
-                    d_pyrLK_sparse->calc(right_gpu_Img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
+                    d_pyrLK_sparse->calc(right_gpu_img, cur_gpu_img, cur_right_gpu_pts, reverseLeft_gpu_Pts, status_gpu_RightLeft);
 
                     vector<cv::Point2f> tmp_reverseLeft_Pts(reverseLeft_gpu_Pts.cols);
                     reverseLeft_gpu_Pts.download(tmp_reverseLeft_Pts);
@@ -481,6 +450,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         drawTrack(cur_img, rightImg, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
     prev_img = cur_img;
+    prev_gpu_img = cur_gpu_img;
     prev_pts = cur_pts;
     prev_un_pts = cur_un_pts;
     prev_un_pts_map = cur_un_pts_map;

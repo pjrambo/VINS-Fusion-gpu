@@ -38,8 +38,6 @@ void reduceVector(vector<int> &v, vector<uchar> status);
 
 class FeatureTracker
 {
-    cv::Ptr<cv::cuda::ORB> orb_cuda;
-    cv::Ptr<cv::ORB> orb;
 public:
     FeatureTracker();
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
@@ -70,6 +68,7 @@ public:
     cv::Mat mask;
     cv::Mat fisheye_mask;
     cv::Mat prev_img, cur_img;
+    cv::cuda::GpuMat prev_gpu_img, cur_gpu_img;
     vector<cv::Point2f> n_pts;
     int sum_n;
     vector<cv::Point2f> predict_pts;
