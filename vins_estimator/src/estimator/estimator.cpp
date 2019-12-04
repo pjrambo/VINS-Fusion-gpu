@@ -55,6 +55,9 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     if (img_count ++ % 3 == 0) {
        return;
     }
+
+    static int img_track_count = 0;
+    static double sum_time = 0;
 //     if(begin_time_count<=0)
     inputImageCnt++;
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
@@ -68,7 +71,11 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     //     sum_t_feature += featureTrackerTime.toc();
     //     printf("featureTracker time: %f\n", sum_t_feature/(float)inputImageCnt);
     // }
-    printf("featureTracker time: %f\n", featureTrackerTime.toc() );
+    double dt = featureTrackerTime.toc();
+    sum_time += dt;
+    img_track_count ++;
+
+    printf("featureTracker time: AVG %f NOW %f\n", sum_time/img_track_count, dt );
     if(MULTIPLE_THREAD)  
     {     
         if(inputImageCnt % 2 == 0)
@@ -167,6 +174,9 @@ bool Estimator::IMUAvailable(double t)
 
 void Estimator::processMeasurements()
 {
+
+    static int mea_track_count = 0;
+    static double mea_sum_time = 0;
     while (1)
     {
         //printf("process measurments\n");
@@ -229,7 +239,11 @@ void Estimator::processMeasurements()
             pubPointCloud(*this, header);
             pubKeyframe(*this);
             pubTF(*this, header);
-            printf("process measurement time: %f\n", t_process.toc());
+
+            double dt = t_process.toc();
+            mea_sum_time += dt;
+            mea_track_count ++;
+            printf("process measurement time: AVG %f NOW %f\n", mea_sum_time/mea_track_count, dt );
         }
 
         if (! MULTIPLE_THREAD)
