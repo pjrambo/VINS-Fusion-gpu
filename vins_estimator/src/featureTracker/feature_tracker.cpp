@@ -521,7 +521,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         }
     }
 
-    printf("feature track whole time %f PTS %d\n", t_r.toc(), prev_pts.size());
+    printf("feature track whole time %f PTS %ld\n", t_r.toc(), prev_pts.size());
     return featureFrame;
 }
 
