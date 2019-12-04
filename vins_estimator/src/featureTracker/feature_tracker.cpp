@@ -11,6 +11,14 @@
 
 #include "feature_tracker.h"
 
+#define BACKWARD_HAS_DW 1
+#include <backward.hpp>
+namespace backward
+{
+    backward::SignalHandling sh;
+}
+
+
 bool FeatureTracker::inBorder(const cv::Point2f &pt)
 {
     const int BORDER_SIZE = 1;
@@ -111,12 +119,16 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
 
     if (USE_GPU_ACC_FLOW) {
         TicToc t_g;
-        cur_gpu_img = cv::cuda::GpuMat(cur_img);
+        cur_gpu_img = cv::cuda::GpuMat(_img);
         right_gpu_img = cv::cuda::GpuMat(_img1);
         printf("gpumat cost: %fms\n",t_g.toc());
 
-        row = cur_img.rows;
-        col = cur_img.cols;
+        row = _img.rows;
+        col = _img.cols;
+        if(SHOW_TRACK) {
+            cur_img = _img;
+            rightImg = _img1;
+        }
     } else {
         cur_img = _img;
         rightImg = _img1;

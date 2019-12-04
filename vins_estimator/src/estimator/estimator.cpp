@@ -93,21 +93,9 @@ double base = 0;
 
 void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity)
 {
-    static double last_t = 0;
-    
-    last_t = t;    
     mBuf.lock();
     accBuf.push(make_pair(t, linearAcceleration));
     gyrBuf.push(make_pair(t, angularVelocity));
-    //printf("input imu with time %f \n", t);
-
-    // ROS_INFO("t %4.2fms latest %4.2fms last %4.2fms", (t-base)*1000, (latest_time - base)*1000,  (last_t-base)*1000);
-
-    /*if (t - last_t > 0.1 || last_t - latest_time > 0.1 ) {
-        ROS_INFO("A DT %4.2fms last - latest %4.2fms t %4.2fms latest %4.2fms", (t - last_t)*1000, (last_t - latest_time)*1000, (t-base)*1000,
-        latest_time*1000
-        );
-    }*/
 
     fastPredictIMU(t, linearAcceleration, angularVelocity);
     // if (solver_flag == NON_LINEAR && fast_prop_inited) {

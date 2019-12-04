@@ -75,7 +75,7 @@ add_library(vins_lib
 add_library(estimator_lib
     src/estimator/estimator.cpp
 )
-target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES})
+target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
 
 
 add_executable(vins_node src/rosNodeTest.cpp)
