@@ -56,23 +56,17 @@ namespace vins_nodelet_pkg
                 image_sub_r = new message_filters::Subscriber<sensor_msgs::Image> (n, IMAGE1_TOPIC, 100);
                 sync = new message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> (*image_sub_l, *image_sub_r, 10);
                 sync->registerCallback(boost::bind(&VinsNodeletClass::img_callback, this, _1, _2));
-
-                sub_img0 = n.subscribe(IMAGE0_TOPIC, 100, &VinsNodeletClass::img1_callback, this);
-            }
-
-            void img1_callback(const sensor_msgs::ImageConstPtr &img1_msg) {
-                // ROS_INFO("imu img1\n");
             }
 
             void img_callback(const sensor_msgs::ImageConstPtr &img1_msg, const sensor_msgs::ImageConstPtr &img2_msg)
             {
                 // ROS_INFO("imu img2\n");
-                cv::Mat img1 = getImageFromMsg(img1_msg);
-                cv::Mat img2 = getImageFromMsg(img2_msg);
-                estimator.inputImage(img1_msg->header.stamp.toSec(), img1, img2);
+                auto img1 = getImageFromMsg(img1_msg);
+                auto img2 = getImageFromMsg(img2_msg);
+                estimator.inputImage(img1_msg->header.stamp.toSec(), img1->image, img2->image);
             }
 
-            cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
+            cv_bridge::CvImageConstPtr getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
             {
                 cv_bridge::CvImageConstPtr ptr;
                 if (img_msg->encoding == "8UC1")
@@ -85,15 +79,15 @@ namespace vins_nodelet_pkg
                     img.step = img_msg->step;
                     img.data = img_msg->data;
                     img.encoding = "mono8";
-                    ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
+                    ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
                 }
                 else
                 {
-                    ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+                    ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
                     // toCvShare will cause image jitter later inside function `inputImage`, don't know the reason
                     // ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
                 }
-                return ptr->image;
+                return ptr;
             }
 
             void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
@@ -172,11 +166,7 @@ namespace vins_nodelet_pkg
 
             ros::Subscriber sub_imu;
             ros::Subscriber sub_feature;
-            ros::Subscriber sub_img0;
-            ros::Subscriber sub_img1;
             ros::Subscriber sub_restart;
-            ros::Subscriber sub_imu_switch;
-            ros::Subscriber sub_cam_switch;
             message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> * sync;
             double last_time;
             bool last_time_initialized;
