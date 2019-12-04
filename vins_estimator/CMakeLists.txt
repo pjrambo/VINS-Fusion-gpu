@@ -17,6 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
     cv_bridge
     camera_models
     image_transport
+    nodelet
+    message_filters
 )
 
 SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
@@ -80,6 +82,9 @@ target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRAR
 
 add_executable(vins_node src/rosNodeTest.cpp)
 target_link_libraries(vins_node vins_lib estimator_lib)
+
+add_library(vins_nodelet_lib src/rosNodelet.cpp)
+target_link_libraries(vins_nodelet_lib vins_lib estimator_lib)
 
 add_executable(kitti_odom_test src/KITTIOdomTest.cpp)
 target_link_libraries(kitti_odom_test vins_lib estimator_lib)

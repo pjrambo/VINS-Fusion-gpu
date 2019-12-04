@@ -1,0 +1,8 @@
+<library path="lib/libvins_nodelet_lib">
+    <class name="vins_nodelet_pkg/VinsNodeletClass" type="vins_nodelet_pkg::VinsNodeletClass" base_class_type="nodelet::Nodelet">
+
+        <description>
+            Nodelet version of VINS-Fusion for high IO throughput
+        </description>
+    </class>
+</library>
