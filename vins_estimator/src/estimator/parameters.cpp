@@ -38,6 +38,7 @@ int USE_IMU;
 int MULTIPLE_THREAD;
 int USE_GPU;
 int USE_GPU_ACC_FLOW;
+int ENABLE_DOWNSAMPLE;
 int PUB_RECTIFY;
 Eigen::Matrix3d rectify_R_left;
 Eigen::Matrix3d rectify_R_right;
@@ -91,7 +92,7 @@ void readParameters(std::string config_file)
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];
     FLOW_BACK = fsSettings["flow_back"];
-
+    ENABLE_DOWNSAMPLE = fsSettings["enable_downsample"];
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
 
     USE_GPU = fsSettings["use_gpu"];

@@ -13,6 +13,7 @@
 
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>
+
 namespace backward
 {
     backward::SignalHandling sh;
@@ -121,6 +122,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         TicToc t_g;
         cur_gpu_img = cv::cuda::GpuMat(_img);
         right_gpu_img = cv::cuda::GpuMat(_img1);
+
         printf("gpumat cost: %fms\n",t_g.toc());
 
         row = _img.rows;
@@ -129,9 +131,24 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             cur_img = _img;
             rightImg = _img1;
         }
+        if(ENABLE_DOWNSAMPLE) {
+            cv::cuda::resize(cur_gpu_img, cur_gpu_img, cv::Size(), 0.5, 0.5);
+            cv::cuda::resize(right_gpu_img, right_gpu_img, cv::Size(), 0.5, 0.5);
+            row = _img.rows/2;
+            col = _img.cols/2;
+        }
     } else {
-        cur_img = _img;
-        rightImg = _img1;
+        if(ENABLE_DOWNSAMPLE) {
+            cv::resize(cur_img, _img, cv::Size(), 0.5, 0.5);
+            cv::resize(rightImg, _img1, cv::Size(), 0.5, 0.5);
+            row = _img.rows/2;
+            col = _img.cols/2;
+        } else {
+            cur_img = _img;
+            rightImg = _img1;
+            row = _img.rows;
+            col = _img.cols;
+        }
     }
 
     /*
@@ -505,7 +522,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         }
     }
 
-    //printf("feature track whole time %f\n", t_r.toc());
+    printf("feature track whole time %f PTS %d\n", t_r.toc(), prev_pts.size());
     return featureFrame;
 }
 
@@ -598,6 +615,9 @@ vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts, cam
     {
         Eigen::Vector2d a(pts[i].x, pts[i].y);
         Eigen::Vector3d b;
+        if(ENABLE_DOWNSAMPLE) {
+            a = a*2;
+        }
         cam->liftProjective(a, b);
         un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
     }
@@ -661,15 +681,23 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
     for (size_t j = 0; j < curLeftPts.size(); j++)
     {
         double len = std::min(1.0, 1.0 * track_cnt[j] / 20);
-        cv::circle(imTrack, curLeftPts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+        if(ENABLE_DOWNSAMPLE) {
+            cv::circle(imTrack, curLeftPts[j]*2, 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+        } else {
+            cv::circle(imTrack, curLeftPts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+        }
     }
     if (!imRight.empty() && stereo_cam)
     {
         for (size_t i = 0; i < curRightPts.size(); i++)
         {
-            cv::Point2f rightPt = curRightPts[i];
+            cv::Point2f rightPt = curRightPts[i]*2;
             rightPt.x += cols;
-            cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
+            if(ENABLE_DOWNSAMPLE) {
+                cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
+            } else {
+                cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
+            }
             //cv::Point2f leftPt = curLeftPtsTrackRight[i];
             //cv::line(imTrack, leftPt, rightPt, cv::Scalar(0, 255, 0), 1, 8, 0);
         }
@@ -682,7 +710,11 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
         mapIt = prevLeftPtsMap.find(id);
         if(mapIt != prevLeftPtsMap.end())
         {
-            cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+            if(ENABLE_DOWNSAMPLE) {
+                cv::arrowedLine(imTrack, curLeftPts[i]*2, mapIt->second*2, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+            } else {
+                cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+            }
         }
     }
 
