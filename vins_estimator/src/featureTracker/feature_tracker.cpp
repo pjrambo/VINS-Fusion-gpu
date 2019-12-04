@@ -139,8 +139,8 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         }
     } else {
         if(ENABLE_DOWNSAMPLE) {
-            cv::resize(cur_img, _img, cv::Size(), 0.5, 0.5);
-            cv::resize(rightImg, _img1, cv::Size(), 0.5, 0.5);
+            cv::resize(_img, cur_img, cv::Size(), 0.5, 0.5);
+            cv::resize(_img1, rightImg, cv::Size(), 0.5, 0.5);
             row = _img.rows/2;
             col = _img.cols/2;
         } else {
@@ -326,8 +326,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         }
         else
             n_pts.clear();
-        // sum_n += n_pts.size();
-        // printf("total point from non-gpu: %d\n",sum_n);
+        addPoints();
     }
     
     // ROS_DEBUG("detect feature costs: %fms", t_t.toc());
