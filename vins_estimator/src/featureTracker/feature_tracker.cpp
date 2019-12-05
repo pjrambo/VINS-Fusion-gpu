@@ -449,13 +449,11 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             reduceVector(cur_right_pts, status);
             reduceVector(ids_right, status);
             // only keep left-right pts
-            /*
             reduceVector(cur_pts, status);
             reduceVector(ids, status);
             reduceVector(track_cnt, status);
             reduceVector(cur_un_pts, status);
             reduceVector(pts_velocity, status);
-            */
             cur_un_right_pts = undistortedPts(cur_right_pts, m_camera[1]);
             right_pts_velocity = ptsVelocity(ids_right, cur_un_right_pts, cur_un_right_pts_map, prev_un_right_pts_map);
             
@@ -521,7 +519,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         }
     }
 
-    printf("feature track whole time %f PTS %ld\n", t_r.toc(), prev_pts.size());
+    printf("feature track whole time %f PTS %ld\n", t_r.toc(), cur_un_pts.size());
     return featureFrame;
 }
 
@@ -690,11 +688,13 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
     {
         for (size_t i = 0; i < curRightPts.size(); i++)
         {
-            cv::Point2f rightPt = curRightPts[i]*2;
-            rightPt.x += cols;
             if(ENABLE_DOWNSAMPLE) {
+                cv::Point2f rightPt = curRightPts[i]*2;
+                rightPt.x += cols;
                 cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
             } else {
+                cv::Point2f rightPt = curRightPts[i];
+                rightPt.x += cols;
                 cv::circle(imTrack, rightPt, 2, cv::Scalar(0, 255, 0), 2);
             }
             //cv::Point2f leftPt = curLeftPtsTrackRight[i];

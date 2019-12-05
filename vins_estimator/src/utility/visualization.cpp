@@ -207,11 +207,12 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
             for (auto &it_per_id : estimator.f_manager.feature)
             {
                 int frame_size = it_per_id.feature_per_frame.size();
-                if(it_per_id.start_frame < WINDOW_SIZE && it_per_id.start_frame + frame_size - 1 >= WINDOW_SIZE && it_per_id.solve_flag == 1)
+                // ROS_INFO("START FRAME %d FRAME_SIZE %d WIN SIZE %d solve flag %d", it_per_id.start_frame, frame_size, WINDOW_SIZE, it_per_id.solve_flag);
+                if(it_per_id.start_frame < WINDOW_SIZE && it_per_id.start_frame + frame_size >= WINDOW_SIZE&& it_per_id.solve_flag == 1)
                 {
                     geometry_msgs::Point32 fp2d_uv;
                     geometry_msgs::Point32 fp2d_norm;
-                    int imu_j = WINDOW_SIZE - it_per_id.start_frame;
+                    int imu_j = it_per_id.start_frame;
                     fp2d_uv.x = it_per_id.feature_per_frame[imu_j].uv.x();
                     fp2d_uv.y = it_per_id.feature_per_frame[imu_j].uv.y();
                     fp2d_uv.z = 0;
@@ -223,6 +224,17 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
                     vkf.feature_points_id.push_back(it_per_id.feature_id);
                     vkf.feature_points_2d_uv.push_back(fp2d_uv);
                     vkf.feature_points_2d_norm.push_back(fp2d_norm);
+
+                    Vector3d pts_i = it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
+                    Vector3d w_pts_i = estimator.Rs[imu_j] * (estimator.ric[0] * pts_i + estimator.tic[0])
+                                      + estimator.Ps[imu_j];
+
+                    geometry_msgs::Point32 p;
+                    p.x = w_pts_i(0);
+                    p.y = w_pts_i(1);
+                    p.z = w_pts_i(2);
+
+                    vkf.feature_points_3d.push_back(p);
                 }
 
             }
