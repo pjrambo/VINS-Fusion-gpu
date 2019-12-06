@@ -47,7 +47,7 @@ multiple_thread: 1
 use_gpu: 1
 use_gpu_acc_flow: 1
 show_track: 0           # publish tracking image as topic
-enable_downsample: 1
+enable_downsample: 0
 #feature traker paprameters
 max_cnt: 50            # max feature number in feature tracking
 min_dist: 30            # min distance between two features 
