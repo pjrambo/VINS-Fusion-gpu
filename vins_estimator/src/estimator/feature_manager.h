@@ -25,6 +25,9 @@ using namespace Eigen;
 #include "parameters.h"
 #include "../utility/tic_toc.h"
 
+#define KEYFRAME_LONGTRACK_THRES 30
+
+
 class FeaturePerFrame
 {
   public:

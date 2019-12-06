@@ -175,6 +175,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         static int count = 0;
         if (count ++ % 10 == 0) {
             vins::VIOKeyframe vkf;
+            vkf.header = header;
             int i = WINDOW_SIZE;
             Vector3d P = estimator.Ps[i];
             Quaterniond R = Quaterniond(estimator.Rs[i]);
