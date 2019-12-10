@@ -1,15 +1,7 @@
 <launch>
-    <arg name="manager"  default="nodelet_manager"/>
-    <arg name="camera_fps"  default="30"/>
-    <arg name="vins_start_delay"  default="2.0"/>
-
-    <node pkg="nodelet" type="nodelet" name="$(arg manager)"  args="manager" output="screen">
-    </node>
-
-
+    <arg name="manager"           default="/camera/realsense2_camera_manager"/>
     <node pkg="nodelet" type="nodelet" name="vins_fusion_nodelet" 
-        args="load vins_nodelet_pkg/VinsNodeletClass /$(arg manager)" output="screen" ns="vins_estimator">
-        <!-- launch-prefix="bash -c 'sleep $(arg vins_start_delay); $0 $@'"> -->
+        args="load vins_nodelet_pkg/VinsNodeletClass $(arg manager)" output="screen" ns="vins_estimator">
         <param name="config_file" type="string" value="$(find vins)/../config/realsense/realsense_n3_unsync.yaml" />
     </node> 
 </launch>
