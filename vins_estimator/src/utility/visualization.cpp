@@ -172,75 +172,73 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         printf("time: %f, t: %f %f %f q: %f %f %f %f \n", header.stamp.toSec(), tmp_T.x(), tmp_T.y(), tmp_T.z(),
                                                           tmp_Q.w(), tmp_Q.x(), tmp_Q.y(), tmp_Q.z());
 
-        static int count = 0;
-        if (count ++ % 10 == 0) {
-            vins::VIOKeyframe vkf;
-            vkf.header = header;
-            int i = WINDOW_SIZE;
-            Vector3d P = estimator.Ps[i];
-            Quaterniond R = Quaterniond(estimator.Rs[i]);
-            Vector3d P_r = P + R * estimator.tic[0];
-            Quaterniond R_r = Quaterniond(R * estimator.ric[0]);
-            vkf.pose_cam.position.x = P_r.x();
-            vkf.pose_cam.position.y = P_r.y();
-            vkf.pose_cam.position.z = P_r.z();
-            vkf.pose_cam.orientation.x = R_r.x();
-            vkf.pose_cam.orientation.y = R_r.y();
-            vkf.pose_cam.orientation.z = R_r.z();
-            vkf.pose_cam.orientation.w = R_r.w();
+        vins::VIOKeyframe vkf;
+        vkf.header = header;
+        int i = WINDOW_SIZE;
+        Vector3d P = estimator.Ps[i];
+        Quaterniond R = Quaterniond(estimator.Rs[i]);
+        Vector3d P_r = P + R * estimator.tic[0];
+        Quaterniond R_r = Quaterniond(R * estimator.ric[0]);
+        vkf.pose_cam.position.x = P_r.x();
+        vkf.pose_cam.position.y = P_r.y();
+        vkf.pose_cam.position.z = P_r.z();
+        vkf.pose_cam.orientation.x = R_r.x();
+        vkf.pose_cam.orientation.y = R_r.y();
+        vkf.pose_cam.orientation.z = R_r.z();
+        vkf.pose_cam.orientation.w = R_r.w();
 
-            vkf.camera_extrisinc.position.x = estimator.tic[0].x();
-            vkf.camera_extrisinc.position.y = estimator.tic[0].y();
-            vkf.camera_extrisinc.position.z = estimator.tic[0].z();
+        vkf.camera_extrisinc.position.x = estimator.tic[0].x();
+        vkf.camera_extrisinc.position.y = estimator.tic[0].y();
+        vkf.camera_extrisinc.position.z = estimator.tic[0].z();
 
-            Quaterniond ric = Quaterniond(estimator.ric[0]);
-            ric.normalize();
+        Quaterniond ric = Quaterniond(estimator.ric[0]);
+        ric.normalize();
 
-            vkf.camera_extrisinc.orientation.x = ric.x();
-            vkf.camera_extrisinc.orientation.y = ric.y();
-            vkf.camera_extrisinc.orientation.z = ric.z();
-            vkf.camera_extrisinc.orientation.w = ric.w();
+        vkf.camera_extrisinc.orientation.x = ric.x();
+        vkf.camera_extrisinc.orientation.y = ric.y();
+        vkf.camera_extrisinc.orientation.z = ric.z();
+        vkf.camera_extrisinc.orientation.w = ric.w();
 
-            vkf.pose_drone = odometry.pose.pose;
-            
-            vkf.header.stamp = odometry.header.stamp;
+        vkf.pose_drone = odometry.pose.pose;
+        
+        vkf.header.stamp = odometry.header.stamp;
 
-            for (auto &it_per_id : estimator.f_manager.feature)
+        for (auto &it_per_id : estimator.f_manager.feature)
+        {
+            int frame_size = it_per_id.feature_per_frame.size();
+            // ROS_INFO("START FRAME %d FRAME_SIZE %d WIN SIZE %d solve flag %d", it_per_id.start_frame, frame_size, WINDOW_SIZE, it_per_id.solve_flag);
+            if(it_per_id.start_frame < WINDOW_SIZE && it_per_id.start_frame + frame_size >= WINDOW_SIZE&& it_per_id.solve_flag == 1)
             {
-                int frame_size = it_per_id.feature_per_frame.size();
-                // ROS_INFO("START FRAME %d FRAME_SIZE %d WIN SIZE %d solve flag %d", it_per_id.start_frame, frame_size, WINDOW_SIZE, it_per_id.solve_flag);
-                if(it_per_id.start_frame < WINDOW_SIZE && it_per_id.start_frame + frame_size >= WINDOW_SIZE&& it_per_id.solve_flag == 1)
-                {
-                    geometry_msgs::Point32 fp2d_uv;
-                    geometry_msgs::Point32 fp2d_norm;
-                    int imu_j = it_per_id.start_frame;
-                    fp2d_uv.x = it_per_id.feature_per_frame[imu_j].uv.x();
-                    fp2d_uv.y = it_per_id.feature_per_frame[imu_j].uv.y();
-                    fp2d_uv.z = 0;
+                geometry_msgs::Point32 fp2d_uv;
+                geometry_msgs::Point32 fp2d_norm;
+                int imu_j = frame_size - 1;
 
-                    fp2d_norm.x = it_per_id.feature_per_frame[imu_j].point.x();
-                    fp2d_norm.y = it_per_id.feature_per_frame[imu_j].point.y();
-                    fp2d_norm.z = 0;
+                fp2d_uv.x = it_per_id.feature_per_frame[imu_j].uv.x();
+                fp2d_uv.y = it_per_id.feature_per_frame[imu_j].uv.y();
+                fp2d_uv.z = 0;
 
-                    vkf.feature_points_id.push_back(it_per_id.feature_id);
-                    vkf.feature_points_2d_uv.push_back(fp2d_uv);
-                    vkf.feature_points_2d_norm.push_back(fp2d_norm);
+                fp2d_norm.x = it_per_id.feature_per_frame[imu_j].point.x();
+                fp2d_norm.y = it_per_id.feature_per_frame[imu_j].point.y();
+                fp2d_norm.z = 0;
 
-                    Vector3d pts_i = it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
-                    Vector3d w_pts_i = estimator.Rs[imu_j] * (estimator.ric[0] * pts_i + estimator.tic[0])
-                                      + estimator.Ps[imu_j];
+                vkf.feature_points_id.push_back(it_per_id.feature_id);
+                vkf.feature_points_2d_uv.push_back(fp2d_uv);
+                vkf.feature_points_2d_norm.push_back(fp2d_norm);
 
-                    geometry_msgs::Point32 p;
-                    p.x = w_pts_i(0);
-                    p.y = w_pts_i(1);
-                    p.z = w_pts_i(2);
+                Vector3d pts_i = it_per_id.feature_per_frame[0].point * it_per_id.estimated_depth;
+                Vector3d w_pts_i = estimator.Rs[imu_j] * (estimator.ric[0] * pts_i + estimator.tic[0])
+                                    + estimator.Ps[imu_j];
 
-                    vkf.feature_points_3d.push_back(p);
-                }
+                geometry_msgs::Point32 p;
+                p.x = w_pts_i(0);
+                p.y = w_pts_i(1);
+                p.z = w_pts_i(2);
 
+                vkf.feature_points_3d.push_back(p);
             }
-            pub_viononkeyframe.publish(vkf);
+
         }
+        // pub_viononkeyframe.publish(vkf);
     }
 }
 
@@ -549,7 +547,8 @@ void pubKeyframe(const Estimator &estimator)
 
                 vkf.feature_points_3d.push_back(p);
 
-                int imu_j = WINDOW_SIZE - 2 - it_per_id.start_frame;
+                // int imu_j = frame_size - 2;
+                int imu_j =  WINDOW_SIZE - 2 - it_per_id.start_frame;
                 sensor_msgs::ChannelFloat32 p_2d;
                 p_2d.values.push_back(it_per_id.feature_per_frame[imu_j].point.x());
                 p_2d.values.push_back(it_per_id.feature_per_frame[imu_j].point.y());
