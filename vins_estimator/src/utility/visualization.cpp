@@ -238,7 +238,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
             }
 
         }
-        // pub_viononkeyframe.publish(vkf);
+        pub_viononkeyframe.publish(vkf);
     }
 }
 
