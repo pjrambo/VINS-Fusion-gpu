@@ -235,6 +235,7 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
                 p.z = w_pts_i(2);
 
                 vkf.feature_points_3d.push_back(p);
+                vkf.feature_points_flag.push_back(it_per_id.solve_flag);
             }
 
         }
@@ -570,6 +571,7 @@ void pubKeyframe(const Estimator &estimator)
                 vkf.feature_points_id.push_back(it_per_id.feature_id);
                 vkf.feature_points_2d_uv.push_back(fp2d_uv);
                 vkf.feature_points_2d_norm.push_back(fp2d_norm);
+                vkf.feature_points_flag.push_back(it_per_id.solve_flag);
             }
 
         }
