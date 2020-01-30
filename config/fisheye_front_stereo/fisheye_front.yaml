@@ -91,7 +91,7 @@ g_norm: 9.85         # gravity magnitude
 #unsynchronization parameters
 estimate_td: 1                      # online estimate time offset between camera and imu
 # td: -0.0736        #-0.0736 when use DJI IMU                       # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)#
-td: 0.006 #Use mynteye imu
+td: 0.014686 #Use mynteye imu
 #loop closure parameters
 load_previous_pose_graph: 0        # load and reuse previous pose graph; load from 'pose_graph_save_path'
 pose_graph_save_path: "/home/dji/output/pose_graph/" # save and load path
