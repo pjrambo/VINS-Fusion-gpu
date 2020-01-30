@@ -11,8 +11,8 @@ image0_topic: "/flattener/flatImage_2"
 image1_topic: "/flattener_2/flatImage_2"
 output_path: "/home/xuhao/output"
 
-cam0_calib: "up.yaml"
-cam1_calib: "down.yaml"
+cam0_calib: "front.yaml"
+cam1_calib: "front.yaml"
 image_width: 600
 image_height: 264
    

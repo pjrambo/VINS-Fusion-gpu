@@ -10,6 +10,7 @@
  *******************************************************/
 
 #include "feature_tracker.h"
+#include "fisheye_undist.hpp"
 
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>

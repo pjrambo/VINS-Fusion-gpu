@@ -8,6 +8,33 @@
 
 namespace camodocal
 {
+class Ray
+{
+    public:
+    Ray( );
+    Ray( double theta, double phi );
+    Ray( double x, double y, double z );
+    Ray( Eigen::Vector3d P );
+
+    double& theta( void );
+    double& phi( void );
+
+    double theta( void ) const;
+    double phi( void ) const;
+
+    public:
+    // (theta, phi) --> P
+    Eigen::Vector3d toSpace( ) const;
+    Eigen::Vector3d toSpace( double scale ) const;
+
+    void fromSpace( Eigen::Vector3d P );
+
+    Ray& operator=( const Ray& other );
+
+    protected:
+    double m_theta;
+    double m_phi;
+};
 
 class Camera
 {
@@ -19,7 +46,10 @@ class Camera
         MEI,
         PINHOLE,
         PINHOLE_FULL,
-        SCARAMUZZA
+        SCARAMUZZA,
+        POLYFISHEYE,
+        FOV,
+        SPLINE
     };
 
     class Parameters

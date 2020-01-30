@@ -249,4 +249,84 @@ Camera::projectPoints(const std::vector<cv::Point3f>& objectPoints,
     }
 }
 
+
+Ray::Ray( )
+: m_theta( 0.0 )
+, m_phi( 0.0 )
+{
+}
+
+Ray::Ray( double theta, double phi )
+: m_theta( theta )
+, m_phi( phi )
+{
+}
+
+Ray::Ray( double x, double y, double z )
+: m_theta( acos( z / sqrt( x * x + y * y + z * z ) ) )
+, m_phi( atan2( y, x ) )
+{
+}
+
+Ray::Ray( Eigen::Vector3d P )
+: m_theta( acos( P( 2 ) / P.norm( ) ) )
+, m_phi( atan2( P( 1 ), P( 0 ) ) )
+{
+}
+
+double&
+Ray::theta( )
+{
+    return m_theta;
+}
+
+double&
+Ray::phi( )
+{
+    return m_phi;
+}
+
+double
+Ray::theta( ) const
+{
+    return m_theta;
+}
+
+double
+Ray::phi( ) const
+{
+    return m_phi;
+}
+
+Eigen::Vector3d
+Ray::toSpace( ) const
+{
+    return Eigen::Vector3d( sin( m_theta ) * cos( m_phi ), sin( m_theta ) * sin( m_phi ), cos( m_theta ) );
+}
+
+Eigen::Vector3d
+Ray::toSpace( double scale ) const
+{
+    return Eigen::Vector3d( sin( m_theta ) * cos( m_phi ) * scale,
+                            sin( m_theta ) * sin( m_phi ) * scale,
+                            cos( m_theta ) * scale );
+}
+
+void
+Ray::fromSpace( Eigen::Vector3d P )
+{
+    m_theta = acos( P( 2 ) / P.norm( ) );
+    m_phi   = atan2( P( 1 ), P( 0 ) );
+}
+
+Ray&
+Ray::operator=( const Ray& other )
+{
+    if ( this != &other )
+    {
+        m_theta = other.m_theta;
+        m_phi   = other.m_phi;
+    }
+    return *this;
+}
 }
