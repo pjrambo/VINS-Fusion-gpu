@@ -34,6 +34,7 @@ int ROW, COL;
 double TD;
 int NUM_OF_CAM;
 int STEREO;
+int FISHEYE;
 int USE_IMU;
 int MULTIPLE_THREAD;
 int USE_GPU;
@@ -96,6 +97,7 @@ void readParameters(std::string config_file)
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
 
     USE_GPU = fsSettings["use_gpu"];
+    FISHEYE = fsSettings["is_fisheye"];
     USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
 
     USE_IMU = fsSettings["imu"];

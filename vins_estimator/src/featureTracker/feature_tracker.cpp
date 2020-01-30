@@ -10,7 +10,6 @@
  *******************************************************/
 
 #include "feature_tracker.h"
-#include "fisheye_undist.hpp"
 
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>
@@ -565,6 +564,13 @@ void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file)
         ROS_INFO("reading paramerter of camera %s", calib_file[i].c_str());
         camodocal::CameraPtr camera = CameraFactory::instance()->generateCameraFromYamlFile(calib_file[i]);
         m_camera.push_back(camera);
+
+        if (FISHEYE) {
+            ROS_INFO("Use as fisheye %s", calib_file[i].c_str());
+            FisheyeUndist un(calib_file[i].c_str());
+            fisheys_undists.push_back(un);
+        }
+
     }
     if (calib_file.size() == 2)
         stereo_cam = 1;
