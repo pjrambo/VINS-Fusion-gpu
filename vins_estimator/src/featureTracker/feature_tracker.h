@@ -60,6 +60,12 @@ public:
                                    vector<cv::Point2f> &curLeftPts, 
                                    vector<cv::Point2f> &curRightPts,
                                    map<int, cv::Point2f> &prevLeftPtsMap);
+
+    void drawTrackFisheye(const std::vector<cv::Mat> &imUp, const std::vector<cv::Mat> &imDown, 
+                               vector<int> &curLeftIds,
+                               vector<cv::Point2f> &curLeftPts, 
+                               vector<cv::Point2f> &curRightPts,
+                               map<int, cv::Point2f> &prevLeftPtsMap);
     void setPrediction(map<int, Eigen::Vector3d> &predictPts);
     double distance(cv::Point2f &pt1, cv::Point2f &pt2);
     void removeOutliers(set<int> &removePtsIds);

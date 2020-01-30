@@ -17,22 +17,25 @@ class FisheyeUndist {
 
     camodocal::CameraPtr cam;
     int imgWidth = 0;
+    int sideImgHeight = 0;
     double fov = 0; //in degree
     std::vector<cv::Mat> undistMaps;
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
     bool enable_cuda = false;
     Eigen::Vector3d cameraRotation;
+    int cam_id = 0;
 public:
     camodocal::CameraPtr cam_top;
     camodocal::CameraPtr cam_side;
 
-    FisheyeUndist(const std::string & camera_config_file, bool _enable_cuda = true, int imgWidth = 500):
-    imgWidth(imgWidth), fov(90), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda) {
+    FisheyeUndist(const std::string & camera_config_file, int _id, double _fov, bool _enable_cuda = true, int imgWidth = 600):
+    imgWidth(imgWidth), fov(_fov), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda), cam_id(_id) {
         cam = camodocal::CameraFactory::instance()
             ->generateCameraFromYamlFile(camera_config_file);
 
         undistMaps = generateAllUndistMap(cam, cameraRotation, imgWidth, fov);
+        ROS_INFO("undismap size %d", undistMaps.size());
         if (enable_cuda) {
             for (auto mat : undistMaps) {
                 cv::Mat xy[2];
@@ -43,6 +46,8 @@ public:
         }
     }
 
+    // 0 TOP or DOWN
+    // 1 left 2 front 3 right 4 back
     cv::cuda::GpuMat undist_id_cuda(cv::Mat image, int _id) {
         cv::cuda::GpuMat img_cuda(image);
         cv::cuda::GpuMat output;
@@ -73,7 +78,7 @@ public:
             sideVerticalFOV = 0;
         double centerFOV = fov * DEG_TO_RAD - sideVerticalFOV * 2;
         ROS_INFO("Center FOV: %f_center", centerFOV);
-        int sideImgHeight = sideVerticalFOV / centerFOV * imgWidth;
+        sideImgHeight = sideVerticalFOV / centerFOV * imgWidth;
         ROS_INFO("Side image height: %d", sideImgHeight);
         std::vector<cv::Mat> maps;
         maps.reserve(5);
@@ -89,18 +94,12 @@ public:
         {
             Eigen::Vector2d temp;
             p_cam->spaceToPlane(testPoints[i], temp);
-            ROS_INFO("Test point %d : (%.2f,%.2f,%.2f) projected to (%.2f,%.2f)", i,
-                    testPoints[i][0], testPoints[i][1], testPoints[i][2],
-                    temp[0], temp[1]);
+            // ROS_INFO("Test point %d : (%.2f,%.2f,%.2f) projected to (%.2f,%.2f)", i,
+                    // testPoints[i][0], testPoints[i][1], testPoints[i][2],
+                    // temp[0], temp[1]);
         }
-
-        // center pinhole camera orientation
-        // auto t = Eigen::AngleAxis<double>(rotation.norm(), rotation.normalized()).inverse();
-        auto t = Eigen::AngleAxisd(rotation.z() / 180 * M_PI, Eigen::Vector3d::UnitZ()) * 
-            Eigen::AngleAxisd(rotation.y() / 180 * M_PI, Eigen::Vector3d::UnitY()) *
-            Eigen::AngleAxisd(rotation.x() / 180 * M_PI, Eigen::Vector3d::UnitX());
-        // .inverse();
-
+        
+        auto t = Eigen::Quaterniond::Identity();
         // calculate focal length of fake pinhole cameras (pixel size = 1 unit)
         double f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
         double f_side = (double)imgWidth / 2;
@@ -116,6 +115,10 @@ public:
                   f_side, f_side, imgWidth/2, sideImgHeight/2));
 
         maps.push_back(genOneUndistMap(p_cam, t, imgWidth, imgWidth, f_center));
+
+        if (cam_id == 1) {
+            t = Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitX());
+        };
 
         if (sideImgHeight > 0)
         {

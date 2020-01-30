@@ -35,6 +35,7 @@ double TD;
 int NUM_OF_CAM;
 int STEREO;
 int FISHEYE;
+double FISHEYE_FOV;
 int USE_IMU;
 int MULTIPLE_THREAD;
 int USE_GPU;
@@ -98,6 +99,7 @@ void readParameters(std::string config_file)
 
     USE_GPU = fsSettings["use_gpu"];
     FISHEYE = fsSettings["is_fisheye"];
+    FISHEYE_FOV = fsSettings["fisheye_fov"];
     USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
 
     USE_IMU = fsSettings["imu"];

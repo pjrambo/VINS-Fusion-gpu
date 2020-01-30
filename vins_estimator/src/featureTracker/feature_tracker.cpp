@@ -111,6 +111,62 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
     return sqrt(dx * dx + dy * dy);
 }
 
+void FeatureTracker::drawTrackFisheye(const std::vector<cv::Mat> &imUp, const std::vector<cv::Mat> &imDown, 
+                               vector<int> &curLeftIds,
+                               vector<cv::Point2f> &curLeftPts, 
+                               vector<cv::Point2f> &curRightPts,
+                               map<int, cv::Point2f> &prevLeftPtsMap)
+{
+    // ROS_INFO("Up image %d, down %d", imUp.size(), imDown.size());
+    cv::Mat top_camera;
+    cv::Mat down_camera;
+    cv::Mat imTrack;
+    
+    int side_height = imUp[1].size().height;
+    int witdth = imUp[1].size().width;
+
+    cv::resize(imUp[0], top_camera, cv::Size(side_height, side_height));
+    cv::resize(imDown[0], down_camera, cv::Size(side_height, side_height));
+
+    for (int i = 1; i < 5; i ++) {
+        cv::line(imUp[i], cv::Point2d(0, 0), cv::Point2d(0, side_height), cv::Scalar(255, 0, 0), 1);
+        cv::hconcat(top_camera, imUp[i], top_camera);
+    }
+
+    for (int i = 1; i < 5; i ++) {
+        cv::line(imDown[i], cv::Point2d(0, 0), cv::Point2d(0, side_height), cv::Scalar(255, 0, 0), 1);
+        cv::hconcat(down_camera, imDown[i], down_camera);
+    }
+
+    cv::vconcat(top_camera, down_camera, imTrack);
+
+    cv::imshow("tracking", imTrack);
+    cv::waitKey(-1);
+}
+
+
+std::vector<cv::Mat> convertCPUMat(const std::vector<cv::cuda::GpuMat> & arr) {
+    std::vector<cv::Mat> ret;
+    for (const auto & mat:arr) {
+        cv::Mat matcpu;
+        mat.download(matcpu);
+        cv::cvtColor(matcpu, matcpu, cv::COLOR_GRAY2BGR);
+        ret.push_back(matcpu);
+    }
+
+    return ret;
+}
+
+map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
+
+    auto fisheye_imgs_0 = fisheys_undists[0].undist_all_cuda(_img);
+    auto fisheye_imgs_1 = fisheys_undists[1].undist_all_cuda(_img1);
+
+    drawTrackFisheye(convertCPUMat(fisheye_imgs_0), convertCPUMat(fisheye_imgs_1), ids, cur_pts, cur_right_pts, prevLeftPtsMap);
+}
+
+
+
 map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
 {
     TicToc t_r;
@@ -567,7 +623,7 @@ void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file)
 
         if (FISHEYE) {
             ROS_INFO("Use as fisheye %s", calib_file[i].c_str());
-            FisheyeUndist un(calib_file[i].c_str());
+            FisheyeUndist un(calib_file[i].c_str(), i, FISHEYE_FOV);
             fisheys_undists.push_back(un);
         }
 

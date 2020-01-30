@@ -10,7 +10,7 @@ imu_topic: "/dji_sdk_1/dji_sdk/imu"
 image0_topic: "/flattener/flatImage_0"
 output_path: "/home/xuhao/output"
 
-cam0_calib: "top.yaml"
+cam0_calib: "top_undist.yaml"
 image_width: 600
 image_height: 600
    
