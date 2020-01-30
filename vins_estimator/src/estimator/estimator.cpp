@@ -52,9 +52,9 @@ void Estimator::setParameter()
 void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
     static int img_count = 0 ;
-    if (img_count ++ % 3 == 0) {
-       return;
-    }
+    // if (img_count ++ % 3 == 0) {
+    //    return;
+    // }
 
     static int img_track_count = 0;
     static double sum_time = 0;
