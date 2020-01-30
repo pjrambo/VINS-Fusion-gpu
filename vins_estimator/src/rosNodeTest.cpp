@@ -82,17 +82,7 @@ void sync_process()
             {
                 double time0 = img0_buf.front()->header.stamp.toSec();
                 double time1 = img1_buf.front()->header.stamp.toSec();
-                if(time0 < time1)
-                {
-                    img0_buf.pop();
-                    printf("throw img0\n");
-                }
-                else if(time0 > time1)
-                {
-                    img1_buf.pop();
-                    printf("throw img1\n");
-                }
-                else
+                if (fabs(time0 - time1) < 0.005) 
                 {
                     time = img0_buf.front()->header.stamp.toSec();
                     header = img0_buf.front()->header;
@@ -102,6 +92,18 @@ void sync_process()
                     img1_buf.pop();
                     //printf("find img0 and img1\n");
                 }
+                else if(time0 < time1)
+                {
+                    img0_buf.pop();
+                    printf("throw img0\n");
+                }
+                else if(time0 > time1)
+                {
+                    img1_buf.pop();
+                    printf("throw img1\n");
+                }
+                
+                
             }
             m_buf.unlock();
             if(!image0.empty())
