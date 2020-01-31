@@ -296,8 +296,8 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
 
  }
 
-FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point2f> cur_pts_vel, int camera_id) {
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
+    FeatureFrame featureFrame;
     for (size_t i = 0; i < ids.size(); i++)
     {
         int feature_id = ids[i];
@@ -309,12 +309,13 @@ FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Poi
         p_u = cur_pts[i].x;
         p_v = cur_pts[i].y;
         int camera_id = 0;
-        double velocity_x, velocity_y;
+        double velocity_x, velocity_y, velocity_z;
         velocity_x = cur_pts_vel[i].x;
         velocity_y = cur_pts_vel[i].y;
+        velocity_z = cur_pts_vel[i].z;
 
-        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+        TrackFeatureNoId xyz_uv_velocity;
+        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y, velocity_z;
         featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
 
@@ -466,9 +467,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     return ff;
 }
 
-
-
-map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
+FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1)
 {
     TicToc t_r;
     cur_time = _cur_time;
@@ -832,7 +831,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     for(size_t i = 0; i < cur_pts.size(); i++)
         prevLeftPtsMap[ids[i]] = cur_pts[i];
 
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+    FeatureFrame featureFrame;
     for (size_t i = 0; i < ids.size(); i++)
     {
         int feature_id = ids[i];
@@ -848,8 +847,8 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         velocity_x = pts_velocity[i].x;
         velocity_y = pts_velocity[i].y;
 
-        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+        TrackFeatureNoId xyz_uv_velocity;
+        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y, 0;
         featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
 
@@ -870,8 +869,8 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             velocity_x = right_pts_velocity[i].x;
             velocity_y = right_pts_velocity[i].y;
 
-            Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-            xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+            TrackFeatureNoId xyz_uv_velocity;
+            xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y, 0;
             featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
         }
     }

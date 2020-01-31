@@ -151,7 +151,7 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
 
 void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
 {
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+    FeatureFrame featureFrame;
     for (unsigned int i = 0; i < feature_msg->points.size(); i++)
     {
         int feature_id = feature_msg->channels[0].values[i];
@@ -172,8 +172,8 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
             //printf("receive pts gt %d %f %f %f\n", feature_id, gx, gy, gz);
         }
         ROS_ASSERT(z == 1);
-        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+        TrackFeatureNoId xyz_uv_velocity;
+        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y, 0;
         featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
     double t = feature_msg->header.stamp.toSec();

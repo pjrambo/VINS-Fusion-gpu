@@ -15,17 +15,17 @@ Eigen::Matrix2d ProjectionTwoFrameOneCamFactor::sqrt_info;
 double ProjectionTwoFrameOneCamFactor::sum_t;
 
 ProjectionTwoFrameOneCamFactor::ProjectionTwoFrameOneCamFactor(const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j, 
-                                       const Eigen::Vector2d &_velocity_i, const Eigen::Vector2d &_velocity_j,
+                                       const Eigen::Vector3d &_velocity_i, const Eigen::Vector3d &_velocity_j,
                                        const double _td_i, const double _td_j) : 
                                        pts_i(_pts_i), pts_j(_pts_j), 
                                        td_i(_td_i), td_j(_td_j)
 {
     velocity_i.x() = _velocity_i.x();
     velocity_i.y() = _velocity_i.y();
-    velocity_i.z() = 0;
+    velocity_i.z() = _velocity_i.z();
     velocity_j.x() = _velocity_j.x();
     velocity_j.y() = _velocity_j.y();
-    velocity_j.z() = 0;
+    velocity_j.z() = _velocity_j.z();
 
 #ifdef UNIT_SPHERE_ERROR
     Eigen::Vector3d b1, b2;

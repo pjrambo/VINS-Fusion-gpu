@@ -37,7 +37,10 @@ bool inBorder(const cv::Point2f &pt);
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status);
 void reduceVector(vector<int> &v, vector<uchar> status);
 
-typedef map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureFrame;
+typedef Eigen::Matrix<double, 8, 1> TrackFeatureNoId;
+typedef pair<int, TrackFeatureNoId> TrackFeature;
+typedef vector<TrackFeature> FeatureFramenoId;
+typedef map<int, FeatureFramenoId> FeatureFrame;
 
 class FeatureTracker
 {
@@ -69,7 +72,7 @@ public:
                                    vector<cv::Point2f> &curRightPts,
                                    map<int, cv::Point2f> &prevLeftPtsMap);
     
-    FeatureFrame setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point2f> cur_pts_vel, int camera_id);
+    FeatureFrame setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id);
     FeatureFrame setup_feature_frame();
     
     void drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
@@ -118,7 +121,7 @@ public:
     vector<cv::Point2f> prev_up_top_pts, cur_up_top_pts, prev_up_side_pts, cur_up_side_pts;
     vector<cv::Point2f> cur_down_top_pts, cur_down_side_pts;
 
-    vector<cv::Point2f> up_top_vel, up_side_vel, down_top_vel, down_side_vel;
+    vector<cv::Point3f> up_top_vel, up_side_vel, down_top_vel, down_side_vel;
     vector<cv::Point3f> cur_up_top_un_pts, cur_up_side_un_pts, cur_down_top_un_pts, cur_down_side_un_pts;
 
     vector<int> ids_up_top, ids_up_side, ids_down_top, ids_down_side;

@@ -24,14 +24,14 @@ using namespace Eigen;
 
 #include "parameters.h"
 #include "../utility/tic_toc.h"
-
+#include "../featureTracker/feature_tracker.h"
 #define KEYFRAME_LONGTRACK_THRES 20
 
 
 class FeaturePerFrame
 {
   public:
-    FeaturePerFrame(const Eigen::Matrix<double, 7, 1> &_point, double td)
+    FeaturePerFrame(const TrackFeatureNoId &_point, double td)
     {
         point.x() = _point(0);
         point.y() = _point(1);
@@ -40,10 +40,11 @@ class FeaturePerFrame
         uv.y() = _point(4);
         velocity.x() = _point(5); 
         velocity.y() = _point(6); 
+        velocity.z() = _point(7); 
         cur_td = td;
         is_stereo = false;
     }
-    void rightObservation(const Eigen::Matrix<double, 7, 1> &_point)
+    void rightObservation(const TrackFeatureNoId &_point)
     {
         pointRight.x() = _point(0);
         pointRight.y() = _point(1);
@@ -52,12 +53,13 @@ class FeaturePerFrame
         uvRight.y() = _point(4);
         velocityRight.x() = _point(5); 
         velocityRight.y() = _point(6); 
+        velocityRight.z() = _point(7); 
         is_stereo = true;
     }
     double cur_td;
     Vector3d point, pointRight;
     Vector2d uv, uvRight;
-    Vector2d velocity, velocityRight;
+    Vector3d velocity, velocityRight;
     bool is_stereo;
 };
 
@@ -88,7 +90,7 @@ class FeatureManager
     void setRic(Matrix3d _ric[]);
     void clearState();
     int getFeatureCount();
-    bool addFeatureCheckParallax(int frame_count, const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, double td);
+    bool addFeatureCheckParallax(int frame_count, const FeatureFrame &image, double td);
     vector<pair<Vector3d, Vector3d>> getCorresponding(int frame_count_l, int frame_count_r);
     //void updateDepth(const VectorXd &x);
     void setDepth(const VectorXd &x);
