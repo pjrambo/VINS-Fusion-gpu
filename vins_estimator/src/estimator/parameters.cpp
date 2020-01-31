@@ -49,6 +49,8 @@ std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
 std::string FISHEYE_MASK;
 std::vector<std::string> CAM_NAMES;
 int MAX_CNT;
+int TOP_PTS_CNT;
+int SIDE_PTS_CNT;
 int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
@@ -90,6 +92,8 @@ void readParameters(std::string config_file)
     fsSettings["image0_topic"] >> IMAGE0_TOPIC;
     fsSettings["image1_topic"] >> IMAGE1_TOPIC;
     MAX_CNT = fsSettings["max_cnt"];
+    TOP_PTS_CNT = fsSettings["top_cnt"];
+    SIDE_PTS_CNT = fsSettings["side_cnt"];
     MIN_DIST = fsSettings["min_dist"];
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];

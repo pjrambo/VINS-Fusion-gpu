@@ -62,6 +62,47 @@ FeatureTracker::FeatureTracker()
     sum_n = 0;
 }
 
+cv::Mat FeatureTracker::setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur_pts,
+    vector<int> & track_cnt, vector<int> & ids) {
+    mask = cv::Mat(shape, CV_8UC1, cv::Scalar(255));
+
+    // prefer to keep features that are tracked for long time
+    vector<pair<int, pair<cv::Point2f, int>>> cnt_pts_id;
+
+    for (unsigned int i = 0; i < cur_pts.size(); i++)
+        cnt_pts_id.push_back(make_pair(track_cnt[i], make_pair(cur_pts[i], ids[i])));
+
+    sort(cnt_pts_id.begin(), cnt_pts_id.end(), [](const pair<int, pair<cv::Point2f, int>> &a, const pair<int, pair<cv::Point2f, int>> &b)
+         {
+            return a.first > b.first;
+         });
+
+    cur_pts.clear();
+    ids.clear();
+    track_cnt.clear();
+
+    for (auto &it : cnt_pts_id)
+    {
+        if (mask.at<uchar>(it.second.first) == 255)
+        {
+            cur_pts.push_back(it.second.first);
+            ids.push_back(it.second.second);
+            track_cnt.push_back(it.first);
+            cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
+        }
+    }
+
+    return mask;
+}
+
+
+void FeatureTracker::setMaskFisheye() {
+    //TODO:Set mask for fisheye
+    mask_up_top = setMaskFisheye(top_size, cur_up_top_pts, track_up_top_cnt, ids_up_top);
+    mask_down_top = setMaskFisheye(top_size, cur_down_top_pts, track_down_top_cnt, ids_down_top);
+    mask_up_side = setMaskFisheye(side_size, cur_up_side_pts, track_up_side_cnt, ids_up_side);
+}
+
 void FeatureTracker::setMask()
 {
     mask = cv::Mat(row, col, CV_8UC1, cv::Scalar(255));
@@ -111,34 +152,61 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
     return sqrt(dx * dx + dy * dy);
 }
 
-void FeatureTracker::drawTrackFisheye(const std::vector<cv::Mat> &imUp, const std::vector<cv::Mat> &imDown, 
-                               vector<int> &curLeftIds,
-                               vector<cv::Point2f> &curLeftPts, 
-                               vector<cv::Point2f> &curRightPts,
-                               map<int, cv::Point2f> &prevLeftPtsMap)
+
+void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, map<int, cv::Point2f> prev_pts) {
+    ROS_INFO("Drawing %d pts", pts.size());
+    for (int j = 0; j < pts.size(); j++) {
+        double len = 0;
+        cv::circle(img, pts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+    }
+}
+
+void FeatureTracker::drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
+                                cv::cuda::GpuMat &imDownTop,
+                                cv::cuda::GpuMat &imUpSide_cuda, 
+                                cv::cuda::GpuMat &imDownSide_cuda)
 {
     // ROS_INFO("Up image %d, down %d", imUp.size(), imDown.size());
-    cv::Mat top_camera;
+    cv::Mat up_camera;
     cv::Mat down_camera;
     cv::Mat imTrack;
+    cv::Mat imUpSide;
+    cv::Mat imDownSide;
     
-    int side_height = imUp[1].size().height;
-    int witdth = imUp[1].size().width;
+    int side_height = imUpSide_cuda.size().height;
+    int witdth = imUpTop.size().width;
 
-    cv::resize(imUp[0], top_camera, cv::Size(side_height, side_height));
-    cv::resize(imDown[0], down_camera, cv::Size(side_height, side_height));
+    imUpTop.download(up_camera);
+    cv::cvtColor(up_camera, up_camera, cv::COLOR_GRAY2RGB);
+    imDownTop.download(down_camera);
+    cv::cvtColor(down_camera, down_camera, cv::COLOR_GRAY2RGB);
 
+
+    imUpSide_cuda.download(imUpSide);
+    cv::cvtColor(imUpSide, imUpSide, cv::COLOR_GRAY2RGB);
+
+    imDownSide_cuda.download(imDownSide);
+    cv::cvtColor(imDownSide, imDownSide, cv::COLOR_GRAY2RGB);
+
+    drawTrackImage(up_camera, cur_up_top_pts, ids_up_top, up_top_prevLeftPtsMap);
+    drawTrackImage(down_camera, cur_down_top_pts, ids_down_top, down_top_prevLeftPtsMap);
+    drawTrackImage(imUpSide, cur_up_side_pts, ids_up_side, up_side_prevLeftPtsMap);
+    drawTrackImage(imDownSide, cur_down_side_pts, ids_down_side, down_side_prevLeftPtsMap);
+
+    //Show images
     for (int i = 1; i < 5; i ++) {
-        cv::line(imUp[i], cv::Point2d(0, 0), cv::Point2d(0, side_height), cv::Scalar(255, 0, 0), 1);
-        cv::hconcat(top_camera, imUp[i], top_camera);
+        cv::line(imUpSide, cv::Point2d(i*witdth, 0), cv::Point2d(i*witdth, side_height), cv::Scalar(0, 255, 0), 1);
+        cv::line(imDownSide, cv::Point2d(i*witdth, 0), cv::Point2d(i*witdth, side_height), cv::Scalar(0, 255, 0), 1);
     }
 
-    for (int i = 1; i < 5; i ++) {
-        cv::line(imDown[i], cv::Point2d(0, 0), cv::Point2d(0, side_height), cv::Scalar(255, 0, 0), 1);
-        cv::hconcat(down_camera, imDown[i], down_camera);
-    }
+    
+    cv::resize(up_camera, up_camera, cv::Size(side_height, side_height));
+    cv::resize(down_camera, down_camera, cv::Size(side_height, side_height));
+    
+    cv::hconcat(up_camera, imUpSide, up_camera);
+    cv::hconcat(down_camera, imDownSide, down_camera);
 
-    cv::vconcat(top_camera, down_camera, imTrack);
+    cv::vconcat(up_camera, down_camera, imTrack);
 
     cv::imshow("tracking", imTrack);
     cv::waitKey(-1);
@@ -157,12 +225,110 @@ std::vector<cv::Mat> convertCPUMat(const std::vector<cv::cuda::GpuMat> & arr) {
     return ret;
 }
 
+cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
+    int cols = arr[1].cols;
+    int rows = arr[1].rows;
+    cv::cuda::GpuMat NewImg(rows, cols*4, arr[1].type()); 
+    for (int i = 1; i < 5; i ++) {
+        arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
+    }
+    return NewImg;
+}
+
+
+void FeatureTracker::addPointsFisheye()
+{
+    ROS_INFO("Up top new pts %d", n_pts_up_top.size());
+    for (auto &p : n_pts_up_top)
+    {
+        cur_up_top_pts.push_back(p);
+        ids_up_top.push_back(n_id++);
+        track_up_top_cnt.push_back(1);
+    }
+
+    for (auto &p : n_pts_down_top)
+    {
+        cur_down_top_pts.push_back(p);
+        ids_down_top.push_back(n_id++);
+        track_down_top_cnt.push_back(1);
+    }
+
+    for (auto &p : n_pts_up_side)
+    {
+        cur_up_side_pts.push_back(p);
+        ids_up_side.push_back(n_id++);
+        track_up_side_cnt.push_back(1);
+    }
+}
+
+
+void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & mask, 
+    vector<cv::Point2f> & n_pts, vector<cv::Point2f> & cur_pts, int require_pts) {
+    int lack_up_top_pts = require_pts - static_cast<int>(cur_pts.size());
+
+    //Add Points Top
+    ROS_INFO("Lack %d pts; Require %d will detect", lack_up_top_pts, require_pts);
+    if (lack_up_top_pts > require_pts/4) {
+        if(mask.empty())
+            cout << "mask is empty " << endl;
+        if (mask.type() != CV_8UC1)
+            cout << "mask type wrong " << endl;
+        
+        //Detect top img
+        cv::Ptr<cv::cuda::CornersDetector> detector = cv::cuda::createGoodFeaturesToTrackDetector(
+            img.type(), lack_up_top_pts, 0.01, MIN_DIST);
+        cv::cuda::GpuMat d_prevPts;
+        cv::cuda::GpuMat gpu_mask(mask);
+        detector->detect(img, d_prevPts, gpu_mask);
+        // std::cout << "d_prevPts size: "<< d_prevPts.size()<<std::endl;
+        if(!d_prevPts.empty()) {
+            n_pts = cv::Mat_<cv::Point2f>(cv::Mat(d_prevPts));
+        }
+        else {
+            n_pts.clear();
+        }
+    }
+    else {
+        n_pts.clear();
+    }
+
+    ROS_INFO("Detected %d npts", n_pts.size());
+
+ }
+
+featureFrame FeatureTracker::setup_feature_frame() {
+    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+
+    printf("feature track whole time %f PTS %ld\n", t_r.toc(), cur_un_pts.size());
+    return featureFrame;
+}
+
+
 map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
 
-    auto fisheye_imgs_0 = fisheys_undists[0].undist_all_cuda(_img);
-    auto fisheye_imgs_1 = fisheys_undists[1].undist_all_cuda(_img1);
+    auto fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
+    auto fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
 
-    drawTrackFisheye(convertCPUMat(fisheye_imgs_0), convertCPUMat(fisheye_imgs_1), ids, cur_pts, cur_right_pts, prevLeftPtsMap);
+    auto up_side_img = concat_side(fisheye_imgs_up);
+    auto down_side_img = concat_side(fisheye_imgs_down);
+    auto & up_top_img = fisheye_imgs_up[0];
+    auto & down_top_img = fisheye_imgs_down[0];
+
+    setMaskFisheye();
+    detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
+    detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
+    detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
+
+    addPointsFisheye();
+
+
+    
+
+    drawTrackFisheye(up_top_img, down_top_img, up_side_img, down_side_img);
+
+
+    return setup_feature_frame();
+
 }
 
 

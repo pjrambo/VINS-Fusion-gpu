@@ -49,8 +49,8 @@ multiple_thread: 1
 use_gpu: 1
 use_gpu_acc_flow: 1
 
-#feature traker paprameters
-max_cnt: 150            # max feature number in feature tracking
+top_cnt: 50
+side_cnt: 40
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
