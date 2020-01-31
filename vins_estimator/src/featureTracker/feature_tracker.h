@@ -37,12 +37,14 @@ bool inBorder(const cv::Point2f &pt);
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status);
 void reduceVector(vector<int> &v, vector<uchar> status);
 
+typedef map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureFrame;
+
 class FeatureTracker
 {
 public:
     FeatureTracker();
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    FeatureFrame trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
     
     void setMask();
     void setMaskFisheye();
@@ -54,6 +56,9 @@ public:
     void rejectWithF();
     void undistortedPoints();
     vector<cv::Point2f> undistortedPts(vector<cv::Point2f> &pts, camodocal::CameraPtr cam);
+    vector<cv::Point3f> undistortedPtsTop(vector<cv::Point2f> &pts, FisheyeUndist & fisheye);
+    vector<cv::Point3f> undistortedPtsSide(vector<cv::Point2f> &pts, FisheyeUndist & fisheye, bool is_downward);
+
     vector<cv::Point2f> ptsVelocity(vector<int> &ids, vector<cv::Point2f> &pts, 
                                     map<int, cv::Point2f> &cur_id_pts, map<int, cv::Point2f> &prev_id_pts);
     void showTwoImage(const cv::Mat &img1, const cv::Mat &img2, 
@@ -64,7 +69,8 @@ public:
                                    vector<cv::Point2f> &curRightPts,
                                    map<int, cv::Point2f> &prevLeftPtsMap);
     
-    featureFrame setup_feature_frame();
+    FeatureFrame setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point2f> cur_pts_vel, int camera_id);
+    FeatureFrame setup_feature_frame();
     
     void drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
                             cv::cuda::GpuMat & imDownTop,
@@ -92,6 +98,9 @@ public:
     cv::Mat fisheye_mask;
     cv::Mat prev_img, cur_img;
     cv::cuda::GpuMat prev_gpu_img, cur_gpu_img;
+
+    cv::cuda::GpuMat prev_up_top_img, prev_down_top_img, prev_up_side_img;
+
     vector<cv::Point2f> n_pts;
     vector<cv::Point2f> n_pts_up_top, n_pts_down_top, n_pts_up_side;
     int sum_n;
@@ -108,6 +117,10 @@ public:
     vector<cv::Point2f> predict_up_side, predict_pts_left_top, predict_pts_right_top, predict_pts_down_side;
     vector<cv::Point2f> prev_up_top_pts, cur_up_top_pts, prev_up_side_pts, cur_up_side_pts;
     vector<cv::Point2f> cur_down_top_pts, cur_down_side_pts;
+
+    vector<cv::Point2f> up_top_vel, up_side_vel, down_top_vel, down_side_vel;
+    vector<cv::Point3f> cur_up_top_un_pts, cur_up_side_un_pts, cur_down_top_un_pts, cur_down_side_un_pts;
+
     vector<int> ids_up_top, ids_up_side, ids_down_top, ids_down_side;
     map<int, cv::Point2f> up_top_prevLeftPtsMap;
     map<int, cv::Point2f> down_top_prevLeftPtsMap;

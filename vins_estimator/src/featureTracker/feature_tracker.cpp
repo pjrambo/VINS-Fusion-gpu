@@ -296,15 +296,128 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
 
  }
 
-featureFrame FeatureTracker::setup_feature_frame() {
+FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point2f> cur_pts_vel, int camera_id) {
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+    for (size_t i = 0; i < ids.size(); i++)
+    {
+        int feature_id = ids[i];
+        double x, y ,z;
+        x = cur_un_pts[i].x;
+        y = cur_un_pts[i].y;
+        z = cur_un_pts[i].z;
+        double p_u, p_v;
+        p_u = cur_pts[i].x;
+        p_v = cur_pts[i].y;
+        int camera_id = 0;
+        double velocity_x, velocity_y;
+        velocity_x = cur_pts_vel[i].x;
+        velocity_y = cur_pts_vel[i].y;
 
-    printf("feature track whole time %f PTS %ld\n", t_r.toc(), cur_un_pts.size());
+        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
+        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+        featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
+    }
+
     return featureFrame;
+ }
+
+
+FeatureFrame FeatureTracker::setup_feature_frame() {
+    auto ff = setup_feature_frame(ids_up_top, cur_up_top_pts, cur_up_top_un_pts, up_top_vel, 0);   
+    auto _ff = setup_feature_frame(ids_up_side, cur_up_side_pts, cur_up_side_un_pts, up_side_vel, 0);
+    ff.insert(_ff.begin(), _ff.end());
+
+    _ff = setup_feature_frame(ids_down_top, cur_down_top_pts, cur_down_top_un_pts, down_top_vel, 1);
+    ff.insert(_ff.begin(), _ff.end());
+    
+    _ff = setup_feature_frame(ids_down_side, cur_down_side_pts, cur_down_side_un_pts, down_side_vel, 1);
+    ff.insert(_ff.begin(), _ff.end());
+
+
+    ROS_INFO("Frame size %d", ff.size());
+
+    return ff;
 }
 
 
-map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
+vector<cv::Point3f> FeatureTracker::undistortedPtsTop(vector<cv::Point2f> &pts, FisheyeUndist & fisheye) {
+    auto & cam = fisheye.cam_top;
+    vector<cv::Point3f> un_pts;
+    for (unsigned int i = 0; i < pts.size(); i++)
+    {
+        Eigen::Vector2d a(pts[i].x, pts[i].y);
+        Eigen::Vector3d b;
+        if(ENABLE_DOWNSAMPLE) {
+            a = a*2;
+        }
+        cam->liftProjective(a, b);
+        un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
+    }
+    return un_pts;
+}
+
+
+vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts, FisheyeUndist & fisheye, bool is_downward) {
+    auto & cam = fisheye.cam_side;
+    vector<cv::Point3f> un_pts;
+    //Need to rotate pts
+    //Side pos 1,2,3,4 is left front right
+    //For downward camera, additational rotate 180 deg on x is required
+    Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
+    Eigen::Quaterniond t2 = t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+    Eigen::Quaterniond t3 = t2 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+    Eigen::Quaterniond t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+    Eigen::Quaterniond t_down(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
+
+    for (unsigned int i = 0; i < pts.size(); i++)
+    {
+        Eigen::Vector2d a(pts[i].x, pts[i].y);
+        Eigen::Vector3d b;
+        if(ENABLE_DOWNSAMPLE) {
+            a = a*2;
+        }
+        cam->liftProjective(a, b);
+
+
+        int side_pos_id = floor(a.x() / top_size.width) + 1;
+        // ROS_INFO("Pts x is %f, is at %d direction width %d", a.x(), side_pos_id, top_size.width);
+        
+        if (side_pos_id == 1) {
+            b = t1 * b;
+        } else if(side_pos_id == 2) {
+            b = t2 * b;
+        } else if (side_pos_id == 3) {
+            b = t3 * b;
+        } else if (side_pos_id == 4) {
+            b = t4 * b;
+        } else {
+            ROS_ERROR("Err pts img pos id %d! x %f width", side_pos_id, side_pos_id, top_size.width);
+            exit(-1);
+        }
+
+        if (is_downward) {
+            b = t_down * b;
+        }
+
+        b.normalize();
+        
+        if (b.z() < - 1e-2) {
+            //Is under plane, z is -1
+            un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), -1));
+        } else if (b.z() > 1e-2) {
+            //Is up plane, z is 1
+            un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
+        } else {
+            //Near plane
+            un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
+        }
+    }
+    return un_pts;
+}
+
+
+FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
+    TicToc t_r;
 
     auto fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
     auto fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
@@ -314,6 +427,9 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     auto & up_top_img = fisheye_imgs_up[0];
     auto & down_top_img = fisheye_imgs_down[0];
 
+    top_size = up_top_img.size();
+    side_size = up_side_img.size();
+
     setMaskFisheye();
     detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
     detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
@@ -322,13 +438,32 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     addPointsFisheye();
 
 
-    
+
+
+    cur_up_top_un_pts = undistortedPtsTop(cur_up_top_pts, fisheys_undists[0]);
+    cur_down_top_un_pts = undistortedPtsTop(cur_down_top_pts, fisheys_undists[1]);
+
+    cur_up_side_un_pts = undistortedPtsSide(cur_up_side_pts, fisheys_undists[0], false);
+    cur_down_side_un_pts = undistortedPtsSide(cur_down_side_pts, fisheys_undists[1], true);
+
+    prev_up_top_img = up_top_img;
+    prev_down_top_img = down_top_img;
+    prev_up_side_img = up_side_img;
+    // prev_img = cur_img;
+    // prev_gpu_img = cur_gpu_img;
+    // prev_pts = cur_pts;
+    // prev_un_pts = cur_un_pts;
+    // prev_un_pts_map = cur_un_pts_map;
+    // prev_time = cur_time;
+    // hasPrediction = false;
 
     drawTrackFisheye(up_top_img, down_top_img, up_side_img, down_side_img);
 
 
-    return setup_feature_frame();
+    auto ff =  setup_feature_frame();
 
+    printf("feature track whole time %f PTS %ld\n", t_r.toc(), cur_un_pts.size());
+    return ff;
 }
 
 
