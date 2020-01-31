@@ -563,19 +563,35 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_down_side_un_pts.clear();
 
     //If has predict;
-    cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img, prev_up_top_pts, ids_up_top, track_up_top_cnt, FLOW_BACK);
-    cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img, prev_up_side_pts, ids_up_side, track_up_side_cnt, FLOW_BACK);
-    cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, FLOW_BACK);
+    if (enable_up_top) {
+        cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img, prev_up_top_pts, ids_up_top, track_up_top_cnt, FLOW_BACK);
+    }
+    if (enable_up_side) {
+        cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img, prev_up_side_pts, ids_up_side, track_up_side_cnt, FLOW_BACK);
+    }
+
+    if (enable_down_top) {
+        cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, FLOW_BACK);
+    }
     
-    ids_down_side = ids_up_side;
-    auto down_side_init_pts = cur_up_side_pts;
-    cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
+    if (enable_down_side) {
+        ids_down_side = ids_up_side;
+        auto down_side_init_pts = cur_up_side_pts;
+        cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
     // ROS_INFO("Down side try to track %d pts; gives %d", cur_up_side_pts.size(), cur_down_side_pts.size());
+    }
 
     setMaskFisheye();
-    detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
-    detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
-    detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
+    if (enable_up_top) {
+        detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
+    }
+    if (enable_down_top) {
+        detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
+    }
+
+    if (enable_up_side) {
+        detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
+    }
 
     addPointsFisheye();
 
