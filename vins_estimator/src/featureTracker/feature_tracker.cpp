@@ -447,9 +447,32 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_up_side_un_pts = undistortedPtsSide(cur_up_side_pts, fisheys_undists[0], false);
     cur_down_side_un_pts = undistortedPtsSide(cur_down_side_pts, fisheys_undists[1], true);
 
+
+    up_top_vel = ptsVelocity3D(ids_up_top, cur_up_top_un_pts, cur_up_top_un_pts_map, prev_up_top_un_pts_map);
+    down_top_vel = ptsVelocity3D(ids_down_top, cur_down_top_un_pts, cur_down_top_un_pts_map, prev_down_top_un_pts_map);
+
+    up_side_vel = ptsVelocity3D(ids_up_side, cur_up_side_un_pts, cur_up_side_un_pts_map, prev_up_side_un_pts_map);
+    down_top_vel = ptsVelocity3D(ids_down_side, cur_down_side_un_pts, cur_down_side_un_pts_map, prev_down_side_un_pts_map);
+
     prev_up_top_img = up_top_img;
     prev_down_top_img = down_top_img;
     prev_up_side_img = up_side_img;
+
+    prev_up_top_pts = cur_up_top_pts;
+    prev_down_top_pts = cur_down_top_pts;
+    prev_up_side_pts = cur_up_side_pts;
+    prev_down_side_pts = cur_down_side_pts;
+
+    prev_up_top_un_pts = cur_up_top_un_pts;
+    prev_down_top_un_pts = cur_down_top_un_pts;
+    prev_up_side_un_pts = cur_up_side_un_pts;
+    prev_down_side_un_pts = cur_down_side_un_pts;
+
+    prev_up_top_un_pts_map = cur_up_top_un_pts_map;
+    prev_down_top_un_pts_map = cur_down_top_un_pts_map;
+    prev_up_side_un_pts_map = cur_up_side_un_pts_map;
+    prev_down_side_un_pts_map = cur_up_side_un_pts_map;
+
     // prev_img = cur_img;
     // prev_gpu_img = cur_gpu_img;
     // prev_pts = cur_pts;
@@ -982,6 +1005,47 @@ vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts, cam
         un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
     }
     return un_pts;
+}
+
+vector<cv::Point3f> FeatureTracker::ptsVelocity3D(vector<int> &ids, vector<cv::Point3f> &pts, 
+                                            map<int, cv::Point3f> &cur_id_pts, map<int, cv::Point3f> &prev_id_pts)
+{
+    vector<cv::Point3f> pts_velocity;
+    cur_id_pts.clear();
+    for (unsigned int i = 0; i < ids.size(); i++)
+    {
+        cur_id_pts.insert(make_pair(ids[i], pts[i]));
+    }
+
+    // caculate points velocity
+    if (!prev_id_pts.empty())
+    {
+        double dt = cur_time - prev_time;
+        
+        for (unsigned int i = 0; i < pts.size(); i++)
+        {
+            std::map<int, cv::Point3f>::iterator it;
+            it = prev_id_pts.find(ids[i]);
+            if (it != prev_id_pts.end())
+            {
+                double v_x = (pts[i].x - it->second.x) / dt;
+                double v_y = (pts[i].y - it->second.y) / dt;
+                double v_z = (pts[i].z - it->second.z) / dt;
+                pts_velocity.push_back(cv::Point3f(v_x, v_y, v_z));
+            }
+            else
+                pts_velocity.push_back(cv::Point3f(0, 0, 0));
+
+        }
+    }
+    else
+    {
+        for (unsigned int i = 0; i < cur_pts.size(); i++)
+        {
+            pts_velocity.push_back(cv::Point3f(0, 0, 0));
+        }
+    }
+    return pts_velocity;
 }
 
 vector<cv::Point2f> FeatureTracker::ptsVelocity(vector<int> &ids, vector<cv::Point2f> &pts, 

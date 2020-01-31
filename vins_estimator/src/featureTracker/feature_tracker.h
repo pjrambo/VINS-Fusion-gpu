@@ -64,6 +64,10 @@ public:
 
     vector<cv::Point2f> ptsVelocity(vector<int> &ids, vector<cv::Point2f> &pts, 
                                     map<int, cv::Point2f> &cur_id_pts, map<int, cv::Point2f> &prev_id_pts);
+
+    vector<cv::Point3f> ptsVelocity3D(vector<int> &ids, vector<cv::Point3f> &pts, 
+                                    map<int, cv::Point3f> &cur_id_pts, map<int, cv::Point3f> &prev_id_pts);
+
     void showTwoImage(const cv::Mat &img1, const cv::Mat &img2, 
                       vector<cv::Point2f> pts1, vector<cv::Point2f> pts2);
     void drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight, 
@@ -118,7 +122,9 @@ public:
 
 
     vector<cv::Point2f> predict_up_side, predict_pts_left_top, predict_pts_right_top, predict_pts_down_side;
-    vector<cv::Point2f> prev_up_top_pts, cur_up_top_pts, prev_up_side_pts, cur_up_side_pts;
+    vector<cv::Point2f> prev_up_top_pts, cur_up_top_pts, prev_up_side_pts, cur_up_side_pts, prev_down_top_pts, prev_down_side_pts;
+    
+    vector<cv::Point3f> prev_up_top_un_pts,  prev_up_side_un_pts, prev_down_top_un_pts, prev_down_side_un_pts;
     vector<cv::Point2f> cur_down_top_pts, cur_down_side_pts;
 
     vector<cv::Point3f> up_top_vel, up_side_vel, down_top_vel, down_side_vel;
@@ -142,6 +148,12 @@ public:
     vector<int> track_up_side_cnt;
     map<int, cv::Point2f> cur_un_pts_map, prev_un_pts_map;
     map<int, cv::Point2f> cur_un_right_pts_map, prev_un_right_pts_map;
+
+    map<int, cv::Point3f> cur_up_top_un_pts_map, prev_up_top_un_pts_map;
+    map<int, cv::Point3f> cur_down_top_un_pts_map, prev_down_top_un_pts_map;
+    map<int, cv::Point3f> cur_up_side_un_pts_map, prev_up_side_un_pts_map;
+    map<int, cv::Point3f> cur_down_side_un_pts_map, prev_down_side_un_pts_map;
+
     map<int, cv::Point2f> prevLeftPtsMap;
     vector<camodocal::CameraPtr> m_camera;
     vector<FisheyeUndist> fisheys_undists;
