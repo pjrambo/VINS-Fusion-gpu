@@ -76,15 +76,16 @@ public:
     void showTwoImage(const cv::Mat &img1, const cv::Mat &img2, 
                       vector<cv::Point2f> pts1, vector<cv::Point2f> pts2);
     void drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight, 
-                                   vector<int> &curLeftIds,
-                                   vector<cv::Point2f> &curLeftPts, 
-                                   vector<cv::Point2f> &curRightPts,
-                                   map<int, cv::Point2f> &prevLeftPtsMap);
+                    vector<int> &curLeftIds,
+                    vector<cv::Point2f> &curLeftPts, 
+                    vector<cv::Point2f> &curRightPts,
+                    map<int, cv::Point2f> &prevLeftPtsMap);
     
     FeatureFrame setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id);
     FeatureFrame setup_feature_frame();
     
-    void drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
+    void drawTrackFisheye(const cv::Mat & img_up, const cv::Mat & img_down, 
+                            cv::cuda::GpuMat & imUpTop,
                             cv::cuda::GpuMat & imDownTop,
                             cv::cuda::GpuMat & imUpSide, 
                             cv::cuda::GpuMat & imDownSide);

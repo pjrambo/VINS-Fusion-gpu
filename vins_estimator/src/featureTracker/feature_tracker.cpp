@@ -185,10 +185,12 @@ void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vect
     }
 }
 
-void FeatureTracker::drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
-                                cv::cuda::GpuMat &imDownTop,
-                                cv::cuda::GpuMat &imUpSide_cuda, 
-                                cv::cuda::GpuMat &imDownSide_cuda)
+void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
+    const cv::Mat & img_down,
+    cv::cuda::GpuMat & imUpTop,
+    cv::cuda::GpuMat &imDownTop,
+    cv::cuda::GpuMat &imUpSide_cuda, 
+    cv::cuda::GpuMat &imDownSide_cuda)
 {
     // ROS_INFO("Up image %d, down %d", imUp.size(), imDown.size());
     cv::Mat up_camera;
@@ -196,9 +198,21 @@ void FeatureTracker::drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
     cv::Mat imTrack;
     cv::Mat imUpSide;
     cv::Mat imDownSide;
+    cv::Mat fisheye_up;
+    cv::Mat fisheye_down;
     
     int side_height = imUpSide_cuda.size().height;
-    int witdth = imUpTop.size().width;
+    int width = imUpTop.size().width;
+
+    //128
+    fisheye_up = img_up(cv::Rect(190, 62, 900, 900));
+    fisheye_down = img_down(cv::Rect(190, 62, 900, 900));
+
+    cv::resize(fisheye_up, fisheye_up, cv::Size(width, width));
+    cv::resize(fisheye_down, fisheye_down, cv::Size(width, width));
+    
+    cv::cvtColor(fisheye_up,   fisheye_up,   cv::COLOR_GRAY2BGR);
+    cv::cvtColor(fisheye_down, fisheye_down, cv::COLOR_GRAY2BGR);
 
     imUpTop.download(up_camera);
     cv::cvtColor(up_camera, up_camera, cv::COLOR_GRAY2BGR);
@@ -219,18 +233,16 @@ void FeatureTracker::drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
 
     //Show images
     for (int i = 1; i < 5; i ++) {
-        cv::line(imUpSide, cv::Point2d(i*witdth, 0), cv::Point2d(i*witdth, side_height), cv::Scalar(255, 0, 0), 1);
-        cv::line(imDownSide, cv::Point2d(i*witdth, 0), cv::Point2d(i*witdth, side_height), cv::Scalar(255, 0, 0), 1);
+        cv::line(imUpSide, cv::Point2d(i*width, 0), cv::Point2d(i*width, side_height), cv::Scalar(255, 0, 0), 1);
+        cv::line(imDownSide, cv::Point2d(i*width, 0), cv::Point2d(i*width, side_height), cv::Scalar(255, 0, 0), 1);
     }
 
     cv::vconcat(imUpSide, imDownSide, imTrack);
 
     cv::Mat top_cam;
     cv::hconcat(up_camera, down_camera, top_cam);
-    cv::Mat white_mat(up_camera.size(), up_camera.type());
-    white_mat.setTo(cv::Scalar(255, 255, 255));
-    cv::hconcat(white_mat, top_cam, top_cam);
-    cv::hconcat(top_cam, white_mat, top_cam); 
+    cv::hconcat(fisheye_up, top_cam, top_cam);
+    cv::hconcat(top_cam, fisheye_down, top_cam); 
     ROS_INFO("Imtrack width %d", imUpSide.size().width);
     cv::resize(top_cam, top_cam, cv::Size(imUpSide.size().width, imUpSide.size().width/4));
     
@@ -243,6 +255,8 @@ void FeatureTracker::drawTrackFisheye(cv::cuda::GpuMat & imUpTop,
     // cv::hconcat(down_camera, imDownSide, down_camera);
 
     // cv::hconcat(up_camera, down_camera, imTrack);
+    double fx = ((double)SHOW_WIDTH) / ((double) imUpSide.size().width);
+    cv::resize(imTrack, imTrack, cv::Size(), fx, fx);
     cv::imshow("tracking", imTrack);
     // cv::imshow("tracking_top", top_cam);
     cv::waitKey(2);
@@ -364,14 +378,14 @@ FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Poi
 
 FeatureFrame FeatureTracker::setup_feature_frame() {
     auto ff = setup_feature_frame(ids_up_top, cur_up_top_pts, cur_up_top_un_pts, up_top_vel, 0);   
-    ROS_INFO("Setup up side");
+    // ROS_INFO("Setup up side");
     auto _ff = setup_feature_frame(ids_up_side, cur_up_side_pts, cur_up_side_un_pts, up_side_vel, 0);
     ff.insert(_ff.begin(), _ff.end());
 
     _ff = setup_feature_frame(ids_down_top, cur_down_top_pts, cur_down_top_un_pts, down_top_vel, 1);
     ff.insert(_ff.begin(), _ff.end());
     
-    ROS_INFO("Setup down side");
+    // ROS_INFO("Setup down side");
     _ff = setup_feature_frame(ids_down_side, cur_down_side_pts, cur_down_side_un_pts, down_side_vel, 1);
     ff.insert(_ff.begin(), _ff.end());
 
@@ -627,7 +641,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
     // ROS_INFO("Up top VEL %ld", up_top_vel.size());
     if (SHOW_TRACK) {
-        drawTrackFisheye(up_top_img, down_top_img, up_side_img, down_side_img);
+        drawTrackFisheye(_img, _img1,up_top_img, down_top_img, up_side_img, down_side_img);
     }
         
     prev_up_top_img = up_top_img;
@@ -655,19 +669,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     up_side_prevLeftPtsMap = pts_map(ids_up_side, cur_up_side_pts);
     down_side_prevLeftPtsMap = pts_map(ids_down_side, cur_down_side_pts);
 
-
-    // prev_img = cur_img;
-    // prev_gpu_img = cur_gpu_img;
-    // prev_pts = cur_pts;
-    // prev_un_pts = cur_un_pts;
-    // prev_un_pts_map = cur_un_pts_map;
-    // prev_time = cur_time;
     // hasPrediction = false;
-
-
-
-
-    auto ff =  setup_feature_frame();
+    auto ff = setup_feature_frame();
 
     printf("feature track whole time %f PTS %ld\n", t_r.toc(), cur_un_pts.size());
     return ff;

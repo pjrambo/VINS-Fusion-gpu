@@ -183,7 +183,7 @@ public:
                 ((double)imgWidth / 2),
                 ((double)0 - (double)imgHeight / 2),
                 f_center);
-        std::cout << objPoint << std::endl;
+        // std::cout << objPoint << std::endl;
 
         return map;
     }

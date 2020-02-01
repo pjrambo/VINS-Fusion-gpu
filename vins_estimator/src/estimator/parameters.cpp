@@ -31,6 +31,7 @@ std::string VINS_RESULT_PATH;
 std::string OUTPUT_FOLDER;
 std::string IMU_TOPIC;
 int ROW, COL;
+int SHOW_WIDTH;
 double TD;
 int NUM_OF_CAM;
 int STEREO;
@@ -215,6 +216,7 @@ void readParameters(std::string config_file)
 
     ROW = fsSettings["image_height"];
     COL = fsSettings["image_width"];
+    SHOW_WIDTH = fsSettings["show_width"];
     ROS_INFO("ROW: %d COL: %d ", ROW, COL);
 
     if(!USE_IMU)
