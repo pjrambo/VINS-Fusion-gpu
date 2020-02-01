@@ -62,7 +62,15 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
     for (auto &id_pts : image)
     {
         FeaturePerFrame f_per_fra(id_pts.second[0].second, td);
-        assert(id_pts.second[0].first == 0);
+        //In common stereo; the pts in left must in right
+        //But for stereo fisheye; this is not true due to the downward top view
+        //We need to modified this to enable downward top view
+        // assert(id_pts.second[0].first == 0);
+        if (id_pts.second[0].first != 0) {
+            //Skip this case now
+            continue;
+        }
+        
         if(id_pts.second.size() == 2)
         {
             f_per_fra.rightObservation(id_pts.second[1].second);
@@ -150,12 +158,24 @@ void FeatureManager::setDepth(const VectorXd &x)
 
         it_per_id.estimated_depth = 1.0 / x(++feature_index);
         //ROS_INFO("feature id %d , start_frame %d, depth %f ", it_per_id->feature_id, it_per_id-> start_frame, it_per_id->estimated_depth);
-        if (it_per_id.estimated_depth < 0)
-        {
-            it_per_id.solve_flag = 2;
+        if (FISHEYE) {
+            if (!it_per_id.depth_inited)
+            {
+                it_per_id.solve_flag = 2;
+            }
+            else {
+                it_per_id.solve_flag = 1;
+            }
+        } else {
+            if (it_per_id.estimated_depth < 0)
+            {
+                it_per_id.solve_flag = 2;
+            }
+            else {
+                it_per_id.solve_flag = 1;
+            }
         }
-        else
-            it_per_id.solve_flag = 1;
+
     }
 }
 
@@ -172,8 +192,10 @@ void FeatureManager::removeFailures()
 
 void FeatureManager::clearDepth()
 {
-    for (auto &it_per_id : feature)
+    for (auto &it_per_id : feature) {
         it_per_id.estimated_depth = -1;
+        it_per_id.depth_inited = false;
+    }
 }
 
 VectorXd FeatureManager::getDepthVector()
@@ -210,6 +232,48 @@ void FeatureManager::triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0, Eigen:
     point_3d(1) = triangulated_point(1) / triangulated_point(3);
     point_3d(2) = triangulated_point(2) / triangulated_point(3);
 }
+
+
+void FeatureManager::triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
+                        Eigen::Vector3d &point0, Eigen::Vector3d &point1, Eigen::Vector3d &point_3d)
+{
+    //TODO:Rewrite this for 3d point
+    
+    double p0z = point0[2];
+    double p1z = point1[2];
+    if(fabs(p0z) <1e-3) {
+        if (p0z < 0) {
+            p0z = -1e-3;
+        }
+        p0z = 1e-3;
+    }
+    
+    if(fabs(p1z) <1e-3) {
+        if (p1z < 0) {
+            p1z = -1e-3;
+        }
+        p1z = 1e-3;
+    }
+
+    double p0x =  point0[0]/p0z;
+    double p0y =  point0[0]/p0z;
+
+    double p1x =  point0[0]/p1z;
+    double p1y =  point0[0]/p1z;
+
+    Eigen::Matrix4d design_matrix = Eigen::Matrix4d::Zero();
+    design_matrix.row(0) = p0x * Pose0.row(2) - Pose0.row(0);
+    design_matrix.row(1) = p0y * Pose0.row(2) - Pose0.row(1);
+    design_matrix.row(2) = p1x * Pose1.row(2) - Pose1.row(0);
+    design_matrix.row(3) = p1y * Pose1.row(2) - Pose1.row(1);
+    Eigen::Vector4d triangulated_point;
+    triangulated_point =
+              design_matrix.jacobiSvd(Eigen::ComputeFullV).matrixV().rightCols<1>();
+    point_3d(0) = triangulated_point(0) / triangulated_point(3);
+    point_3d(1) = triangulated_point(1) / triangulated_point(3);
+    point_3d(2) = triangulated_point(2) / triangulated_point(3);
+}
+
 
 
 bool FeatureManager::solvePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P, 
@@ -265,7 +329,7 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
         vector<cv::Point3f> pts3D;
         for (auto &it_per_id : feature)
         {
-            if (it_per_id.estimated_depth > 0)
+            if (it_per_id.depth_inited)
             {
                 int index = frameCnt - it_per_id.start_frame;
                 if((int)it_per_id.feature_per_frame.size() >= index + 1)
@@ -303,7 +367,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
 {
     for (auto &it_per_id : feature)
     {
-        if (it_per_id.estimated_depth > 0)
+        if (it_per_id.depth_inited)
             continue;
 
         if(STEREO && it_per_id.feature_per_frame[0].is_stereo)
@@ -323,21 +387,27 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             rightPose.rightCols<1>() = -R1.transpose() * t1;
             //cout << "right pose " << rightPose << endl;
 
-            Eigen::Vector2d point0, point1;
+            Eigen::Vector3d point0, point1;
             Eigen::Vector3d point3d;
-            point0 = it_per_id.feature_per_frame[0].point.head(2);
-            point1 = it_per_id.feature_per_frame[0].pointRight.head(2);
+            point0 = it_per_id.feature_per_frame[0].point.head(3);
+            point1 = it_per_id.feature_per_frame[0].pointRight.head(3);
             //cout << "point0 " << point0.transpose() << endl;
             //cout << "point1 " << point1.transpose() << endl;
 
-            triangulatePoint(leftPose, rightPose, point0, point1, point3d);
+            triangulatePoint3DPts(leftPose, rightPose, point0, point1, point3d);
             Eigen::Vector3d localPoint;
             localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
             double depth = localPoint.z();
-            if (depth > 0)
+            it_per_id.depth_inited = true;
+            if (FISHEYE) {
                 it_per_id.estimated_depth = depth;
-            else
-                it_per_id.estimated_depth = INIT_DEPTH;
+            } else {
+                if (depth > 0)
+                    it_per_id.estimated_depth = depth;
+                else
+                    it_per_id.estimated_depth = INIT_DEPTH;
+            }
+
             /*
             Vector3d ptsGt = pts_gt[it_per_id.feature_id];
             printf("stereo %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id, point3d.x(), point3d.y(), point3d.z(),
@@ -369,10 +439,18 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             Eigen::Vector3d localPoint;
             localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
             double depth = localPoint.z();
-            if (depth > 0)
+
+            it_per_id.depth_inited = true;
+            
+            if (FISHEYE) {
                 it_per_id.estimated_depth = depth;
-            else
-                it_per_id.estimated_depth = INIT_DEPTH;
+            } else {
+                if (depth > 0)
+                    it_per_id.estimated_depth = depth;
+                else
+                    it_per_id.estimated_depth = INIT_DEPTH;
+            }
+            
             /*
             Vector3d ptsGt = pts_gt[it_per_id.feature_id];
             printf("motion  %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id, point3d.x(), point3d.y(), point3d.z(),
@@ -420,9 +498,11 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         //it_per_id->estimated_depth = svd_V[2] / svd_V[3];
 
         it_per_id.estimated_depth = svd_method;
+        it_per_id.depth_inited = true;
         //it_per_id->estimated_depth = INIT_DEPTH;
-
-        if (it_per_id.estimated_depth < 0.1)
+        if (FISHEYE) {
+            //Pass
+        } else if (it_per_id.estimated_depth < 0.1)
         {
             it_per_id.estimated_depth = INIT_DEPTH;
         }
@@ -471,10 +551,16 @@ void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3
                 Eigen::Vector3d w_pts_i = marg_R * pts_i + marg_P;
                 Eigen::Vector3d pts_j = new_R.transpose() * (w_pts_i - new_P);
                 double dep_j = pts_j(2);
-                if (dep_j > 0)
+
+                it->depth_inited = true;
+                if (FISHEYE) {
                     it->estimated_depth = dep_j;
-                else
-                    it->estimated_depth = INIT_DEPTH;
+                } else {
+                    if (dep_j > 0)
+                        it->estimated_depth = dep_j;
+                    else
+                        it->estimated_depth = INIT_DEPTH;
+                }
             }
         }
         // remove tracking-lost feature after marginalize

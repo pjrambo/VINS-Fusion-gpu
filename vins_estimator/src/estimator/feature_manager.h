@@ -71,6 +71,7 @@ class FeaturePerId
     vector<FeaturePerFrame> feature_per_frame;
     int used_num;
     double estimated_depth;
+    bool depth_inited = false;
     int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
 
     FeaturePerId(int _feature_id, int _start_frame)
@@ -100,6 +101,8 @@ class FeatureManager
     void triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vector3d tic[], Matrix3d ric[]);
     void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
                             Eigen::Vector2d &point0, Eigen::Vector2d &point1, Eigen::Vector3d &point_3d);
+    void triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
+                            Eigen::Vector3d &point0, Eigen::Vector3d &point1, Eigen::Vector3d &point_3d);
     void initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vector3d tic[], Matrix3d ric[]);
     bool solvePoseByPnP(Eigen::Matrix3d &R_initial, Eigen::Vector3d &P_initial, 
                             vector<cv::Point2f> &pts2D, vector<cv::Point3f> &pts3D);
