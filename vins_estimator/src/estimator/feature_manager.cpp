@@ -400,7 +400,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             double depth = localPoint.z();
             it_per_id.depth_inited = true;
             if (FISHEYE) {
-                it_per_id.estimated_depth = depth;
+                //Depth For fisheye should be the radius of the sphere; Not only z axis
+                it_per_id.estimated_depth = localPoint.norm();
             } else {
                 if (depth > 0)
                     it_per_id.estimated_depth = depth;
@@ -443,7 +444,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             it_per_id.depth_inited = true;
             
             if (FISHEYE) {
-                it_per_id.estimated_depth = depth;
+                //Depth For fisheye should be the radius of the sphere; Not only z axis
+                it_per_id.estimated_depth = localPoint.norm();
             } else {
                 if (depth > 0)
                     it_per_id.estimated_depth = depth;
@@ -502,6 +504,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         //it_per_id->estimated_depth = INIT_DEPTH;
         if (FISHEYE) {
             //Pass
+            Eigen::Vector3d svd(svd_V[0] / svd_V[3], svd_V[1] / svd_V[3], svd_V[2] / svd_V[3]);
+            it_per_id.estimated_depth = svd.norm();
         } else if (it_per_id.estimated_depth < 0.1)
         {
             it_per_id.estimated_depth = INIT_DEPTH;
@@ -554,7 +558,7 @@ void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3
 
                 it->depth_inited = true;
                 if (FISHEYE) {
-                    it->estimated_depth = dep_j;
+                    it->estimated_depth = pts_j.norm();
                 } else {
                     if (dep_j > 0)
                         it->estimated_depth = dep_j;

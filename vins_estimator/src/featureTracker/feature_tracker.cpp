@@ -334,7 +334,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
 
 FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
     FeatureFrame featureFrame;
-    ROS_INFO("Setup feature frame pts %ld un pts %ld vel %ld on Camera %d", cur_pts.size(), cur_un_pts.size(), cur_pts_vel.size(), camera_id);
+    // ROS_INFO("Setup feature frame pts %ld un pts %ld vel %ld on Camera %d", cur_pts.size(), cur_un_pts.size(), cur_pts_vel.size(), camera_id);
     for (size_t i = 0; i < ids.size(); i++)
     {
         int feature_id = ids[i];
@@ -481,7 +481,6 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     cv::cuda::GpuMat cur_gpu_pts(cur_pts);
     cv::cuda::GpuMat gpu_status;
     vector<uchar> status;
-    ROS_INFO("Track %d pts", prev_pts.size());
 
     //Assume No Prediction Need to add later
     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
@@ -489,7 +488,6 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     d_pyrLK_sparse->calc(prev_img, cur_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
 
     cur_gpu_pts.download(cur_pts);
-    ROS_INFO("GPU %d pts cur %d pts", cur_gpu_pts.size(), cur_pts.size());
 
     gpu_status.download(status);
     if(FLOW_BACK)
@@ -537,7 +535,6 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
 
     for (auto &n : track_cnt)
         n++;
-    ROS_INFO("Remain %d pts", prev_pts.size());
 
     return cur_pts;
 }
@@ -1333,20 +1330,6 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
         }
     }
 
-    //draw prediction
-    /*
-    for(size_t i = 0; i < predict_pts_debug.size(); i++)
-    {
-        cv::circle(imTrack, predict_pts_debug[i], 2, cv::Scalar(0, 170, 255), 2);
-    }
-    */
-    //printf("predict pts size %d \n", (int)predict_pts_debug.size());
-
-
-    //cv::Mat imCur2Compress;
-    //cv::resize(imCur2, imCur2Compress, cv::Size(cols, rows / 2));
-
-    cv::imshow("tracking", imTrack);
     cv::waitKey(2);
 }
 
