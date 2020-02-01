@@ -334,7 +334,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
 
 FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
     FeatureFrame featureFrame;
-    ROS_INFO("Setup feature frame pts %ld un pts %ld vel %ld", cur_pts.size(), cur_un_pts.size(), cur_pts_vel.size());
+    ROS_INFO("Setup feature frame pts %ld un pts %ld vel %ld on Camera %d", cur_pts.size(), cur_un_pts.size(), cur_pts_vel.size(), camera_id);
     for (size_t i = 0; i < ids.size(); i++)
     {
         int feature_id = ids[i];
@@ -345,7 +345,6 @@ FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Poi
         double p_u, p_v;
         p_u = cur_pts[i].x;
         p_v = cur_pts[i].y;
-        int camera_id = 0;
         double velocity_x, velocity_y, velocity_z;
         velocity_x = cur_pts_vel[i].x;
         velocity_y = cur_pts_vel[i].y;
@@ -353,6 +352,9 @@ FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Poi
 
         TrackFeatureNoId xyz_uv_velocity;
         xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y, velocity_z;
+
+        // ROS_INFO("FeaturePts Id %d; Cam %d; pos %f, %f, %f uv %f, %f, vel %f, %f, %f", feature_id, camera_id,
+            // x, y, z, p_u, p_v, velocity_x, velocity_y, velocity_z);
         featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
 
@@ -362,12 +364,14 @@ FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Poi
 
 FeatureFrame FeatureTracker::setup_feature_frame() {
     auto ff = setup_feature_frame(ids_up_top, cur_up_top_pts, cur_up_top_un_pts, up_top_vel, 0);   
+    ROS_INFO("Setup up side");
     auto _ff = setup_feature_frame(ids_up_side, cur_up_side_pts, cur_up_side_un_pts, up_side_vel, 0);
     ff.insert(_ff.begin(), _ff.end());
 
     _ff = setup_feature_frame(ids_down_top, cur_down_top_pts, cur_down_top_un_pts, down_top_vel, 1);
     ff.insert(_ff.begin(), _ff.end());
     
+    ROS_INFO("Setup down side");
     _ff = setup_feature_frame(ids_down_side, cur_down_side_pts, cur_down_side_un_pts, down_side_vel, 1);
     ff.insert(_ff.begin(), _ff.end());
 
@@ -389,7 +393,8 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsTop(vector<cv::Point2f> &pts, 
             a = a*2;
         }
         cam->liftProjective(a, b);
-        un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
+        un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
+        // un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
     }
     return un_pts;
 }
@@ -414,10 +419,13 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
         if(ENABLE_DOWNSAMPLE) {
             a = a*2;
         }
-        cam->liftProjective(a, b);
-
 
         int side_pos_id = floor(a.x() / top_size.width) + 1;
+
+        a.x() = a.x() - floor(a.x() / top_size.width)*top_size.width;
+
+        cam->liftProjective(a, b);
+
         // ROS_INFO("Pts x is %f, is at %d direction width %d", a.x(), side_pos_id, top_size.width);
         
         if (side_pos_id == 1) {
@@ -439,16 +447,18 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
 
         b.normalize();
         
-        if (b.z() < - 1e-2) {
-            //Is under plane, z is -1
-            un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), -1));
-        } else if (b.z() > 1e-2) {
-            //Is up plane, z is 1
-            un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
-        } else {
-            //Near plane
-            un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
-        }
+        un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
+        
+        // if (b.z() < - 1e-2) {
+        //     //Is under plane, z is -1
+        //     un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), -1));
+        // } else if (b.z() > 1e-2) {
+        //     //Is up plane, z is 1
+        //     un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
+        // } else {
+        //     //Near plane
+        //     un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
+        // }
     }
     return un_pts;
 }
@@ -538,6 +548,7 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
 
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
     TicToc t_r;
+    cur_time = _cur_time;
 
     auto fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
     auto fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
@@ -635,6 +646,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     prev_down_top_un_pts_map = cur_down_top_un_pts_map;
     prev_up_side_un_pts_map = cur_up_side_un_pts_map;
     prev_down_side_un_pts_map = cur_up_side_un_pts_map;
+    prev_time = cur_time;
 
     up_top_prevLeftPtsMap = pts_map(ids_up_top, cur_up_top_pts);
     down_top_prevLeftPtsMap = pts_map(ids_down_top, cur_down_top_pts);
@@ -1202,6 +1214,8 @@ vector<cv::Point3f> FeatureTracker::ptsVelocity3D(vector<int> &ids, vector<cv::P
                 double v_y = (cur_pts[i].y - it->second.y) / dt;
                 double v_z = (cur_pts[i].z - it->second.z) / dt;
                 pts_velocity.push_back(cv::Point3f(v_x, v_y, v_z));
+                ROS_INFO("Dt %f, vel %f %f %f", v_x, v_y, v_z);
+
             }
             else
                 pts_velocity.push_back(cv::Point3f(0, 0, 0));
