@@ -303,7 +303,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
     int lack_up_top_pts = require_pts - static_cast<int>(cur_pts.size());
 
     //Add Points Top
-    ROS_INFO("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
+    // ROS_INFO("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
     if (lack_up_top_pts > require_pts/4) {
         if(mask.empty())
             cout << "mask is empty " << endl;
@@ -328,7 +328,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
         n_pts.clear();
     }
 
-    ROS_INFO("Detected %d npts", n_pts.size());
+    // ROS_INFO("Detected %d npts", n_pts.size());
 
  }
 
@@ -393,8 +393,11 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsTop(vector<cv::Point2f> &pts, 
             a = a*2;
         }
         cam->liftProjective(a, b);
+#ifdef UNIT_SPHERE_ERROR
         un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
-        // un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
+#else
+        un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
+#endif
     }
     return un_pts;
 }
@@ -446,19 +449,21 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
         }
 
         b.normalize();
-        
+#ifdef UNIT_SPHERE_ERROR
         un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
+#else
+        if (fabs(b.z()) < 1e-3) {
+            b.z() = 1e-3;
+        }
         
-        // if (b.z() < - 1e-2) {
-        //     //Is under plane, z is -1
-        //     un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), -1));
-        // } else if (b.z() > 1e-2) {
-        //     //Is up plane, z is 1
-        //     un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
-        // } else {
-        //     //Near plane
-        //     un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
-        // }
+        if (b.z() < - 1e-2) {
+            //Is under plane, z is -1
+            un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), -1));
+        } else if (b.z() > 1e-2) {
+            //Is up plane, z is 1
+            un_pts.push_back(cv::Point3f(b.x() / b.z(), b.y() / b.z(), 1));
+        }
+#endif
     }
     return un_pts;
 }
@@ -1214,7 +1219,7 @@ vector<cv::Point3f> FeatureTracker::ptsVelocity3D(vector<int> &ids, vector<cv::P
                 double v_y = (cur_pts[i].y - it->second.y) / dt;
                 double v_z = (cur_pts[i].z - it->second.z) / dt;
                 pts_velocity.push_back(cv::Point3f(v_x, v_y, v_z));
-                ROS_INFO("Dt %f, vel %f %f %f", v_x, v_y, v_z);
+                // ROS_INFO("Dt %f, vel %f %f %f", v_x, v_y, v_z);
 
             }
             else
