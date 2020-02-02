@@ -233,7 +233,7 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     if (enable_rear_side) {
         side_count = 4;
     }
-    
+
     for (int i = 1; i < side_count + 1; i ++) {
         cv::line(imUpSide, cv::Point2d(i*width, 0), cv::Point2d(i*width, side_height), cv::Scalar(255, 0, 0), 1);
         cv::line(imDownSide, cv::Point2d(i*width, 0), cv::Point2d(i*width, side_height), cv::Scalar(255, 0, 0), 1);
@@ -327,7 +327,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
     int lack_up_top_pts = require_pts - static_cast<int>(cur_pts.size());
 
     //Add Points Top
-    // ROS_INFO("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
+    ROS_DEBUG("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
     if (lack_up_top_pts > require_pts/4) {
         if(mask.empty())
             cout << "mask is empty " << endl;
@@ -352,8 +352,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
         n_pts.clear();
     }
 
-    // ROS_INFO("Detected %d npts", n_pts.size());
-
+    ROS_DEBUG("Detected %d npts", n_pts.size());
  }
 
 void FeatureTracker::setup_feature_frame(FeatureFrame & ff, vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
@@ -602,12 +601,6 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, FLOW_BACK);
     }
     
-    if (enable_down_side) {
-        ids_down_side = ids_up_side;
-        auto down_side_init_pts = cur_up_side_pts;
-        cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
-    // ROS_INFO("Down side try to track %d pts; gives %d", cur_up_side_pts.size(), cur_down_side_pts.size());
-    }
 
     setMaskFisheye();
     if (enable_up_top) {
@@ -622,6 +615,16 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     }
 
     addPointsFisheye();
+
+
+    if (enable_down_side) {
+        ids_down_side = ids_up_side;
+        auto down_side_init_pts = cur_up_side_pts;
+        cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
+        ROS_INFO("Down side try to track %d pts; gives %d", cur_up_side_pts.size(), cur_down_side_pts.size());
+    }
+
+
 
 
 
