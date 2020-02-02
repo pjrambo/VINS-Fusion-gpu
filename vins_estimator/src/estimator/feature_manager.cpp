@@ -388,6 +388,13 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
 
                 triangulatePoint3DPts(leftPose, rightPose, point0, point1, point3d);
                 Eigen::Vector3d localPoint;
+
+                //Note depth is on frame 0
+                t0 = Ps[it_per_id.start_frame] + Rs[it_per_id.start_frame] * tic[0];
+                R0 = Rs[it_per_id.start_frame] * ric[0];
+                leftPose.leftCols<3>() = R0.transpose();
+                leftPose.rightCols<1>() = -R0.transpose() * t0;
+
                 localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
                 double depth = localPoint.z();
                 ROS_INFO("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());

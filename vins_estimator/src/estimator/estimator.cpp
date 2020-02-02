@@ -1477,10 +1477,18 @@ double Estimator::reprojectionError(Matrix3d &Ri, Vector3d &Pi, Matrix3d &rici, 
 {
     Vector3d pts_w = Ri * (rici * (depth * uvi) + tici) + Pi;
     Vector3d pts_cj = ricj.transpose() * (Rj.transpose() * (pts_w - Pj) - ticj);
-    Vector2d residual = (pts_cj / pts_cj.z()).head<2>() - uvj.head<2>();
-    double rx = residual.x();
-    double ry = residual.y();
-    return sqrt(rx * rx + ry * ry);
+
+    if (FISHEYE) {
+        //In Fisheye we use 3d unit sphere to represent point position
+        return (pts_cj.normalized() - uvj).norm();
+    } else {
+        Vector2d residual = (pts_cj / pts_cj.z()).head<2>() - uvj.head<2>();
+        double rx = residual.x();
+        double ry = residual.y();
+        return sqrt(rx * rx + ry * ry);
+    }
+
+    return 100000;
 }
 
 void Estimator::outliersRejection(set<int> &removeIndex)
