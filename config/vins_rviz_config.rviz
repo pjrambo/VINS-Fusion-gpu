@@ -221,7 +221,7 @@ Visualization Manager:
           Marker Topic: /vins_estimator/camera_pose_visual
           Name: CameraMarker
           Namespaces:
-            {}
+            CameraPoseVisualization: true
           Queue Size: 100
           Value: true
         - Alpha: 1
@@ -415,7 +415,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 6.362298488616943
+      Distance: 3.0226054191589355
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -430,10 +430,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5647967457771301
+      Pitch: 1.1147974729537964
       Target Frame: world
       Value: ThirdPersonFollower (rviz)
-      Yaw: 4.319289684295654
+      Yaw: 3.6361310482025146
     Saved: ~
 Window Geometry:
   Displays:
@@ -452,6 +452,6 @@ Window Geometry:
     collapsed: false
   Width: 625
   X: 455
-  Y: 81
+  Y: 28
   loop_match_Image:
     collapsed: false

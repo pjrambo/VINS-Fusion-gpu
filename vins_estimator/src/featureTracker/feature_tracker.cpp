@@ -159,28 +159,25 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
     return sqrt(dx * dx + dy * dy);
 }
 
-
 void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, vector<int> track_cnt, map<int, cv::Point2f> prev_pts) {
+    char idtext[10] = {0};
     for (int j = 0; j < pts.size(); j++) {
         double len = 0;
         if (track_cnt.size() > 0) {
             len = std::min(1.0, 1.0 * track_cnt[j] / 20);
         }
         cv::circle(img, pts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+        sprintf(idtext, "%d", ids[j]);
+	    cv::putText(img, idtext, pts[j] - cv::Point2f(5, 0), CV_FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(252, 255, 240), 3);
+
     }
 
     for (size_t i = 0; i < ids.size(); i++)
     {
         int id = ids[i];
         auto mapIt = prev_pts.find(id);
-        if(mapIt != prev_pts.end())
-        {
-            if(ENABLE_DOWNSAMPLE) {
-                cv::arrowedLine(img, pts[i]*2, mapIt->second*2, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
-            } else {
-                cv::arrowedLine(img, pts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
-            }
-        } else {
+        if(mapIt != prev_pts.end()) {
+            cv::arrowedLine(img, pts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
         }
     }
 }
@@ -243,7 +240,7 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     cv::hconcat(up_camera, down_camera, top_cam);
     cv::hconcat(fisheye_up, top_cam, top_cam);
     cv::hconcat(top_cam, fisheye_down, top_cam); 
-    ROS_INFO("Imtrack width %d", imUpSide.size().width);
+    // ROS_INFO("Imtrack width %d", imUpSide.size().width);
     cv::resize(top_cam, top_cam, cv::Size(imUpSide.size().width, imUpSide.size().width/4));
     
     cv::vconcat(top_cam, imTrack, imTrack);
@@ -259,7 +256,7 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     cv::resize(imTrack, imTrack, cv::Size(), fx, fx);
     cv::imshow("tracking", imTrack);
     // cv::imshow("tracking_top", top_cam);
-    cv::waitKey(2);
+    cv::waitKey(10);
 }
 
 
@@ -288,7 +285,7 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
 
 void FeatureTracker::addPointsFisheye()
 {
-    ROS_INFO("Up top new pts %d", n_pts_up_top.size());
+    // ROS_INFO("Up top new pts %d", n_pts_up_top.size());
     for (auto &p : n_pts_up_top)
     {
         cur_up_top_pts.push_back(p);
@@ -346,8 +343,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
 
  }
 
-FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
-    FeatureFrame featureFrame;
+void FeatureTracker::setup_feature_frame(FeatureFrame & ff, vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
     // ROS_INFO("Setup feature frame pts %ld un pts %ld vel %ld on Camera %d", cur_pts.size(), cur_un_pts.size(), cur_pts_vel.size(), camera_id);
     for (size_t i = 0; i < ids.size(); i++)
     {
@@ -369,28 +365,20 @@ FeatureFrame FeatureTracker::setup_feature_frame(vector<int> ids, vector<cv::Poi
 
         // ROS_INFO("FeaturePts Id %d; Cam %d; pos %f, %f, %f uv %f, %f, vel %f, %f, %f", feature_id, camera_id,
             // x, y, z, p_u, p_v, velocity_x, velocity_y, velocity_z);
-        featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
+        ff[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
-
-    return featureFrame;
  }
 
 
 FeatureFrame FeatureTracker::setup_feature_frame() {
-    auto ff = setup_feature_frame(ids_up_top, cur_up_top_pts, cur_up_top_un_pts, up_top_vel, 0);   
-    // ROS_INFO("Setup up side");
-    auto _ff = setup_feature_frame(ids_up_side, cur_up_side_pts, cur_up_side_un_pts, up_side_vel, 0);
-    ff.insert(_ff.begin(), _ff.end());
-
-    _ff = setup_feature_frame(ids_down_top, cur_down_top_pts, cur_down_top_un_pts, down_top_vel, 1);
-    ff.insert(_ff.begin(), _ff.end());
-    
-    // ROS_INFO("Setup down side");
-    _ff = setup_feature_frame(ids_down_side, cur_down_side_pts, cur_down_side_un_pts, down_side_vel, 1);
-    ff.insert(_ff.begin(), _ff.end());
+    FeatureFrame ff;
+    setup_feature_frame(ff, ids_up_top, cur_up_top_pts, cur_up_top_un_pts, up_top_vel, 0);   
+    setup_feature_frame(ff, ids_up_side, cur_up_side_pts, cur_up_side_un_pts, up_side_vel, 0);
+    setup_feature_frame(ff, ids_down_top, cur_down_top_pts, cur_down_top_un_pts, down_top_vel, 1);
+    setup_feature_frame(ff, ids_down_side, cur_down_side_pts, cur_down_side_un_pts, down_side_vel, 1);
 
 
-    ROS_INFO("Frame size %d", ff.size());
+    ROS_INFO("Frame size %ld", ff.size());
 
     return ff;
 }
@@ -454,7 +442,7 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
         } else if (side_pos_id == 4) {
             b = t4 * b;
         } else {
-            ROS_ERROR("Err pts img pos id %d! x %f width", side_pos_id, side_pos_id, top_size.width);
+            ROS_ERROR("Err pts img pos id %d!! x %f width %d", side_pos_id, a.x(), top_size.width);
             exit(-1);
         }
 
@@ -556,7 +544,7 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
 
 map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     map<int, cv::Point2f> prevMap;
-    for (int i = 0; i < ids.size(); i ++) {
+    for (unsigned int i = 0; i < ids.size(); i ++) {
         prevMap[ids[i]] = cur_pts[i];
     }
     return prevMap;

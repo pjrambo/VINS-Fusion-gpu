@@ -35,7 +35,7 @@ public:
             ->generateCameraFromYamlFile(camera_config_file);
 
         undistMaps = generateAllUndistMap(cam, cameraRotation, imgWidth, fov);
-        ROS_INFO("undismap size %d", undistMaps.size());
+        // ROS_INFO("undismap size %ld", undistMaps.size());
         if (enable_cuda) {
             for (auto mat : undistMaps) {
                 cv::Mat xy[2];
@@ -58,7 +58,7 @@ public:
     std::vector<cv::cuda::GpuMat> undist_all_cuda(cv::Mat image) {
         cv::cuda::GpuMat img_cuda(image);
         std::vector<cv::cuda::GpuMat> ret;
-        for (int i = 0; i < undistMaps.size(); i++) {
+        for (unsigned int i = 0; i < undistMaps.size(); i++) {
             cv::cuda::GpuMat output;
             cv::cuda::remap(img_cuda, output, undistMapsGPUX[i], undistMapsGPUY[i], cv::INTER_LINEAR);
             ret.push_back(output);
@@ -72,7 +72,7 @@ public:
                                           const unsigned &imgWidth,
                                           const double &fov //degree
     ) {
-        ROS_INFO("Generating undistortion maps:");
+        // ROS_INFO("Generating undistortion maps:");
         double sideVerticalFOV = (fov - 180) * DEG_TO_RAD;
         if (sideVerticalFOV < 0)
             sideVerticalFOV = 0;
@@ -90,7 +90,7 @@ public:
             Eigen::Vector3d(0, 1, 1),
             Eigen::Vector3d(1, 1, 1),
         };
-        for (int i = 0; i < sizeof(testPoints) / sizeof(Eigen::Vector3d); i++)
+        for (unsigned int i = 0; i < sizeof(testPoints) / sizeof(Eigen::Vector3d); i++)
         {
             Eigen::Vector2d temp;
             p_cam->spaceToPlane(testPoints[i], temp);
@@ -103,7 +103,7 @@ public:
         // calculate focal length of fake pinhole cameras (pixel size = 1 unit)
         double f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
         double f_side = (double)imgWidth / 2;
-        ROS_INFO("Pinhole cameras focal length: center %f side %f", f_center, f_side);
+        // ROS_INFO("Pinhole cameras focal length: center %f side %f", f_center, f_side);
 
         cam_top = camodocal::PinholeCameraPtr( new camodocal::PinholeCamera("top",
                   imgWidth, imgWidth,0, 0, 0, 0,
@@ -144,13 +144,13 @@ public:
         const unsigned &imgHeight,
         const double &f_center) {
                 cv::Mat map = cv::Mat(imgHeight, imgWidth, CV_32FC2);
-        ROS_INFO("Generating map of size (%d,%d)", map.size[0], map.size[1]);
-        ROS_INFO("Perspective facing (%.2f,%.2f,%.2f)",
+        ROS_DEBUG("Generating map of size (%d,%d)", map.size[0], map.size[1]);
+        ROS_DEBUG("Perspective facing (%.2f,%.2f,%.2f)",
                 (rotation * Eigen::Vector3d(0, 0, 1))[0],
                 (rotation * Eigen::Vector3d(0, 0, 1))[1],
                 (rotation * Eigen::Vector3d(0, 0, 1))[2]);
-        for (int x = 0; x < imgWidth; x++)
-            for (int y = 0; y < imgHeight; y++)
+        for (unsigned int x = 0; x < imgWidth; x++)
+            for (unsigned int y = 0; y < imgHeight; y++)
             {
                 Eigen::Vector3d objPoint =
                     rotation *
@@ -163,7 +163,7 @@ public:
                 map.at<cv::Vec2f>(cv::Point(x, y)) = cv::Vec2f(imgPoint.x(), imgPoint.y());
             }
 
-        ROS_INFO("Upper corners: (%.2f, %.2f), (%.2f, %.2f)",
+        ROS_DEBUG("Upper corners: (%.2f, %.2f), (%.2f, %.2f)",
                 map.at<cv::Vec2f>(cv::Point(0, 0))[0],
                 map.at<cv::Vec2f>(cv::Point(0, 0))[1],
                 map.at<cv::Vec2f>(cv::Point(imgWidth - 1, 0))[0],

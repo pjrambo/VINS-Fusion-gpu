@@ -51,11 +51,6 @@ void Estimator::setParameter()
 
 void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 {
-    static int img_count = 0 ;
-    // if (img_count ++ % 3 == 0) {
-    //    return;
-    // }
-
     static int img_track_count = 0;
     static double sum_time = 0;
 //     if(begin_time_count<=0)
@@ -458,7 +453,9 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         // stereo + IMU initilization
         if(STEREO && USE_IMU)
         {
+            ROS_INFO("Init by pose pnp...");
             f_manager.initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
+            ROS_INFO("Triangulation...");
             f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
             if (frame_count == WINDOW_SIZE)
             {
@@ -480,6 +477,7 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
                 slideWindow();
                 ROS_INFO("Initialization finish!");
             }
+
         }
 
         // stereo only initilization
@@ -535,6 +533,7 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
             setParameter();
             ROS_WARN("system reboot!");
             //exit(-1);
+            cv::waitKey(-1);
             return;
         }
 
