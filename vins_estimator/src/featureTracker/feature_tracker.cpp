@@ -403,9 +403,6 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsTop(vector<cv::Point2f> &pts, 
     {
         Eigen::Vector2d a(pts[i].x, pts[i].y);
         Eigen::Vector3d b;
-        if(ENABLE_DOWNSAMPLE) {
-            a = a*2;
-        }
         cam->liftProjective(a, b);
         b.normalize();
 #ifdef UNIT_SPHERE_ERROR

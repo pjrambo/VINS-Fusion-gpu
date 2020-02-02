@@ -14,9 +14,11 @@
 #include <algorithm>
 #include <vector>
 #include <numeric>
+
 using namespace std;
 
 #include <eigen3/Eigen/Dense>
+
 using namespace Eigen;
 
 #include <ros/console.h>
@@ -66,18 +68,23 @@ class FeaturePerFrame
 class FeaturePerId
 {
   public:
-    const int feature_id;
-    int start_frame;
+    const int feature_id = -1;
+    int start_frame = -1;
     vector<FeaturePerFrame> feature_per_frame;
-    int used_num;
-    double estimated_depth;
+    int used_num = 0;
+    double estimated_depth = -1;
     bool depth_inited = false;
-    int solve_flag; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
+    int solve_flag = 0; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
+    bool good_for_solving = false;
 
     FeaturePerId(int _feature_id, int _start_frame)
         : feature_id(_feature_id), start_frame(_start_frame),
           used_num(0), estimated_depth(-1.0), solve_flag(0)
     {
+    }
+
+    FeaturePerId() {
+
     }
 
     int endFrame();
@@ -94,10 +101,10 @@ class FeatureManager
     bool addFeatureCheckParallax(int frame_count, const FeatureFrame &image, double td);
     vector<pair<Vector3d, Vector3d>> getCorresponding(int frame_count_l, int frame_count_r);
     //void updateDepth(const VectorXd &x);
-    void setDepth(const VectorXd &x);
+    void setDepth(std::map<int, double> deps);
     void removeFailures();
     void clearDepth();
-    VectorXd getDepthVector();
+    std::map<int, double> getDepthVector();
     void triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vector3d tic[], Matrix3d ric[]);
     void triangulatePoint(Eigen::Matrix<double, 3, 4> &Pose0, Eigen::Matrix<double, 3, 4> &Pose1,
                             Eigen::Vector2d &point0, Eigen::Vector2d &point1, Eigen::Vector3d &point_3d);
@@ -110,7 +117,7 @@ class FeatureManager
     void removeBack();
     void removeFront(int frame_count);
     void removeOutlier(set<int> &outlierIndex);
-    list<FeaturePerId> feature;
+    map<int, FeaturePerId> feature;
     int last_track_num;
     double last_average_parallax;
     int new_feature_num;

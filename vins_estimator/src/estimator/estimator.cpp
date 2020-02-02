@@ -10,6 +10,8 @@
 #include "estimator.h"
 #include "../utility/visualization.h"
 
+#define DEBUG_DISABLE_STEREO_RES
+
 Estimator::Estimator(): f_manager{Rs}
 {
     ROS_INFO("init begins");
@@ -475,7 +477,11 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
                 solver_flag = NON_LINEAR;
                 optimization();
                 slideWindow();
+
+                // set<int> removeIndex;
+                // outliersRejection(removeIndex);
                 ROS_INFO("Initialization finish!");
+                // exit(-1);
             }
 
         }
@@ -588,8 +594,9 @@ bool Estimator::initialStructure()
     Vector3d T[frame_count + 1];
     map<int, Vector3d> sfm_tracked_points;
     vector<SFMFeature> sfm_f;
-    for (auto &it_per_id : f_manager.feature)
+    for (auto &_it : f_manager.feature)
     {
+        auto & it_per_id = _it.second;
         int imu_j = it_per_id.start_frame - 1;
         SFMFeature tmp_feature;
         tmp_feature.state = false;
@@ -832,9 +839,16 @@ void Estimator::vector2double()
     }
 
 
-    VectorXd dep = f_manager.getDepthVector();
-    for (int i = 0; i < f_manager.getFeatureCount(); i++)
-        para_Feature[i][0] = dep(i);
+    auto deps = f_manager.getDepthVector();
+    param_feature_id.clear();
+
+    for (auto & it : deps) {
+        para_Feature[param_feature_id.size()][0] = it.second;
+        param_feature_id_to_index[it.first] = param_feature_id.size();
+        param_feature_id.push_back(it.first);
+        
+    }
+
 
     para_Td[0][0] = td;
 }
@@ -917,10 +931,14 @@ void Estimator::double2vector()
         }
     }
 
-    VectorXd dep = f_manager.getDepthVector();
-    for (int i = 0; i < f_manager.getFeatureCount(); i++)
-        dep(i) = para_Feature[i][0];
-    f_manager.setDepth(dep);
+    std::map<int, double> deps;
+    for (int i = 0; i < param_feature_id.size(); i++) {
+        int _id = param_feature_id[i];
+        ROS_INFO("Id %d depth %f", i, 1/para_Feature[i][0]);
+        deps[_id] = para_Feature[i][0];
+    }
+
+    f_manager.setDepth(deps);
 
     if(USE_IMU)
         td = para_Td[0][0];
@@ -1037,48 +1055,52 @@ void Estimator::optimization()
     }
 
     int f_m_cnt = 0;
-    int feature_index = -1;
-    for (auto &it_per_id : f_manager.feature)
+    for (auto &_it : f_manager.feature)
     {
+        auto & it_per_id = _it.second;
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if (it_per_id.used_num < 4)
             continue;
  
-        ++feature_index;
+        int feature_index = param_feature_id_to_index[it_per_id.feature_id];
 
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
         
         Vector3d pts_i = it_per_id.feature_per_frame[0].point;
 
-        for (auto &it_per_frame : it_per_id.feature_per_frame)
-        {
-            imu_j++;
-            if (imu_i != imu_j)
+        if (it_per_id.good_for_solving) {
+            for (auto &it_per_frame : it_per_id.feature_per_frame)
             {
-                Vector3d pts_j = it_per_frame.point;
-                ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
-                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
-            }
+                imu_j++;
+                if (imu_i != imu_j)
+                {
+                    Vector3d pts_j = it_per_frame.point;
+                    ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
+                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                    problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
+                }
 
-            if(STEREO && it_per_frame.is_stereo)
-            {                
-                Vector3d pts_j_right = it_per_frame.pointRight;
-                if(imu_i != imu_j)
-                {
-                    ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
-                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                    problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+#ifndef DEBUG_DISABLE_STEREO_RES
+                if(STEREO && it_per_frame.is_stereo)
+                {                
+                    Vector3d pts_j_right = it_per_frame.pointRight;
+                    if(imu_i != imu_j)
+                    {
+                        ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                        problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                    }
+                    else
+                    {
+                        ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                        problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                    }
+                
                 }
-                else
-                {
-                    ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
-                                                                 it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                    problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
-                }
-               
+#endif
+                f_m_cnt++;
             }
-            f_m_cnt++;
         }
     }
 
@@ -1147,14 +1169,14 @@ void Estimator::optimization()
         }
 
         {
-            int feature_index = -1;
-            for (auto &it_per_id : f_manager.feature)
+            for (auto &_it : f_manager.feature)
             {
+                auto & it_per_id = _it.second;
                 it_per_id.used_num = it_per_id.feature_per_frame.size();
-                if (it_per_id.used_num < 4)
+                if (it_per_id.used_num < 4 || !it_per_id.good_for_solving)
                     continue;
 
-                ++feature_index;
+                int feature_index = param_feature_id_to_index[it_per_id.feature_id];
 
                 int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
                 if (imu_i != 0)
@@ -1175,6 +1197,7 @@ void Estimator::optimization()
                                                                                         vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
                     }
+#ifndef DEBUG_DISABLE_STEREO_RES
                     if(STEREO && it_per_frame.is_stereo)
                     {
                         Vector3d pts_j_right = it_per_frame.pointRight;
@@ -1197,6 +1220,7 @@ void Estimator::optimization()
                             marginalization_info->addResidualBlockInfo(residual_block_info);
                         }
                     }
+#endif
                 }
             }
         }
@@ -1448,8 +1472,9 @@ void Estimator::predictPtsInNextFrame()
     nextT = curT * (prevT.inverse() * curT);
     map<int, Eigen::Vector3d> predictPts;
 
-    for (auto &it_per_id : f_manager.feature)
+    for (auto &_it : f_manager.feature)
     {
+        auto & it_per_id = _it.second;
         if(it_per_id.estimated_depth > 0)
         {
             int firstIndex = it_per_id.start_frame;
@@ -1495,8 +1520,9 @@ void Estimator::outliersRejection(set<int> &removeIndex)
 {
     //return;
     int feature_index = -1;
-    for (auto &it_per_id : f_manager.feature)
+    for (auto &_it : f_manager.feature)
     {
+        auto & it_per_id = _it.second;
         double err = 0;
         int errCnt = 0;
         it_per_id.used_num = it_per_id.feature_per_frame.size();
@@ -1506,12 +1532,24 @@ void Estimator::outliersRejection(set<int> &removeIndex)
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
         Vector3d pts_i = it_per_id.feature_per_frame[0].point;
         double depth = it_per_id.estimated_depth;
+
+        Vector3d pts_w = Rs[imu_i] * (ric[0] * (depth * pts_i) + tic[0]) + Ps[imu_i];
+        ROS_INFO("PT %d, STEREO %d w %f %f %f drone %f %f %f ptun %f %f %f, depth %f", 
+            it_per_id.feature_id,
+            it_per_id.feature_per_frame.front().is_stereo, 
+            pts_w.x(), pts_w.y(), pts_w.z(),
+            Ps[imu_i].x(), Ps[imu_i].y(), Ps[imu_i].z(),
+            pts_i.x(), pts_i.y(), pts_i.z(),
+            depth
+        );
+
         for (auto &it_per_frame : it_per_id.feature_per_frame)
         {
             imu_j++;
+                
             if (imu_i != imu_j)
             {
-                Vector3d pts_j = it_per_frame.point;             
+                Vector3d pts_j = it_per_frame.point;     
                 double tmp_error = reprojectionError(Rs[imu_i], Ps[imu_i], ric[0], tic[0], 
                                                     Rs[imu_j], Ps[imu_j], ric[0], tic[0],
                                                     depth, pts_i, pts_j);
@@ -1545,8 +1583,11 @@ void Estimator::outliersRejection(set<int> &removeIndex)
             }
         }
         double ave_err = err / errCnt;
-        if(ave_err * FOCAL_LENGTH > 3)
+        if(ave_err * FOCAL_LENGTH > 3) {
+            ROS_INFO("Removing feature %d...", it_per_id.feature_id);
             removeIndex.insert(it_per_id.feature_id);
+        }
+
 
     }
 }
