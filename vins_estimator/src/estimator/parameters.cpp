@@ -42,6 +42,7 @@ int enable_down_top;
 int enable_up_side;
 int enable_down_side;
 int enable_rear_side;
+double depth_estimate_baseline;
 
 int USE_IMU;
 int MULTIPLE_THREAD;
@@ -117,6 +118,8 @@ void readParameters(std::string config_file)
     enable_down_top = fsSettings["enable_down_top"];
     enable_down_side = fsSettings["enable_down_side"];
     enable_rear_side = fsSettings["enable_rear_side"];
+
+    depth_estimate_baseline = fsSettings["depth_estimate_baseline"];
 
     USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
 

@@ -354,16 +354,15 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
 {
     for (auto &it_per_id : feature)
     {
-
-        
         if (it_per_id.depth_inited)
             continue;
+
+        ROS_DEBUG("Feature ID %d IS stereo %d dep %d %f", it_per_id.feature_id, it_per_id.feature_per_frame[0].is_stereo, 
+             it_per_id.depth_inited, it_per_id.estimated_depth);
 
         for (int frame = 0; frame < it_per_id.feature_per_frame.size(); frame ++) {
             if(STEREO && it_per_id.feature_per_frame[frame].is_stereo)
             {
-                // ROS_INFO("Feature ID %d frame %d IS stereo %d dep %d %f", it_per_id.feature_id, frame, it_per_id.feature_per_frame[frame].is_stereo, 
-                    // it_per_id.depth_inited, it_per_id.estimated_depth);
                 int imu_i = it_per_id.start_frame + frame;
                 Eigen::Matrix<double, 3, 4> leftPose;
                 Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
@@ -396,13 +395,13 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
                 leftPose.rightCols<1>() = -R0.transpose() * t0;
 
                 localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
-                double depth = localPoint.z();
                 ROS_INFO("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());
                 it_per_id.depth_inited = true;
                 if (FISHEYE) {
                     //Depth For fisheye should be the radius of the sphere; Not only z axis
                     it_per_id.estimated_depth = localPoint.norm();
                 } else {
+                    double depth = localPoint.z();
                     if (depth > 0)
                         it_per_id.estimated_depth = depth;
                     else
@@ -418,6 +417,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             */
             continue;
         }
+
         if(it_per_id.feature_per_frame.size() > 1)
         {
             int imu_i = it_per_id.start_frame;
@@ -427,21 +427,26 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             leftPose.leftCols<3>() = R0.transpose();
             leftPose.rightCols<1>() = -R0.transpose() * t0;
 
-            imu_i++;
+            imu_i = it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
             Eigen::Matrix<double, 3, 4> rightPose;
             Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[0];
             Eigen::Matrix3d R1 = Rs[imu_i] * ric[0];
             rightPose.leftCols<3>() = R1.transpose();
             rightPose.rightCols<1>() = -R1.transpose() * t1;
 
-            Eigen::Vector2d point0, point1;
+            Eigen::Vector3d point0, point1;
             Eigen::Vector3d point3d;
-            point0 = it_per_id.feature_per_frame[0].point.head(2);
-            point1 = it_per_id.feature_per_frame[1].point.head(2);
-            triangulatePoint(leftPose, rightPose, point0, point1, point3d);
+            point0 = it_per_id.feature_per_frame[0].point;
+            point1 = it_per_id.feature_per_frame.back().point;
+            //If baseline is not long enough we give up the point depth since it's useless
+            
+            if ((t0 - t1).norm() < depth_estimate_baseline) {
+                continue;
+            }
+
+            triangulatePoint3DPts(leftPose, rightPose, point0, point1, point3d);
             Eigen::Vector3d localPoint;
             localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
-            double depth = localPoint.z();
 
             it_per_id.depth_inited = true;
             
@@ -449,6 +454,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
                 //Depth For fisheye should be the radius of the sphere; Not only z axis
                 it_per_id.estimated_depth = localPoint.norm();
             } else {
+                double depth = localPoint.z();
                 if (depth > 0)
                     it_per_id.estimated_depth = depth;
                 else
@@ -462,57 +468,6 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             */
             continue;
         }
-        it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4)
-            continue;
-
-        int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
-
-        Eigen::MatrixXd svd_A(2 * it_per_id.feature_per_frame.size(), 4);
-        int svd_idx = 0;
-
-        Eigen::Matrix<double, 3, 4> P0;
-        Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
-        Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
-        P0.leftCols<3>() = Eigen::Matrix3d::Identity();
-        P0.rightCols<1>() = Eigen::Vector3d::Zero();
-
-        for (auto &it_per_frame : it_per_id.feature_per_frame)
-        {
-            imu_j++;
-
-            Eigen::Vector3d t1 = Ps[imu_j] + Rs[imu_j] * tic[0];
-            Eigen::Matrix3d R1 = Rs[imu_j] * ric[0];
-            Eigen::Vector3d t = R0.transpose() * (t1 - t0);
-            Eigen::Matrix3d R = R0.transpose() * R1;
-            Eigen::Matrix<double, 3, 4> P;
-            P.leftCols<3>() = R.transpose();
-            P.rightCols<1>() = -R.transpose() * t;
-            Eigen::Vector3d f = it_per_frame.point.normalized();
-            svd_A.row(svd_idx++) = f[0] * P.row(2) - f[2] * P.row(0);
-            svd_A.row(svd_idx++) = f[1] * P.row(2) - f[2] * P.row(1);
-
-            if (imu_i == imu_j)
-                continue;
-        }
-        ROS_ASSERT(svd_idx == svd_A.rows());
-        Eigen::Vector4d svd_V = Eigen::JacobiSVD<Eigen::MatrixXd>(svd_A, Eigen::ComputeThinV).matrixV().rightCols<1>();
-        double svd_method = svd_V[2] / svd_V[3];
-        //it_per_id->estimated_depth = -b / A;
-        //it_per_id->estimated_depth = svd_V[2] / svd_V[3];
-
-        it_per_id.estimated_depth = svd_method;
-        it_per_id.depth_inited = true;
-        //it_per_id->estimated_depth = INIT_DEPTH;
-        if (FISHEYE) {
-            //Pass
-            Eigen::Vector3d svd(svd_V[0] / svd_V[3], svd_V[1] / svd_V[3], svd_V[2] / svd_V[3]);
-            it_per_id.estimated_depth = svd.norm();
-        } else if (it_per_id.estimated_depth < 0.1)
-        {
-            it_per_id.estimated_depth = INIT_DEPTH;
-        }
-
     }
 }
 

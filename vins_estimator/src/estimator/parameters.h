@@ -45,6 +45,7 @@ extern std::string VINS_RESULT_PATH;
 extern std::string OUTPUT_FOLDER;
 extern std::string IMU_TOPIC;
 extern double TD;
+extern double depth_estimate_baseline;
 extern int ESTIMATE_TD;
 extern int ROLLING_SHUTTER;
 extern int ROW, COL;
