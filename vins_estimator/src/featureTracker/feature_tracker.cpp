@@ -229,7 +229,12 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     drawTrackImage(imDownSide, cur_down_side_pts, ids_down_side, vector<int>(), down_side_prevLeftPtsMap);
 
     //Show images
-    for (int i = 1; i < 5; i ++) {
+    int side_count = 3;
+    if (enable_rear_side) {
+        side_count = 4;
+    }
+    
+    for (int i = 1; i < side_count + 1; i ++) {
         cv::line(imUpSide, cv::Point2d(i*width, 0), cv::Point2d(i*width, side_height), cv::Scalar(255, 0, 0), 1);
         cv::line(imDownSide, cv::Point2d(i*width, 0), cv::Point2d(i*width, side_height), cv::Scalar(255, 0, 0), 1);
     }
@@ -275,11 +280,19 @@ std::vector<cv::Mat> convertCPUMat(const std::vector<cv::cuda::GpuMat> & arr) {
 cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
     int cols = arr[1].cols;
     int rows = arr[1].rows;
-    cv::cuda::GpuMat NewImg(rows, cols*4, arr[1].type()); 
-    for (int i = 1; i < 5; i ++) {
-        arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
+    if (enable_rear_side) {
+        cv::cuda::GpuMat NewImg(rows, cols*4, arr[1].type()); 
+        for (int i = 1; i < 5; i ++) {
+            arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
+        }
+        return NewImg;
+    } else {
+        cv::cuda::GpuMat NewImg(rows, cols*3, arr[1].type()); 
+        for (int i = 1; i < 4; i ++) {
+            arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
+        }
+        return NewImg;
     }
-    return NewImg;
 }
 
 

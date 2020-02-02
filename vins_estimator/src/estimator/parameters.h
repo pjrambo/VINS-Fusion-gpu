@@ -58,6 +58,7 @@ extern int enable_up_top;
 extern int enable_down_top;
 extern int enable_up_side;
 extern int enable_down_side;
+extern int enable_rear_side;
 
 extern int USE_IMU;
 extern int MULTIPLE_THREAD;
