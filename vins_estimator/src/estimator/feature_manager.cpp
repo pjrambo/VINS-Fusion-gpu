@@ -362,8 +362,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         for (int frame = 0; frame < it_per_id.feature_per_frame.size(); frame ++) {
             if(STEREO && it_per_id.feature_per_frame[frame].is_stereo)
             {
-                ROS_INFO("Feature ID %d frame %d IS stereo %d dep %d %f", it_per_id.feature_id, frame, it_per_id.feature_per_frame[frame].is_stereo, 
-                    it_per_id.depth_inited, it_per_id.estimated_depth);
+                // ROS_INFO("Feature ID %d frame %d IS stereo %d dep %d %f", it_per_id.feature_id, frame, it_per_id.feature_per_frame[frame].is_stereo, 
+                    // it_per_id.depth_inited, it_per_id.estimated_depth);
                 int imu_i = it_per_id.start_frame + frame;
                 Eigen::Matrix<double, 3, 4> leftPose;
                 Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
