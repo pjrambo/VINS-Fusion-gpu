@@ -407,6 +407,7 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsTop(vector<cv::Point2f> &pts, 
             a = a*2;
         }
         cam->liftProjective(a, b);
+        b.normalize();
 #ifdef UNIT_SPHERE_ERROR
         un_pts.push_back(cv::Point3f(b.x(), b.y(), b.z()));
 #else
