@@ -480,7 +480,7 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
 
                 set<int> removeIndex;
                 outliersRejection(removeIndex);
-                // exit(-1);
+                exit(-1);
 
                 ROS_INFO("Initialization finish!");
             }
@@ -842,8 +842,8 @@ void Estimator::vector2double()
 
     auto deps = f_manager.getDepthVector();
     param_feature_id.clear();
-
     for (auto & it : deps) {
+        ROS_INFO("Feature %d invdepth %f feature index %d", it.first, it.second, param_feature_id.size());
         para_Feature[param_feature_id.size()][0] = it.second;
         param_feature_id_to_index[it.first] = param_feature_id.size();
         param_feature_id.push_back(it.first);
@@ -933,7 +933,7 @@ void Estimator::double2vector()
     }
 
     std::map<int, double> deps;
-    for (int i = 0; i < param_feature_id.size(); i++) {
+    for (unsigned int i = 0; i < param_feature_id.size(); i++) {
         int _id = param_feature_id[i];
         ROS_INFO("Id %d depth %f", i, 1/para_Feature[i][0]);
         deps[_id] = para_Feature[i][0];
@@ -1078,6 +1078,15 @@ void Estimator::optimization()
                     Vector3d pts_j = it_per_frame.point;
                     ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
                                                                     it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                    // std::vector<double*> param_blocks;
+                    // param_blocks.push_back(para_Pose[imu_i]);
+                    // param_blocks.push_back(para_Pose[imu_j]);
+                    // param_blocks.push_back(para_Ex_Pose[0]);
+                    // param_blocks.push_back(para_Feature[feature_index]);
+                    // param_blocks.push_back(para_Td[0]);
+                    // ROS_INFO("Check ProjectionTwoFrameOneCamFactor");
+                    // f_td->check(param_blocks.data());
+                    // exit(-1);
                     problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Feature[feature_index], para_Td[0]);
                 }
 
@@ -1088,13 +1097,23 @@ void Estimator::optimization()
                     {
                         ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
                                                                     it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                        // problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                        problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
                     }
                     else
                     {
                         ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
                                                                     it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                        // problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                        
+                        std::vector<double*> param_blocks;
+                        param_blocks.push_back(para_Ex_Pose[0]);
+                        param_blocks.push_back(para_Ex_Pose[1]);
+                        param_blocks.push_back(para_Feature[feature_index]);
+                        param_blocks.push_back(para_Td[0]);
+                        // ROS_INFO("Check ProjectionOneFrameTwoCamFactor ID: %d, index %d depth init %f", it_per_id.feature_id, feature_index, para_Feature[feature_index][0]);
+                        // f->check(param_blocks.data());
+                        // exit(-1);
+
+                        problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
                     }
                 
                 }
@@ -1112,7 +1131,7 @@ void Estimator::optimization()
     options.num_threads = 1;
     options.trust_region_strategy_type = ceres::DOGLEG;
     options.max_num_iterations = NUM_ITERATIONS;
-    options.check_gradients = true;
+    // options.check_gradients = true;
     //options.use_explicit_schur_complement = true;
     //options.minimizer_progress_to_stdout = true;
     //options.use_nonmonotonic_steps = true;
@@ -1124,7 +1143,7 @@ void Estimator::optimization()
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
     //cout << summary.BriefReport() << endl;
-    cout << summary.FullReport() << endl;
+    // cout << summary.FullReport() << endl;
     printf("Iterations : %d", static_cast<int>(summary.iterations.size()));
     printf(" solver costs: %f \n", t_solver.toc());
 

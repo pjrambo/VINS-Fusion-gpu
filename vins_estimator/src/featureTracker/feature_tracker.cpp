@@ -1050,6 +1050,15 @@ FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, c
         x = cur_un_pts[i].x;
         y = cur_un_pts[i].y;
         z = 1;
+
+// #ifdef UNIT_SPHERE_ERROR
+//         Eigen::Vector3d un_pt(x, y, z);
+//         un_pt.normalize();
+//         x = un_pt.x();
+//         y = un_pt.y();
+//         z = un_pt.z();
+// #endif
+
         double p_u, p_v;
         p_u = cur_pts[i].x;
         p_v = cur_pts[i].y;
@@ -1072,6 +1081,14 @@ FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, c
             x = cur_un_right_pts[i].x;
             y = cur_un_right_pts[i].y;
             z = 1;
+
+// #ifdef UNIT_SPHERE_ERROR
+//         Eigen::Vector3d un_pt(x, y, z);
+//         un_pt.normalize();
+//         x = un_pt.x();
+//         y = un_pt.y();
+//         z = un_pt.z();
+// #endif
             double p_u, p_v;
             p_u = cur_right_pts[i].x;
             p_v = cur_right_pts[i].y;
