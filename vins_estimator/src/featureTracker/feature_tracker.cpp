@@ -169,7 +169,7 @@ void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vect
         //Not tri
         //Not solving
         //Just New point yellow
-        cv::Scalar color = cv::Scalar(255, 255, 0);
+        cv::Scalar color = cv::Scalar(0, 255, 255);
         if (pts_status.find(ids[j]) != pts_status.end()) {
             int status = pts_status[ids[j]];
             if (status < 0) {
