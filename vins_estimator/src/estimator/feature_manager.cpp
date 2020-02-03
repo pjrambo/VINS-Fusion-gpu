@@ -202,6 +202,8 @@ void FeatureManager::clearDepth()
 
 std::map<int, double> FeatureManager::getDepthVector()
 {
+    //This function gives actually points for solving; We only use oldest max_solve_cnt point, oldest pts has good track
+    //As for some feature point not solve all the time; we do re triangulate on it
     std::map<int, double> dep_vec;
     for (auto &_it : feature) {
         auto & it_per_id = _it.second;
@@ -209,6 +211,9 @@ std::map<int, double> FeatureManager::getDepthVector()
         if (it_per_id.used_num < 4 || !it_per_id.good_for_solving)
             continue;
         dep_vec[it_per_id.feature_id] = 1. / it_per_id.estimated_depth;
+        if(dep_vec.size() >= MAX_SOLVE_CNT) {
+            break;
+        }
     }
     return dep_vec;
 }

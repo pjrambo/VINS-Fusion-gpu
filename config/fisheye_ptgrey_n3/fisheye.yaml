@@ -14,8 +14,8 @@ output_path: "/home/xuhao/output"
 
 cam0_calib: "up.yaml"
 cam1_calib: "down.yaml"
-image_width: 600 # For fisheye, this indicate the flattened image width 
-image_height: 600
+image_width: 500 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
+image_height: 400
 show_width: 1080
 
 fisheye_fov: 235
@@ -76,13 +76,15 @@ use_gpu: 1
 use_gpu_acc_flow: 1
 
 
-depth_estimate_baseline: 0.1
+depth_estimate_baseline: 0.05
 top_cnt: 30
 side_cnt: 30
+max_solve_cnt: 40 # Max Point for solve; highly influence performace
+
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1           # publish tracking image as topic
+show_track: 0           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
 #optimization parameters

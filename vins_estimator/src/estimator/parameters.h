@@ -79,6 +79,8 @@ extern std::vector<std::string> CAM_NAMES;
 extern int MAX_CNT;
 extern int TOP_PTS_CNT;
 extern int SIDE_PTS_CNT;
+extern int MAX_SOLVE_CNT;
+
 extern int MIN_DIST;
 extern double F_THRESHOLD;
 extern int SHOW_TRACK;

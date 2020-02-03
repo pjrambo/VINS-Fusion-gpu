@@ -14,7 +14,6 @@ double MIN_PARALLAX;
 double ACC_N, ACC_W;
 double GYR_N, GYR_W;
 double THRES_OUTLIER;
-
 std::vector<Eigen::Matrix3d> RIC;
 std::vector<Eigen::Vector3d> TIC;
 
@@ -60,6 +59,8 @@ std::vector<std::string> CAM_NAMES;
 int MAX_CNT;
 int TOP_PTS_CNT;
 int SIDE_PTS_CNT;
+int MAX_SOLVE_CNT;
+
 int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
@@ -103,6 +104,7 @@ void readParameters(std::string config_file)
     MAX_CNT = fsSettings["max_cnt"];
     TOP_PTS_CNT = fsSettings["top_cnt"];
     SIDE_PTS_CNT = fsSettings["side_cnt"];
+    MAX_SOLVE_CNT = fsSettings["max_solve_cnt"];
     MIN_DIST = fsSettings["min_dist"];
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];

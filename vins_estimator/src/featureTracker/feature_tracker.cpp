@@ -352,7 +352,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
         n_pts.clear();
     }
 
-    ROS_DEBUG("Detected %d npts", n_pts.size());
+    ROS_DEBUG("Detected %ld npts", n_pts.size());
  }
 
 void FeatureTracker::setup_feature_frame(FeatureFrame & ff, vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
@@ -388,9 +388,6 @@ FeatureFrame FeatureTracker::setup_feature_frame() {
     setup_feature_frame(ff, ids_up_side, cur_up_side_pts, cur_up_side_un_pts, up_side_vel, 0);
     setup_feature_frame(ff, ids_down_top, cur_down_top_pts, cur_down_top_un_pts, down_top_vel, 1);
     setup_feature_frame(ff, ids_down_side, cur_down_side_pts, cur_down_side_un_pts, down_side_vel, 1);
-
-
-    ROS_INFO("Frame size %ld", ff.size());
 
     return ff;
 }
@@ -1151,7 +1148,7 @@ void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file)
 
         if (FISHEYE) {
             ROS_INFO("Use as fisheye %s", calib_file[i].c_str());
-            FisheyeUndist un(calib_file[i].c_str(), i, FISHEYE_FOV, COL);
+            FisheyeUndist un(calib_file[i].c_str(), i, FISHEYE_FOV, true, COL);
             fisheys_undists.push_back(un);
         }
 
