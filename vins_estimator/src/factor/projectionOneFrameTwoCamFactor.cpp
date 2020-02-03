@@ -64,7 +64,7 @@ bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters, d
     Eigen::Vector3d pts_camera_j = qic2.inverse() * (pts_imu_j - tic2);
     Eigen::Map<Eigen::Vector2d> residual(residuals);
 
-    std::cout << "Source ERROR" << (pts_camera_j.normalized() - pts_j_td.normalized()).transpose() << std::endl;
+    // std::cout << "Source ERROR" << (pts_camera_j.normalized() - pts_j_td.normalized()).transpose() << std::endl;
 
 #ifdef UNIT_SPHERE_ERROR 
     residual =  tangent_base * (pts_camera_j.normalized() - pts_j_td.normalized());
@@ -76,8 +76,8 @@ bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters, d
 
     residual = sqrt_info * residual;
 
-    std::cout << "TAN" << tangent_base.transpose() << std::endl;
-    std::cout << "Res" << residual << std::endl;
+    // std::cout << "TAN" << tangent_base.transpose() << std::endl;
+    // std::cout << "Res" << residual << std::endl;
 
     if (jacobians)
     {

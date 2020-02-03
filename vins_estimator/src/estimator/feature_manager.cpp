@@ -307,7 +307,7 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
         vector<cv::Point3f> pts3D;
         for (auto &_it : feature) {
             auto & it_per_id = _it.second;
-            if (it_per_id.depth_inited)
+            if (it_per_id.depth_inited && it_per_id.good_for_solving)
             {
                 int index = frameCnt - it_per_id.start_frame;
                 if((int)it_per_id.feature_per_frame.size() >= index + 1)
@@ -316,9 +316,13 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
                     Vector3d ptsInWorld = Rs[it_per_id.start_frame] * ptsInCam + Ps[it_per_id.start_frame];
 
                     cv::Point3f point3d(ptsInWorld.x(), ptsInWorld.y(), ptsInWorld.z());
-                    cv::Point2f point2d(it_per_id.feature_per_frame[index].point.x(), it_per_id.feature_per_frame[index].point.y());
-                    pts3D.push_back(point3d);
-                    pts2D.push_back(point2d); 
+                    //Because PnP require 2d points; We hack here to use only z > 1 unit sphere point to init pnp
+                    Eigen::Vector3d pt = it_per_id.feature_per_frame[index].point;
+                    if (pt.z() > 0.1) {
+                        cv::Point2f point2d(pt.x()/pt.z(), pt.y()/pt.z());
+                        pts3D.push_back(point3d);
+                        pts2D.push_back(point2d);                         
+                    }
                 }
             }
         }
@@ -336,7 +340,7 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
 
             Eigen::Quaterniond Q(Rs[frameCnt]);
             //cout << "frameCnt: " << frameCnt <<  " pnp Q " << Q.w() << " " << Q.vec().transpose() << endl;
-            //cout << "frameCnt: " << frameCnt << " pnp P " << Ps[frameCnt].transpose() << endl;
+            // cout << "frameCnt: " << frameCnt << " pnp P " << Ps[frameCnt].transpose() << endl;
         }
     }
 }

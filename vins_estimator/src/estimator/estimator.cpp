@@ -478,9 +478,9 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
                 optimization();
                 slideWindow();
 
-                set<int> removeIndex;
-                outliersRejection(removeIndex);
-                exit(-1);
+                // set<int> removeIndex;
+                // outliersRejection(removeIndex);
+                // exit(-1);
 
                 ROS_INFO("Initialization finish!");
             }
@@ -1070,6 +1070,7 @@ void Estimator::optimization()
         Vector3d pts_i = it_per_id.feature_per_frame[0].point;
 
         if (it_per_id.good_for_solving) {
+            // ROS_INFO("Adding feature id %d initial depth", it_per_id.feature_id, it_);
             for (auto &it_per_frame : it_per_id.feature_per_frame)
             {
                 imu_j++;
@@ -1097,7 +1098,7 @@ void Estimator::optimization()
                     {
                         ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
                                                                     it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                        problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                        // problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
                     }
                     else
                     {
@@ -1109,11 +1110,15 @@ void Estimator::optimization()
                         param_blocks.push_back(para_Ex_Pose[1]);
                         param_blocks.push_back(para_Feature[feature_index]);
                         param_blocks.push_back(para_Td[0]);
-                        // ROS_INFO("Check ProjectionOneFrameTwoCamFactor ID: %d, index %d depth init %f", it_per_id.feature_id, feature_index, para_Feature[feature_index][0]);
+                        ROS_INFO("Check ProjectionOneFrameTwoCamFactor ID: %d, index %d depth init %f Velocity L %f %f %f R %f %f %f", it_per_id.feature_id, feature_index, 
+                            para_Feature[feature_index][0],
+                            it_per_id.feature_per_frame[0].velocity.x(), it_per_id.feature_per_frame[0].velocity.y(), it_per_id.feature_per_frame[0].velocity.z(),
+                            it_per_frame.velocityRight.x(), it_per_frame.velocityRight.y(), it_per_frame.velocityRight.z()
+                            );
                         // f->check(param_blocks.data());
                         // exit(-1);
 
-                        problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                        // problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
                     }
                 
                 }
@@ -1143,7 +1148,7 @@ void Estimator::optimization()
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
     //cout << summary.BriefReport() << endl;
-    // cout << summary.FullReport() << endl;
+    cout << summary.FullReport() << endl;
     printf("Iterations : %d", static_cast<int>(summary.iterations.size()));
     printf(" solver costs: %f \n", t_solver.toc());
 
@@ -1554,14 +1559,14 @@ void Estimator::outliersRejection(set<int> &removeIndex)
         double depth = it_per_id.estimated_depth;
 
         Vector3d pts_w = Rs[imu_i] * (ric[0] * (depth * pts_i) + tic[0]) + Ps[imu_i];
-        ROS_INFO("PT %d, STEREO %d w %f %f %f drone %f %f %f ptun %f %f %f, depth %f", 
-            it_per_id.feature_id,
-            it_per_id.feature_per_frame.front().is_stereo, 
-            pts_w.x(), pts_w.y(), pts_w.z(),
-            Ps[imu_i].x(), Ps[imu_i].y(), Ps[imu_i].z(),
-            pts_i.x(), pts_i.y(), pts_i.z(),
-            depth
-        );
+        // ROS_INFO("PT %d, STEREO %d w %f %f %f drone %f %f %f ptun %f %f %f, depth %f", 
+        //     it_per_id.feature_id,
+        //     it_per_id.feature_per_frame.front().is_stereo, 
+        //     pts_w.x(), pts_w.y(), pts_w.z(),
+        //     Ps[imu_i].x(), Ps[imu_i].y(), Ps[imu_i].z(),
+        //     pts_i.x(), pts_i.y(), pts_i.z(),
+        //     depth
+        // );
 
         for (auto &it_per_frame : it_per_id.feature_per_frame)
         {
