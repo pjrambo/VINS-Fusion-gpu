@@ -1557,7 +1557,7 @@ void Estimator::outliersRejection(set<int> &removeIndex)
         double err = 0;
         int errCnt = 0;
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4)
+        if (it_per_id.used_num < 4 || ! it_per_id.good_for_solving)
             continue;
         feature_index ++;
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
@@ -1589,7 +1589,6 @@ void Estimator::outliersRejection(set<int> &removeIndex)
                 //printf("tmp_error %f\n", FOCAL_LENGTH / 1.5 * tmp_error);
             }
             // need to rewrite projecton factor.........
-#ifndef DEBUG_DISABLE_STEREO_RES
             if(STEREO && it_per_frame.is_stereo)
             {
                 
@@ -1613,11 +1612,10 @@ void Estimator::outliersRejection(set<int> &removeIndex)
                     //printf("tmp_error %f\n", FOCAL_LENGTH / 1.5 * tmp_error);
                 }       
             }
-#endif
         }
         double ave_err = err / errCnt;
-        if(ave_err * FOCAL_LENGTH > 3) {
-            ROS_INFO("Removing feature %d...", it_per_id.feature_id);
+        if(ave_err * FOCAL_LENGTH > THRES_OUTLIER) {
+            ROS_INFO("Removing feature %d...  error %f", it_per_id.feature_id, ave_err * FOCAL_LENGTH);
             removeIndex.insert(it_per_id.feature_id);
         }
 

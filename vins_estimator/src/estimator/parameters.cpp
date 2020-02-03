@@ -13,6 +13,7 @@ double INIT_DEPTH;
 double MIN_PARALLAX;
 double ACC_N, ACC_W;
 double GYR_N, GYR_W;
+double THRES_OUTLIER;
 
 std::vector<Eigen::Matrix3d> RIC;
 std::vector<Eigen::Vector3d> TIC;
@@ -108,7 +109,7 @@ void readParameters(std::string config_file)
     FLOW_BACK = fsSettings["flow_back"];
     ENABLE_DOWNSAMPLE = fsSettings["enable_downsample"];
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
-
+    THRES_OUTLIER = fsSettings["thres_outlier"];
     USE_GPU = fsSettings["use_gpu"];
     FISHEYE = fsSettings["is_fisheye"];
     FISHEYE_FOV = fsSettings["fisheye_fov"];

@@ -25,7 +25,7 @@ enable_down_top: 0
 enable_up_side: 1
 enable_down_side: 1
 enable_rear_side: 0
-
+thres_outlier : 5.0
 # Extrinsic parameter between IMU and Camera.
 estimate_extrinsic: 1      # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.

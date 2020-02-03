@@ -619,7 +619,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         ids_down_side = ids_up_side;
         auto down_side_init_pts = cur_up_side_pts;
         cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
-        ROS_INFO("Down side try to track %d pts; gives %d", cur_up_side_pts.size(), cur_down_side_pts.size());
+        ROS_INFO("Down side try to track %ld pts; gives %ld", cur_up_side_pts.size(), cur_down_side_pts.size());
     }
 
 

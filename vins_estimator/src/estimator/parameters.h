@@ -26,6 +26,7 @@ const int NUM_OF_F = 1000;
 #define UNIT_SPHERE_ERROR
 
 extern double INIT_DEPTH;
+extern double THRES_OUTLIER;
 extern double MIN_PARALLAX;
 extern int ESTIMATE_EXTRINSIC;
 
