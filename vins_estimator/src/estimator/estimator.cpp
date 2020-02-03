@@ -1557,8 +1557,11 @@ void Estimator::outliersRejection(set<int> &removeIndex)
         double err = 0;
         int errCnt = 0;
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4 || ! it_per_id.good_for_solving)
+        if (it_per_id.used_num < 4 || ! it_per_id.good_for_solving) {
+            //We only deal with good point; not good for solving point will not add
             continue;
+        }
+
         feature_index ++;
         int imu_i = it_per_id.start_frame, imu_j = imu_i - 1;
         Vector3d pts_i = it_per_id.feature_per_frame[0].point;

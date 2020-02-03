@@ -97,8 +97,10 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
 
     //if (frame_count < 2 || last_track_num < 20)
     //if (frame_count < 2 || last_track_num < 20 || new_feature_num > 0.5 * last_track_num)
-    if (frame_count < 2 || last_track_num < 20 || long_track_num < KEYFRAME_LONGTRACK_THRES || new_feature_num > 0.5 * last_track_num)
+    if (frame_count < 2 || last_track_num < 20 || long_track_num < KEYFRAME_LONGTRACK_THRES || new_feature_num > 0.5 * last_track_num) {
+        ROS_INFO("Add kf %d LAST %d LONG %d new %d", last_track_num, long_track_num, new_feature_num);
         return true;
+    }
 
     for (auto &_it : feature)
     {
