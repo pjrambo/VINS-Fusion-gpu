@@ -10,8 +10,6 @@
 #include "estimator.h"
 #include "../utility/visualization.h"
 
-#define DEBUG_DISABLE_STEREO_RES
-
 Estimator::Estimator(): f_manager{Rs}
 {
     ROS_INFO("init begins");
@@ -1232,7 +1230,6 @@ void Estimator::optimization()
                                                                                         vector<int>{0, 3});
                         marginalization_info->addResidualBlockInfo(residual_block_info);
                     }
-#ifndef DEBUG_DISABLE_STEREO_RES
                     if(STEREO && it_per_frame.is_stereo)
                     {
                         Vector3d pts_j_right = it_per_frame.pointRight;
@@ -1255,7 +1252,6 @@ void Estimator::optimization()
                             marginalization_info->addResidualBlockInfo(residual_block_info);
                         }
                     }
-#endif
                 }
             }
         }

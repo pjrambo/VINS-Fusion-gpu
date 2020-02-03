@@ -22,8 +22,8 @@ fisheye_fov: 235
 
 enable_up_top: 1
 enable_down_top: 0
-enable_up_side: 0
-enable_down_side: 0
+enable_up_side: 1
+enable_down_side: 1
 enable_rear_side: 0
 
 # Extrinsic parameter between IMU and Camera.
@@ -76,8 +76,8 @@ use_gpu_acc_flow: 1
 
 
 depth_estimate_baseline: 0.1
-top_cnt: 80
-side_cnt: 100
+top_cnt: 50
+side_cnt: 50
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
@@ -97,7 +97,7 @@ gyr_w: 0.0001       # gyroscope bias random work noise standard deviation.     #
 g_norm: 9.85         # gravity magnitude
 
 #unsynchronization parameters
-estimate_td: 0                      # online estimate time offset between camera and imu
+estimate_td: 1                      # online estimate time offset between camera and imu
 # td: -0.0736        #-0.0736 when use DJI IMU                       # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)#
 td: 0.014686 #Use mynteye imu
 #loop closure parameters
