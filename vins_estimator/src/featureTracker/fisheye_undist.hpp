@@ -22,8 +22,8 @@ class FisheyeUndist {
     std::vector<cv::Mat> undistMaps;
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
-    bool enable_cuda = false;
     Eigen::Vector3d cameraRotation;
+    bool enable_cuda = false;
     int cam_id = 0;
 public:
     camodocal::CameraPtr cam_top;

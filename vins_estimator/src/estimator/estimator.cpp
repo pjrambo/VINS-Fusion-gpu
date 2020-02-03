@@ -521,6 +521,7 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         optimization();
         set<int> removeIndex;
         outliersRejection(removeIndex);
+        ROS_INFO("Remove %ld outlier", removeIndex.size());
         f_manager.removeOutlier(removeIndex);
         if (! MULTIPLE_THREAD)
         {
@@ -840,6 +841,7 @@ void Estimator::vector2double()
 
     auto deps = f_manager.getDepthVector();
     param_feature_id.clear();
+    ROS_INFO("Feature to solve num: %ld", deps.size());
     for (auto & it : deps) {
         // ROS_INFO("Feature %d invdepth %f feature index %d", it.first, it.second, param_feature_id.size());
         para_Feature[param_feature_id.size()][0] = it.second;
@@ -1058,7 +1060,7 @@ void Estimator::optimization()
     {
         auto & it_per_id = _it.second;
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4)
+        if (it_per_id.used_num < 4 || !it_per_id.good_for_solving)
             continue;
  
         int feature_index = param_feature_id_to_index[it_per_id.feature_id];
@@ -1067,73 +1069,72 @@ void Estimator::optimization()
         
         Vector3d pts_i = it_per_id.feature_per_frame[0].point;
 
-        if (it_per_id.good_for_solving) {
-            // ROS_INFO("Adding feature id %d initial depth", it_per_id.feature_id, it_);
-            for (auto &it_per_frame : it_per_id.feature_per_frame)
+        // ROS_INFO("Adding feature id %d initial depth", it_per_id.feature_id, it_);
+        for (auto &it_per_frame : it_per_id.feature_per_frame)
+        {
+            imu_j++;
+            if (imu_i != imu_j)
             {
-                imu_j++;
-                if (imu_i != imu_j)
+                Vector3d pts_j = it_per_frame.point;
+                ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
+                                                                it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                // std::vector<double*> param_blocks;
+                // param_blocks.push_back(para_Pose[imu_i]);
+                // param_blocks.push_back(para_Pose[imu_j]);
+                // param_blocks.push_back(para_Ex_Pose[0]);
+                // param_blocks.push_back(para_Feature[feature_index]);
+                // param_blocks.push_back(para_Td[0]);
+                // ROS_INFO("Check ProjectionTwoFrameOneCamFactor");
+                // f_td->check(param_blocks.data());
+                // exit(-1);
+                problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[it_per_id.main_cam], para_Feature[feature_index], para_Td[0]);
+            }
+
+            if(STEREO && it_per_frame.is_stereo)
+            {    
+                //For stereo point; main cam must be 0 now
+                Vector3d pts_j_right = it_per_frame.pointRight;
+                if(imu_i != imu_j)
                 {
-                    Vector3d pts_j = it_per_frame.point;
-                    ProjectionTwoFrameOneCamFactor *f_td = new ProjectionTwoFrameOneCamFactor(pts_i, pts_j, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocity,
-                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                    ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+
                     // std::vector<double*> param_blocks;
                     // param_blocks.push_back(para_Pose[imu_i]);
                     // param_blocks.push_back(para_Pose[imu_j]);
                     // param_blocks.push_back(para_Ex_Pose[0]);
-                    // param_blocks.push_back(para_Feature[feature_index]);
+                    // param_blocks.push_back(para_Ex_Pose[1]);
+                    // param_blocks.push_back(para_Feature[feature_index]);             
                     // param_blocks.push_back(para_Td[0]);
-                    // ROS_INFO("Check ProjectionTwoFrameOneCamFactor");
-                    // f_td->check(param_blocks.data());
+                    // ROS_INFO("Check ProjectionTwoFrameTwoCamFactor");
+                    // f->check(param_blocks.data());
+                    problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+                }
+                else
+                {
+                    ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
+                                                                it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
+                    
+                    std::vector<double*> param_blocks;
+                    param_blocks.push_back(para_Ex_Pose[0]);
+                    param_blocks.push_back(para_Ex_Pose[1]);
+                    param_blocks.push_back(para_Feature[feature_index]);
+                    param_blocks.push_back(para_Td[0]);
+                    // ROS_INFO("Check ProjectionOneFrameTwoCamFactor ID: %d, index %d depth init %f Velocity L %f %f %f R %f %f %f", it_per_id.feature_id, feature_index, 
+                    //     para_Feature[feature_index][0],
+                    //     it_per_id.feature_per_frame[0].velocity.x(), it_per_id.feature_per_frame[0].velocity.y(), it_per_id.feature_per_frame[0].velocity.z(),
+                    //     it_per_frame.velocityRight.x(), it_per_frame.velocityRight.y(), it_per_frame.velocityRight.z()
+                    //     );
+                    // f->check(param_blocks.data());
                     // exit(-1);
-                    problem.AddResidualBlock(f_td, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[it_per_id.main_cam], para_Feature[feature_index], para_Td[0]);
+
+                    problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
                 }
-
-                if(STEREO && it_per_frame.is_stereo)
-                {    
-                    //For stereo point; main cam must be 0 now
-                    Vector3d pts_j_right = it_per_frame.pointRight;
-                    if(imu_i != imu_j)
-                    {
-                        ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
-                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-
-                        // std::vector<double*> param_blocks;
-                        // param_blocks.push_back(para_Pose[imu_i]);
-                        // param_blocks.push_back(para_Pose[imu_j]);
-                        // param_blocks.push_back(para_Ex_Pose[0]);
-                        // param_blocks.push_back(para_Ex_Pose[1]);
-                        // param_blocks.push_back(para_Feature[feature_index]);             
-                        // param_blocks.push_back(para_Td[0]);
-                        // ROS_INFO("Check ProjectionTwoFrameTwoCamFactor");
-                        // f->check(param_blocks.data());
-                        problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
-                    }
-                    else
-                    {
-                        ProjectionOneFrameTwoCamFactor *f = new ProjectionOneFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
-                                                                    it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                        
-                        std::vector<double*> param_blocks;
-                        param_blocks.push_back(para_Ex_Pose[0]);
-                        param_blocks.push_back(para_Ex_Pose[1]);
-                        param_blocks.push_back(para_Feature[feature_index]);
-                        param_blocks.push_back(para_Td[0]);
-                        // ROS_INFO("Check ProjectionOneFrameTwoCamFactor ID: %d, index %d depth init %f Velocity L %f %f %f R %f %f %f", it_per_id.feature_id, feature_index, 
-                        //     para_Feature[feature_index][0],
-                        //     it_per_id.feature_per_frame[0].velocity.x(), it_per_id.feature_per_frame[0].velocity.y(), it_per_id.feature_per_frame[0].velocity.z(),
-                        //     it_per_frame.velocityRight.x(), it_per_frame.velocityRight.y(), it_per_frame.velocityRight.z()
-                        //     );
-                        // f->check(param_blocks.data());
-                        // exit(-1);
-
-                        problem.AddResidualBlock(f, loss_function, para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
-                    }
-                
-                }
-                f_m_cnt++;
+            
             }
+            f_m_cnt++;
         }
+    
     }
 
     ROS_DEBUG("visual measurement count: %d", f_m_cnt);
@@ -1568,7 +1569,7 @@ void Estimator::outliersRejection(set<int> &removeIndex)
         Vector3d pts_i = it_per_id.feature_per_frame[0].point;
         double depth = it_per_id.estimated_depth;
 
-        Vector3d pts_w = Rs[imu_i] * (ric[it_per_id.main_cam] * (depth * pts_i) + tic[it_per_id.main_cam]) + Ps[imu_i];
+        // Vector3d pts_w = Rs[imu_i] * (ric[it_per_id.main_cam] * (depth * pts_i) + tic[it_per_id.main_cam]) + Ps[imu_i];
         // ROS_INFO("PT %d, STEREO %d w %f %f %f drone %f %f %f ptun %f %f %f, depth %f", 
         //     it_per_id.feature_id,
         //     it_per_id.feature_per_frame.front().is_stereo, 
@@ -1619,7 +1620,7 @@ void Estimator::outliersRejection(set<int> &removeIndex)
         }
         double ave_err = err / errCnt;
         if(ave_err * FOCAL_LENGTH > THRES_OUTLIER) {
-            ROS_INFO("Removing feature %d on cam %d...  error %f", it_per_id.feature_id, ave_err * FOCAL_LENGTH);
+            // ROS_INFO("Removing feature %d on cam %d...  error %f", it_per_id.feature_id, it_per_id.main_cam, ave_err * FOCAL_LENGTH);
             removeIndex.insert(it_per_id.feature_id);
         }
 

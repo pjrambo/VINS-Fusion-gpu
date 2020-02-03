@@ -1151,7 +1151,7 @@ void FeatureTracker::readIntrinsicParameter(const vector<string> &calib_file)
 
         if (FISHEYE) {
             ROS_INFO("Use as fisheye %s", calib_file[i].c_str());
-            FisheyeUndist un(calib_file[i].c_str(), i, FISHEYE_FOV);
+            FisheyeUndist un(calib_file[i].c_str(), i, FISHEYE_FOV, COL);
             fisheys_undists.push_back(un);
         }
 

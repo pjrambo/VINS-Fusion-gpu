@@ -96,10 +96,8 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
         }  
     }
 
-    //if (frame_count < 2 || last_track_num < 20)
-    //if (frame_count < 2 || last_track_num < 20 || new_feature_num > 0.5 * last_track_num)
     if (frame_count < 2 || last_track_num < 20 || long_track_num < KEYFRAME_LONGTRACK_THRES || new_feature_num > 0.5 * last_track_num) {
-        ROS_INFO("Add kf %d LAST %d LONG %d new %d", last_track_num, long_track_num, new_feature_num);
+        ROS_INFO("Add KF LAST %d LONG %d new %d", last_track_num, long_track_num, new_feature_num);
         return true;
     }
 
@@ -116,6 +114,7 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
 
     if (parallax_num == 0)
     {
+        ROS_INFO("Add KF: Parallax num ==0");
         return true;
     }
     else
@@ -123,7 +122,11 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
         ROS_DEBUG("parallax_sum: %lf, parallax_num: %d", parallax_sum, parallax_num);
         ROS_DEBUG("current parallax: %lf", parallax_sum / parallax_num * FOCAL_LENGTH);
         last_average_parallax = parallax_sum / parallax_num * FOCAL_LENGTH;
-        return parallax_sum / parallax_num >= MIN_PARALLAX;
+        bool is_kf = parallax_sum / parallax_num >= MIN_PARALLAX;
+        if (is_kf) {
+            ROS_INFO("Add KF: Parallax is bigger than required == 0");
+        } 
+        return is_kf;
     }
 }
 
@@ -151,7 +154,6 @@ vector<pair<Vector3d, Vector3d>> FeatureManager::getCorresponding(int frame_coun
 
 void FeatureManager::setDepth(std::map<int, double> deps)
 {
-    int feature_index = -1;
     for (auto &it : deps)
     {
         int _id = it.first;
@@ -356,8 +358,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             continue;
 
 
-        for (int frame = 0; frame < it_per_id.feature_per_frame.size(); frame ++) {
-
+        for (unsigned int frame = 0; frame < it_per_id.feature_per_frame.size(); frame ++) {
             //Must initial after per frame size >
             if(STEREO && it_per_id.feature_per_frame[frame].is_stereo && it_per_id.feature_per_frame.size() > 1)
             {
@@ -410,14 +411,13 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
                 }
                 break;
             }
-
-            /*
-            Vector3d ptsGt = pts_gt[it_per_id.feature_id];
-            printf("stereo %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id, point3d.x(), point3d.y(), point3d.z(),
-                                                            ptsGt.x(), ptsGt.y(), ptsGt.z());
-            */
-            // continue;
         }
+
+        if (it_per_id.depth_inited) {
+            //Has been inited by Stereo so skiping
+            continue;
+        }
+
 
         if(it_per_id.feature_per_frame.size() > 1)
         {
@@ -585,30 +585,28 @@ double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int f
     const FeaturePerFrame &frame_i = it_per_id.feature_per_frame[frame_count - 2 - it_per_id.start_frame];
     const FeaturePerFrame &frame_j = it_per_id.feature_per_frame[frame_count - 1 - it_per_id.start_frame];
 
-    double ans = 0;
-    Vector3d p_j = frame_j.point;
+    if (FISHEYE) {
+        return (frame_i.point - frame_j.point).norm();
+    } else {
+        double ans = 0;
+        Vector3d p_j = frame_j.point;
 
-    double u_j = p_j(0);
-    double v_j = p_j(1);
+        double u_j = p_j(0);
+        double v_j = p_j(1);
 
-    Vector3d p_i = frame_i.point;
-    Vector3d p_i_comp;
+        Vector3d p_i = frame_i.point;
 
-    //int r_i = frame_count - 2;
-    //int r_j = frame_count - 1;
-    //p_i_comp = ric[camera_id_j].transpose() * Rs[r_j].transpose() * Rs[r_i] * ric[camera_id_i] * p_i;
-    p_i_comp = p_i;
-    double dep_i = p_i(2);
-    double u_i = p_i(0) / dep_i;
-    double v_i = p_i(1) / dep_i;
-    double du = u_i - u_j, dv = v_i - v_j;
+        //int r_i = frame_count - 2;
+        //int r_j = frame_count - 1;
+        //p_i_comp = ric[camera_id_j].transpose() * Rs[r_j].transpose() * Rs[r_i] * ric[camera_id_i] * p_i;
+        double dep_i = p_i(2);
+        double u_i = p_i(0) / dep_i;
+        double v_i = p_i(1) / dep_i;
+        double du = u_i - u_j, dv = v_i - v_j;
 
-    double dep_i_comp = p_i_comp(2);
-    double u_i_comp = p_i_comp(0) / dep_i_comp;
-    double v_i_comp = p_i_comp(1) / dep_i_comp;
-    double du_comp = u_i_comp - u_j, dv_comp = v_i_comp - v_j;
+        ans = sqrt(du * du + dv * dv);
 
-    ans = max(ans, sqrt(min(du * du + dv * dv, du_comp * du_comp + dv_comp * dv_comp)));
-
-    return ans;
+        return ans;
+    }
+    return -1;
 }
