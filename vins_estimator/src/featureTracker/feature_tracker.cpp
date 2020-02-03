@@ -161,7 +161,7 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
 
 void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, vector<int> track_cnt, map<int, cv::Point2f> prev_pts) {
     char idtext[10] = {0};
-    for (int j = 0; j < pts.size(); j++) {
+    for (size_t j = 0; j < pts.size(); j++) {
         double len = 0;
         if (track_cnt.size() > 0) {
             len = std::min(1.0, 1.0 * track_cnt[j] / 20);
@@ -1048,13 +1048,13 @@ FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, c
         y = cur_un_pts[i].y;
         z = 1;
 
-// #ifdef UNIT_SPHERE_ERROR
-//         Eigen::Vector3d un_pt(x, y, z);
-//         un_pt.normalize();
-//         x = un_pt.x();
-//         y = un_pt.y();
-//         z = un_pt.z();
-// #endif
+#ifdef UNIT_SPHERE_ERROR
+        Eigen::Vector3d un_pt(x, y, z);
+        un_pt.normalize();
+        x = un_pt.x();
+        y = un_pt.y();
+        z = un_pt.z();
+#endif
 
         double p_u, p_v;
         p_u = cur_pts[i].x;
@@ -1079,13 +1079,13 @@ FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, c
             y = cur_un_right_pts[i].y;
             z = 1;
 
-// #ifdef UNIT_SPHERE_ERROR
-//         Eigen::Vector3d un_pt(x, y, z);
-//         un_pt.normalize();
-//         x = un_pt.x();
-//         y = un_pt.y();
-//         z = un_pt.z();
-// #endif
+#ifdef UNIT_SPHERE_ERROR
+            Eigen::Vector3d un_pt(x, y, z);
+            un_pt.normalize();
+            x = un_pt.x();
+            y = un_pt.y();
+            z = un_pt.z();
+#endif
             double p_u, p_v;
             p_u = cur_right_pts[i].x;
             p_v = cur_right_pts[i].y;

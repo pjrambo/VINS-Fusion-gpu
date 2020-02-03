@@ -9,7 +9,7 @@ imu_topic: "/dji_sdk_1/dji_sdk/imu"
 # imu_topic: "/dji_sdk_1/dji_sdk/imu"
 image0_topic: "/camera/infra1/image_rect_raw"
 image1_topic: "/camera/infra2/image_rect_raw"
-output_path: "/home/xuhao/output"
+output_path: "/home/dji/swarm_log_lastest/"
 
 cam0_calib: "left.yaml"
 cam1_calib: "right.yaml"
@@ -20,48 +20,30 @@ image_height: 480
 # Extrinsic parameter between IMU and Camera.
 estimate_extrinsic: 1      # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
                         # 1  Have an initial guess about extrinsic parameters. We will optimize around your initial guess.
-
+                        #Because we initial all pts with all information; fixed it is ok
 
 
 body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 3.3971439864833419e-02, 6.4769367801340738e-02,
-       9.9732184888737163e-01, 2.9170655265705553e-03,
-       -9.9940564042920621e-01, 8.0498350700242138e-03,
-       3.3519636537914732e-02, -2.7055781913176711e-03,
-       -5.8572307277838243e-03, -9.9786779141826232e-01,
-       6.5004335995696660e-02, 9.6565511281276495e-02, 0., 0., 0., 1. ]
+   data: [ 6.7118058587714025e-03, 6.0367550859230491e-02,
+       9.9815365072987261e-01, 3.1045845878992444e-02,
+       -9.9992833856234842e-01, 1.0300399687694362e-02,
+       6.1007791482246910e-03, 2.3108966372376402e-02,
+       -9.9130924567375628e-03, -9.9812306884949420e-01,
+       6.0432359116719847e-02, 6.0975873889736742e-02, 0., 0., 0., 1. ]
 body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 3.4217565440186837e-02, 6.4900019281878940e-02,
-       9.9730494118527169e-01, 6.0066992976482332e-03,
-       -9.9939825889048017e-01, 7.8947192832342639e-03,
-       3.3775635214093491e-02, -5.3195508815990111e-02,
-       -5.6814031737877357e-03, -9.9786054181165551e-01,
-       6.5131104345974355e-02, 9.6673495353361741e-02, 0., 0., 0., 1. ]
+   data: [ 8.8767193750723949e-03, 5.7623924712634181e-02,
+       9.9829889670070704e-01, 3.1444937744542809e-02,
+       -9.9991433504633831e-01, 1.0114967132512698e-02,
+       8.3072262968653231e-03, -2.6261400498127013e-02,
+       -9.6190655458499620e-03, -9.9828711838860307e-01,
+       5.7708776086517255e-02, 5.9873745612567621e-02, 0., 0., 0., 1. ]
 
-
-# body_T_cam0: !!opencv-matrix
-#    rows: 4
-#    cols: 4
-#    dt: d
-#    data: [0, 0, 1, 0.059,
-#          -1, 0, 0, 0.012,
-#          0, -1, 0, 0.049, 
-#          0., 0., 0., 1 ]
-
-# body_T_cam1: !!opencv-matrix
-#    rows: 4
-#    cols: 4
-#    dt: d
-#    data: [0, 0, 1, 0.059,
-#          -1, 0, 0, -0.04,
-#          0, -1, 0, 0.049, 
-#          0., 0., 0., 1 ]
 
 #Multiple thread support
 multiple_thread: 1
@@ -69,8 +51,12 @@ multiple_thread: 1
 use_gpu: 1
 use_gpu_acc_flow: 1
 
+max_cnt: 120            # max feature number in feature tracking
+max_solve_cnt: 40 # Max Point for solve; highly influence performace
+depth_estimate_baseline: 0.05
+thres_outlier : 3.0
+
 #feature traker paprameters
-max_cnt: 50            # max feature number in feature tracking
 min_dist: 30            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
@@ -79,20 +65,20 @@ flow_back: 1            # perform forward and backward optical flow to improve f
 
 #optimization parameters
 max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
-max_num_iterations: 8   # max solver itrations, to guarantee real time
+max_num_iterations: 8   # for this version can relative small; If you want stable more; use 6 or 8 max solver itrations, to guarantee real time
 keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
 
 #imu parameters       The more accurate parameters you provide, the better performance
-acc_n: 0.01          # accelerometer measurement noise standard deviation. #0.2   0.04
+acc_n: 0.1          # accelerometer measurement noise standard deviation. #0.2   0.04
 gyr_n: 0.001         # gyroscope measurement noise standard deviation.     #0.05  0.004
 acc_w: 0.0001        # accelerometer bias random work noise standard deviation.  #0.02
 gyr_w: 0.00001       # gyroscope bias random work noise standard deviation.     #4.0e-5
-g_norm: 9.8         # gravity magnitude
+g_norm: 9.805       # gravity magnitude
 
 #unsynchronization parameters
-estimate_td: 1                      # online estimate time offset between camera and imu
+estimate_td: 0                      # online estimate time offset between camera and imu
 # td: -0.0736        #-0.0736 when use DJI IMU                       # initial value of time offset. unit: s. readed image clock + td = real image clock (IMU clock)#
-td: -0.0083 #Use mynteye imu
+td: -0.00837
 #loop closure parameters
 load_previous_pose_graph: 0        # load and reuse previous pose graph; load from 'pose_graph_save_path'
 pose_graph_save_path: "/home/dji/output/pose_graph/" # save and load path
