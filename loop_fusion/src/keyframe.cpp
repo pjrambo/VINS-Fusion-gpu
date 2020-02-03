@@ -99,8 +99,12 @@ void KeyFrame::computeBRIEFPoint()
 {
 	BriefExtractor extractor(BRIEF_PATTERN_FILE.c_str());
 	const int fast_th = 20; // corner detector response threshold
-	if(1)
-		cv::FAST(image, keypoints, fast_th, true);
+	if(1) {
+		// cv::FAST(image, keypoints, fast_th, true);
+		auto _orb = cv::ORB::create(1000);
+		cv::Mat mask;
+    	_orb->detect(image, keypoints, mask);
+	}
 	else
 	{
 		vector<cv::Point2f> tmp_pts;
@@ -113,6 +117,8 @@ void KeyFrame::computeBRIEFPoint()
 		}
 	}
 	extractor(image, keypoints, brief_descriptors);
+	// _orb->compute(image, keypoints, br)
+	
 	for (int i = 0; i < (int)keypoints.size(); i++)
 	{
 		Eigen::Vector3d tmp_p;

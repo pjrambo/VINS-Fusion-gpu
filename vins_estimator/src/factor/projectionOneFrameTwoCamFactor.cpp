@@ -15,17 +15,17 @@ Eigen::Matrix2d ProjectionOneFrameTwoCamFactor::sqrt_info;
 double ProjectionOneFrameTwoCamFactor::sum_t;
 
 ProjectionOneFrameTwoCamFactor::ProjectionOneFrameTwoCamFactor(const Eigen::Vector3d &_pts_i, const Eigen::Vector3d &_pts_j,
-                                                               const Eigen::Vector2d &_velocity_i, const Eigen::Vector2d &_velocity_j,
+                                                               const Eigen::Vector3d &_velocity_i, const Eigen::Vector3d &_velocity_j,
                                                                const double _td_i, const double _td_j) : 
                                                                pts_i(_pts_i), pts_j(_pts_j), 
                                                                td_i(_td_i), td_j(_td_j)
 {
     velocity_i.x() = _velocity_i.x();
     velocity_i.y() = _velocity_i.y();
-    velocity_i.z() = 0;
+    velocity_i.z() = _velocity_i.z();
     velocity_j.x() = _velocity_j.x();
     velocity_j.y() = _velocity_j.y();
-    velocity_j.z() = 0;
+    velocity_j.z() = _velocity_j.z();
 #ifdef UNIT_SPHERE_ERROR
     Eigen::Vector3d b1, b2;
     Eigen::Vector3d a = pts_j.normalized();
@@ -41,6 +41,7 @@ ProjectionOneFrameTwoCamFactor::ProjectionOneFrameTwoCamFactor(const Eigen::Vect
 
 bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters, double *residuals, double **jacobians) const
 {
+    //
     TicToc tic_toc;
 
     Eigen::Vector3d tic(parameters[0][0], parameters[0][1], parameters[0][2]);
@@ -63,14 +64,20 @@ bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters, d
     Eigen::Vector3d pts_camera_j = qic2.inverse() * (pts_imu_j - tic2);
     Eigen::Map<Eigen::Vector2d> residual(residuals);
 
+    // std::cout << "Source ERROR" << (pts_camera_j.normalized() - pts_j_td.normalized()).transpose() << std::endl;
+
 #ifdef UNIT_SPHERE_ERROR 
     residual =  tangent_base * (pts_camera_j.normalized() - pts_j_td.normalized());
+
 #else
     double dep_j = pts_camera_j.z();
     residual = (pts_camera_j / dep_j).head<2>() - pts_j_td.head<2>();
 #endif
 
     residual = sqrt_info * residual;
+
+    // std::cout << "TAN" << tangent_base.transpose() << std::endl;
+    // std::cout << "Res" << residual << std::endl;
 
     if (jacobians)
     {
@@ -115,17 +122,17 @@ bool ProjectionOneFrameTwoCamFactor::Evaluate(double const *const *parameters, d
         if (jacobians[2])
         {
             Eigen::Map<Eigen::Vector2d> jacobian_feature(jacobians[2]);
-#if 1
-            jacobian_feature = reduce * ric2.transpose() * ric * pts_i * -1.0 / (inv_dep_i * inv_dep_i);
+#ifdef UNIT_SPHERE_ERROR
+            jacobian_feature = reduce * ric2.transpose() * ric * pts_i_td * -1.0 / (inv_dep_i * inv_dep_i);
 #else
-            jacobian_feature = reduce * ric.transpose() * Rj.transpose() * Ri * ric * pts_i;
+            jacobian_feature = reduce * ric2.transpose() * ric * pts_i * -1.0 / (inv_dep_i * inv_dep_i);
 #endif
         }
         if (jacobians[3])
         {
             Eigen::Map<Eigen::Vector2d> jacobian_td(jacobians[3]);
-            jacobian_td = reduce * ric2.transpose() * ric * velocity_i / inv_dep_i * -1.0  +
-                          sqrt_info * velocity_j.head(2);
+            jacobian_td = reduce * (ric2.transpose() * ric * velocity_i / inv_dep_i * -1.0)  +
+                       sqrt_info * tangent_base * velocity_j;
         }
     }
     sum_t += tic_toc.toc();
@@ -148,12 +155,15 @@ void ProjectionOneFrameTwoCamFactor::check(double **parameters)
 
     std::cout << Eigen::Map<Eigen::Matrix<double, 2, 1>>(res).transpose() << std::endl
               << std::endl;
+    std::cout << "Jacobian" << std::endl;
     std::cout << Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>>(jaco[0]) << std::endl
               << std::endl;
     std::cout << Eigen::Map<Eigen::Matrix<double, 2, 7, Eigen::RowMajor>>(jaco[1]) << std::endl
               << std::endl;
+    std::cout << "Jacobian2" << std::endl;
     std::cout << Eigen::Map<Eigen::Vector2d>(jaco[2]) << std::endl
               << std::endl;
+    std::cout << "Jacobian3" << std::endl;
     std::cout << Eigen::Map<Eigen::Vector2d>(jaco[3]) << std::endl
               << std::endl;
 
@@ -243,6 +253,9 @@ void ProjectionOneFrameTwoCamFactor::check(double **parameters)
     }
     std::cout << num_jacobian.block<2, 6>(0, 0) << std::endl;
     std::cout << num_jacobian.block<2, 6>(0, 6) << std::endl;
+    std::cout << "012" << std::endl;
     std::cout << num_jacobian.block<2, 1>(0, 12) << std::endl;
+    std::cout << "013" << std::endl;
     std::cout << num_jacobian.block<2, 1>(0, 13) << std::endl;
+    std::cout << "Check End" << std::endl;
 }

@@ -23,9 +23,10 @@ using namespace std;
 const double FOCAL_LENGTH = 460.0;
 const int WINDOW_SIZE = 10;
 const int NUM_OF_F = 1000;
-//#define UNIT_SPHERE_ERROR
+#define UNIT_SPHERE_ERROR
 
 extern double INIT_DEPTH;
+extern double THRES_OUTLIER;
 extern double MIN_PARALLAX;
 extern int ESTIMATE_EXTRINSIC;
 
@@ -45,15 +46,27 @@ extern std::string VINS_RESULT_PATH;
 extern std::string OUTPUT_FOLDER;
 extern std::string IMU_TOPIC;
 extern double TD;
+extern double depth_estimate_baseline;
 extern int ESTIMATE_TD;
 extern int ROLLING_SHUTTER;
 extern int ROW, COL;
+extern int SHOW_WIDTH;
 extern int NUM_OF_CAM;
 extern int STEREO;
+extern int FISHEYE;
+extern double FISHEYE_FOV;
+
+extern int enable_up_top;
+extern int enable_down_top;
+extern int enable_up_side;
+extern int enable_down_side;
+extern int enable_rear_side;
+
 extern int USE_IMU;
 extern int MULTIPLE_THREAD;
 extern int USE_GPU;
 extern int USE_GPU_ACC_FLOW;
+extern int ENABLE_DOWNSAMPLE;
 extern int PUB_RECTIFY;
 extern Eigen::Matrix3d rectify_R_left;
 extern Eigen::Matrix3d rectify_R_right;
@@ -64,6 +77,10 @@ extern std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
 extern std::string FISHEYE_MASK;
 extern std::vector<std::string> CAM_NAMES;
 extern int MAX_CNT;
+extern int TOP_PTS_CNT;
+extern int SIDE_PTS_CNT;
+extern int MAX_SOLVE_CNT;
+
 extern int MIN_DIST;
 extern double F_THRESHOLD;
 extern int SHOW_TRACK;

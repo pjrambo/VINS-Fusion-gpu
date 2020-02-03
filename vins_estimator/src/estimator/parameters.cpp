@@ -13,7 +13,7 @@ double INIT_DEPTH;
 double MIN_PARALLAX;
 double ACC_N, ACC_W;
 double GYR_N, GYR_W;
-
+double THRES_OUTLIER;
 std::vector<Eigen::Matrix3d> RIC;
 std::vector<Eigen::Vector3d> TIC;
 
@@ -31,13 +31,24 @@ std::string VINS_RESULT_PATH;
 std::string OUTPUT_FOLDER;
 std::string IMU_TOPIC;
 int ROW, COL;
+int SHOW_WIDTH;
 double TD;
 int NUM_OF_CAM;
 int STEREO;
+int FISHEYE;
+double FISHEYE_FOV;
+int enable_up_top;
+int enable_down_top;
+int enable_up_side;
+int enable_down_side;
+int enable_rear_side;
+double depth_estimate_baseline;
+
 int USE_IMU;
 int MULTIPLE_THREAD;
 int USE_GPU;
 int USE_GPU_ACC_FLOW;
+int ENABLE_DOWNSAMPLE;
 int PUB_RECTIFY;
 Eigen::Matrix3d rectify_R_left;
 Eigen::Matrix3d rectify_R_right;
@@ -46,6 +57,10 @@ std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
 std::string FISHEYE_MASK;
 std::vector<std::string> CAM_NAMES;
 int MAX_CNT;
+int TOP_PTS_CNT;
+int SIDE_PTS_CNT;
+int MAX_SOLVE_CNT;
+
 int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
@@ -87,14 +102,28 @@ void readParameters(std::string config_file)
     fsSettings["image0_topic"] >> IMAGE0_TOPIC;
     fsSettings["image1_topic"] >> IMAGE1_TOPIC;
     MAX_CNT = fsSettings["max_cnt"];
+    TOP_PTS_CNT = fsSettings["top_cnt"];
+    SIDE_PTS_CNT = fsSettings["side_cnt"];
+    MAX_SOLVE_CNT = fsSettings["max_solve_cnt"];
     MIN_DIST = fsSettings["min_dist"];
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];
     FLOW_BACK = fsSettings["flow_back"];
-
+    ENABLE_DOWNSAMPLE = fsSettings["enable_downsample"];
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
-
+    THRES_OUTLIER = fsSettings["thres_outlier"];
     USE_GPU = fsSettings["use_gpu"];
+    FISHEYE = fsSettings["is_fisheye"];
+    FISHEYE_FOV = fsSettings["fisheye_fov"];
+
+    enable_up_top = fsSettings["enable_up_top"];
+    enable_up_side = fsSettings["enable_up_side"];
+    enable_down_top = fsSettings["enable_down_top"];
+    enable_down_side = fsSettings["enable_down_side"];
+    enable_rear_side = fsSettings["enable_rear_side"];
+
+    depth_estimate_baseline = fsSettings["depth_estimate_baseline"];
+
     USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
 
     USE_IMU = fsSettings["imu"];
@@ -196,6 +225,7 @@ void readParameters(std::string config_file)
 
     ROW = fsSettings["image_height"];
     COL = fsSettings["image_width"];
+    SHOW_WIDTH = fsSettings["show_width"];
     ROS_INFO("ROW: %d COL: %d ", ROW, COL);
 
     if(!USE_IMU)

@@ -82,17 +82,7 @@ void sync_process()
             {
                 double time0 = img0_buf.front()->header.stamp.toSec();
                 double time1 = img1_buf.front()->header.stamp.toSec();
-                if(time0 < time1)
-                {
-                    img0_buf.pop();
-                    printf("throw img0\n");
-                }
-                else if(time0 > time1)
-                {
-                    img1_buf.pop();
-                    printf("throw img1\n");
-                }
-                else
+                if (fabs(time0 - time1) < 0.005) 
                 {
                     time = img0_buf.front()->header.stamp.toSec();
                     header = img0_buf.front()->header;
@@ -102,6 +92,18 @@ void sync_process()
                     img1_buf.pop();
                     //printf("find img0 and img1\n");
                 }
+                else if(time0 < time1)
+                {
+                    img0_buf.pop();
+                    printf("throw img0\n");
+                }
+                else if(time0 > time1)
+                {
+                    img1_buf.pop();
+                    printf("throw img1\n");
+                }
+                
+                
             }
             m_buf.unlock();
             if(!image0.empty())
@@ -149,7 +151,7 @@ void imu_callback(const sensor_msgs::ImuConstPtr &imu_msg)
 
 void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
 {
-    map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
+    FeatureFrame featureFrame;
     for (unsigned int i = 0; i < feature_msg->points.size(); i++)
     {
         int feature_id = feature_msg->channels[0].values[i];
@@ -170,8 +172,8 @@ void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
             //printf("receive pts gt %d %f %f %f\n", feature_id, gx, gy, gz);
         }
         ROS_ASSERT(z == 1);
-        Eigen::Matrix<double, 7, 1> xyz_uv_velocity;
-        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y;
+        TrackFeatureNoId xyz_uv_velocity;
+        xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y, 0;
         featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
     }
     double t = feature_msg->header.stamp.toSec();

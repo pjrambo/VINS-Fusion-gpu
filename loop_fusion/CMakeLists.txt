@@ -13,10 +13,10 @@ find_package(catkin REQUIRED COMPONENTS
     camera_models
     cv_bridge
     roslib
-    )
+)
 
-#find_package(OpenCV)
-include(/home/dji/opencv/build/OpenCVConfig.cmake)
+SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
+find_package(OpenCV 3.4 REQUIRED)
 
 
 find_package(Ceres REQUIRED)
@@ -44,4 +44,4 @@ add_executable(loop_fusion_node
     src/ThirdParty/VocabularyBinary.cpp
     )
 
-target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES}) 
+target_link_libraries(loop_fusion_node ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${CERES_LIBRARIES})

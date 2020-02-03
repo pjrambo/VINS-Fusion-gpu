@@ -1,11 +1,11 @@
-#include "camodocal/camera_models/CameraFactory.h"
-
 #include <boost/algorithm/string.hpp>
 
+#include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
 #include "camodocal/camera_models/EquidistantCamera.h"
 #include "camodocal/camera_models/PinholeCamera.h"
 #include "camodocal/camera_models/PinholeFullCamera.h"
+#include "camodocal/camera_models/PolyFisheyeCamera.h"
 #include "camodocal/camera_models/ScaramuzzaCamera.h"
 
 #include "ceres/ceres.h"
@@ -108,25 +108,29 @@ CameraFactory::generateCameraFromYamlFile( const std::string& filename )
         std::string sModelType;
         fs["model_type"] >> sModelType;
 
-        if ( boost::iequals( sModelType, "kannala_brandt" ) )
+        if ( boost::iequals( sModelType, "KANNALA_BRANDT" ) )
         {
             modelType = Camera::KANNALA_BRANDT;
         }
-        else if ( boost::iequals( sModelType, "mei" ) )
+        else if ( boost::iequals( sModelType, "MEI" ) )
         {
             modelType = Camera::MEI;
         }
-        else if ( boost::iequals( sModelType, "scaramuzza" ) )
+        else if ( boost::iequals( sModelType, "SCARAMUZZA" ) )
         {
             modelType = Camera::SCARAMUZZA;
         }
-        else if ( boost::iequals( sModelType, "pinhole" ) )
+        else if ( boost::iequals( sModelType, "PINHOLE" ) )
         {
             modelType = Camera::PINHOLE;
         }
         else if ( boost::iequals( sModelType, "PINHOLE_FULL" ) )
         {
             modelType = Camera::PINHOLE_FULL;
+        }
+        else if ( boost::iequals( sModelType, "POLYFISHEYE" ) )
+        {
+            modelType = Camera::POLYFISHEYE;
         }
         else
         {
@@ -169,6 +173,15 @@ CameraFactory::generateCameraFromYamlFile( const std::string& filename )
             OCAMCameraPtr camera( new OCAMCamera );
 
             OCAMCamera::Parameters params = camera->getParameters( );
+            params.readFromYamlFile( filename );
+            camera->setParameters( params );
+            return camera;
+        }
+        case Camera::POLYFISHEYE:
+        {
+            PolyFisheyeCameraPtr camera( new PolyFisheyeCamera );
+
+            PolyFisheyeCamera::Parameters params = camera->getParameters( );
             params.readFromYamlFile( filename );
             camera->setParameters( params );
             return camera;
