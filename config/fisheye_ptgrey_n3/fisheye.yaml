@@ -24,7 +24,7 @@ enable_up_top: 1
 enable_down_top: 1
 enable_up_side: 1
 enable_down_side: 1
-enable_rear_side: 0
+enable_rear_side: 1
 thres_outlier : 5.0
 # Extrinsic parameter between IMU and Camera.
 estimate_extrinsic: 1      # 0  Have an accurate extrinsic parameters. We will trust the following imu^R_cam, imu^T_cam, don't change it.
@@ -35,7 +35,7 @@ body_T_cam0: !!opencv-matrix
    cols: 4
    dt: d
    data: [ 9.9970152931501111e-01, -2.4334070146456496e-02,
-       -2.1691738831616180e-03, 2.4271285208706174e-02,
+       -2.1691738831616180e-03, 2.42 71285208706174e-02,
        2.4313045731037753e-02, 9.9966167038360143e-01,
        -9.2423250942725247e-03, 4.6146656309142874e-03,
        2.3933433745542093e-03, 9.1868273073508668e-03,
@@ -79,12 +79,12 @@ use_gpu_acc_flow: 1
 depth_estimate_baseline: 0.05
 top_cnt: 50
 side_cnt: 50
-max_solve_cnt: 20 # Max Point for solve; highly influence performace
+max_solve_cnt: 30 # Max Point for solve; highly influence performace
 
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 0           # publish tracking image as topic
+show_track: 1           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
 #optimization parameters

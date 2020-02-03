@@ -14,6 +14,8 @@ double MIN_PARALLAX;
 double ACC_N, ACC_W;
 double GYR_N, GYR_W;
 double THRES_OUTLIER;
+double triangulate_max_err = 1.0;
+
 std::vector<Eigen::Matrix3d> RIC;
 std::vector<Eigen::Vector3d> TIC;
 

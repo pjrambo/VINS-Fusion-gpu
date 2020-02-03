@@ -262,7 +262,7 @@ void FeatureManager::triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, E
     point_3d(2) = triangulated_point(2) / triangulated_point(3);
 }
 
-void FeatureManager::triangulatePoint3DPts(vector<Eigen::Matrix<double, 3, 4>> &poses, vector<Eigen::Vector3d> &points, Eigen::Vector3d &point_3d)
+double FeatureManager::triangulatePoint3DPts(vector<Eigen::Matrix<double, 3, 4>> &poses, vector<Eigen::Vector3d> &points, Eigen::Vector3d &point_3d)
 {
     //TODO:Rewrite this for 3d point
     Eigen::MatrixXd design_matrix(poses.size()*2, 4);
@@ -281,6 +281,12 @@ void FeatureManager::triangulatePoint3DPts(vector<Eigen::Matrix<double, 3, 4>> &
     point_3d(0) = triangulated_point(0) / triangulated_point(3);
     point_3d(1) = triangulated_point(1) / triangulated_point(3);
     point_3d(2) = triangulated_point(2) / triangulated_point(3);
+
+    Eigen::MatrixXd pts(4, 1);
+    pts << point_3d.x(), point_3d.y(), point_3d.z(), 1;
+    Eigen::MatrixXd errs = design_matrix*pts;
+    // std::cout << "ERR" << errs.sum() << std::endl;
+    return errs.norm()/ errs.rows(); 
 }
 
 
@@ -454,17 +460,22 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         }
 
         Eigen::Vector3d point3d;
-        triangulatePoint3DPts(poses, ptss, point3d);
-        Eigen::Vector3d localPoint;
+        double err = triangulatePoint3DPts(poses, ptss, point3d)*FOCAL_LENGTH;
+        if (err > triangulate_max_err) {
+            ROS_WARN("Feature ID %d CAM %d IS stereo %d poses %ld dep %d %f AVG ERR: %f", 
+                it_per_id.feature_id, 
+                it_per_id.main_cam,
+                it_per_id.feature_per_frame[0].is_stereo,
+                poses.size(),
+                it_per_id.depth_inited, it_per_id.estimated_depth, err);
+        } else {
+             Eigen::Vector3d localPoint;
             localPoint = origin_pose.leftCols<3>() * point3d + origin_pose.rightCols<1>();
-        it_per_id.depth_inited = true;
-        it_per_id.good_for_solving = true;
-        it_per_id.estimated_depth = localPoint.norm();
-        // ROS_INFO("Feature ID %d IS stereo %d poses %ld dep %d %f", 
-            // it_per_id.feature_id, 
-            // it_per_id.feature_per_frame[0].is_stereo,
-            // poses.size(),
-            // it_per_id.depth_inited, it_per_id.estimated_depth);
+
+            it_per_id.depth_inited = true;
+            it_per_id.good_for_solving = true;
+            it_per_id.estimated_depth = localPoint.norm();
+        }
         // ROS_INFO("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());
     }
 }

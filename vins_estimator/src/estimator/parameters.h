@@ -23,6 +23,7 @@ using namespace std;
 const double FOCAL_LENGTH = 460.0;
 const int WINDOW_SIZE = 10;
 const int NUM_OF_F = 1000;
+extern double triangulate_max_err;
 #define UNIT_SPHERE_ERROR
 
 extern double INIT_DEPTH;
