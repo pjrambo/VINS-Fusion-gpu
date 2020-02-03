@@ -63,6 +63,7 @@ class FeaturePerFrame
     Vector2d uv, uvRight;
     Vector3d velocity, velocityRight;
     bool is_stereo;
+    int camera = 0;
 };
 
 class FeaturePerId
@@ -76,6 +77,7 @@ class FeaturePerId
     bool depth_inited = false;
     int solve_flag = 0; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
     bool good_for_solving = false;
+    int main_cam = 0;
 
     FeaturePerId(int _feature_id, int _start_frame)
         : feature_id(_feature_id), start_frame(_start_frame),

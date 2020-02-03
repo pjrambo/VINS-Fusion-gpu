@@ -68,8 +68,8 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
         //We need to modified this to enable downward top view
         // assert(id_pts.second[0].first == 0);
         if (id_pts.second[0].first != 0) {
-            //Skip this case now
-            continue;
+            //This point is right/down observation only
+            f_per_fra.camera = 1;
         }
         
         if(id_pts.second.size() == 2)
@@ -84,6 +84,7 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
         if (feature.find(feature_id) == feature.end()) {
             //Insert
             FeaturePerId fre(feature_id, frame_count);
+            fre.main_cam = f_per_fra.camera;
             feature.emplace(feature_id, fre);
             feature[feature_id].feature_per_frame.push_back(f_per_fra);
             new_feature_num++;
@@ -309,7 +310,7 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
         vector<cv::Point3f> pts3D;
         for (auto &_it : feature) {
             auto & it_per_id = _it.second;
-            if (it_per_id.depth_inited && it_per_id.good_for_solving)
+            if (it_per_id.depth_inited && it_per_id.good_for_solving && it_per_id.main_cam == 0)
             {
                 int index = frameCnt - it_per_id.start_frame;
                 if((int)it_per_id.feature_per_frame.size() >= index + 1)
@@ -420,17 +421,18 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
 
         if(it_per_id.feature_per_frame.size() > 1)
         {
+            int cam_id = it_per_id.feature_per_frame[0].camera;
             int imu_i = it_per_id.start_frame;
             Eigen::Matrix<double, 3, 4> leftPose;
-            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
-            Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[cam_id];
+            Eigen::Matrix3d R0 = Rs[imu_i] * ric[cam_id];
             leftPose.leftCols<3>() = R0.transpose();
             leftPose.rightCols<1>() = -R0.transpose() * t0;
 
             imu_i = it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
             Eigen::Matrix<double, 3, 4> rightPose;
-            Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[0];
-            Eigen::Matrix3d R1 = Rs[imu_i] * ric[0];
+            Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[cam_id];
+            Eigen::Matrix3d R1 = Rs[imu_i] * ric[cam_id];
             rightPose.leftCols<3>() = R1.transpose();
             rightPose.rightCols<1>() = -R1.transpose() * t1;
 

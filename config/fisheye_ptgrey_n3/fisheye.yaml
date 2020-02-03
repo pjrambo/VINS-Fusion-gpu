@@ -16,12 +16,12 @@ cam0_calib: "up.yaml"
 cam1_calib: "down.yaml"
 image_width: 1280
 image_height: 1024
-show_width: 1920
+show_width: 1080
 
 fisheye_fov: 235
 
 enable_up_top: 1
-enable_down_top: 0
+enable_down_top: 1
 enable_up_side: 1
 enable_down_side: 1
 enable_rear_side: 0
@@ -76,8 +76,8 @@ use_gpu_acc_flow: 1
 
 
 depth_estimate_baseline: 0.1
-top_cnt: 50
-side_cnt: 50
+top_cnt: 30
+side_cnt: 30
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
