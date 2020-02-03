@@ -208,9 +208,7 @@ std::map<int, double> FeatureManager::getDepthVector()
     for (auto &_it : feature) {
         auto & it_per_id = _it.second;
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4 || !it_per_id.good_for_solving)
-            continue;
-        if(dep_vec.size() < MAX_SOLVE_CNT) {
+        if(dep_vec.size() < MAX_SOLVE_CNT && it_per_id.used_num >= 4 && it_per_id.good_for_solving) {
             dep_vec[it_per_id.feature_id] = 1. / it_per_id.estimated_depth;
         } else {
             //Clear depth; wait for re triangulate
@@ -386,118 +384,88 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             continue;
 
         std::vector<Eigen::Matrix<double, 3, 4>> poses;
-        std::vector<Eigen::Vector3d> pts;
+        std::vector<Eigen::Vector3d> ptss;
+        Eigen::Matrix<double, 3, 4> origin_pose;
+        // Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+        // Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+        // leftPose.leftCols<3>() = R0.transpose();
+        // leftPose.rightCols<1>() = -R0.transpose() * t0;
+        auto t0 = Ps[it_per_id.start_frame] + Rs[it_per_id.start_frame] * tic[0];
+        auto R0 = Rs[it_per_id.start_frame] * ric[0];
+        origin_pose.leftCols<3>() = R0.transpose();
+        origin_pose.rightCols<1>() = -R0.transpose() * t0;
+        bool has_stereo = false;
+
+        Eigen::Vector3d _min = t0;
+        Eigen::Vector3d _max = t0;
 
         for (unsigned int frame = 0; frame < it_per_id.feature_per_frame.size(); frame ++) {
-            //Must initial after per frame size >
-            if(STEREO && it_per_id.feature_per_frame[frame].is_stereo && it_per_id.feature_per_frame.size() > 1)
-            {
-                ROS_DEBUG("Feature ID %d IS stereo %d dep %d %f", it_per_id.feature_id, it_per_id.feature_per_frame[0].is_stereo, 
-                    it_per_id.depth_inited, it_per_id.estimated_depth);
-                int imu_i = it_per_id.start_frame + frame;
-                Eigen::Matrix<double, 3, 4> leftPose;
-                Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
-                Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
-                leftPose.leftCols<3>() = R0.transpose();
-                leftPose.rightCols<1>() = -R0.transpose() * t0;
-                // cout << "left pose " << leftPose << endl;
+            int imu_i = it_per_id.start_frame + frame;
+            Eigen::Matrix<double, 3, 4> leftPose;
+            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+            _max.x() = max(t0.x(), _max.x());
+            _max.y() = max(t0.y(), _max.y());
+            _max.z() = max(t0.z(), _max.z());
+            
+            _min.x() = min(t0.x(), _min.x());
+            _min.y() = min(t0.y(), _min.y());
+            _min.z() = min(t0.z(), _min.z());
 
+            Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+            leftPose.leftCols<3>() = R0.transpose();
+            leftPose.rightCols<1>() = -R0.transpose() * t0;
+            Eigen::Vector3d point0 = it_per_id.feature_per_frame[frame].point;
+
+            poses.push_back(leftPose);
+            ptss.push_back(point0);
+
+            if(STEREO && it_per_id.feature_per_frame[frame].is_stereo) {
+                has_stereo = true;
                 Eigen::Matrix<double, 3, 4> rightPose;
                 Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[1];
                 Eigen::Matrix3d R1 = Rs[imu_i] * ric[1];
                 rightPose.leftCols<3>() = R1.transpose();
                 rightPose.rightCols<1>() = -R1.transpose() * t1;
-                // cout << "right pose " << rightPose << endl;
+                auto point1 = it_per_id.feature_per_frame[frame].pointRight;
+                poses.push_back(rightPose);
+                ptss.push_back(point1);
 
-                Eigen::Vector3d point0, point1;
-                Eigen::Vector3d point3d;
-                point0 = it_per_id.feature_per_frame[frame].point;
-                point1 = it_per_id.feature_per_frame[frame].pointRight;
-                // cout << "point0 " << point0.transpose() << endl;
-                // cout << "point1 " << point1.transpose() << endl;
-
-                triangulatePoint3DPts(leftPose, rightPose, point0, point1, point3d);
-                Eigen::Vector3d localPoint;
-
-                //Note depth is on frame 0
-                localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
-                ROS_DEBUG("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());
-                it_per_id.depth_inited = true;
-                it_per_id.good_for_solving = true;
-                if (FISHEYE) {
-                    //Depth For fisheye should be the radius of the sphere; Not only z axis
-                    it_per_id.estimated_depth = localPoint.norm();
-                } else {
-                    double depth = localPoint.z();
-                    if (depth > 0)
-                        it_per_id.estimated_depth = depth;
-                    else
-                        it_per_id.estimated_depth = INIT_DEPTH;
-                }
-                break;
+                _max.x() = max(t1.x(), _max.x());
+                _max.y() = max(t1.y(), _max.y());
+                _max.z() = max(t1.z(), _max.z());
+                
+                _min.x() = min(t1.x(), _min.x());
+                _min.y() = min(t1.y(), _min.y());
+                _min.z() = min(t1.z(), _min.z());
             }
         }
 
-        if (it_per_id.depth_inited) {
-            //Has been inited by Stereo so skiping
+        if (poses.size() < 2) {
+            //No enough information
             continue;
         }
 
-
-        if(it_per_id.feature_per_frame.size() > 1)
-        {
-            // ROS_INFO("Feature ID %d IS stereo %d dep %d %f", it_per_id.feature_id, it_per_id.feature_per_frame[0].is_stereo, 
-                // it_per_id.depth_inited, it_per_id.estimated_depth);
-            int cam_id = it_per_id.feature_per_frame[0].camera;
-            int imu_i = it_per_id.start_frame;
-            Eigen::Matrix<double, 3, 4> leftPose;
-            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[cam_id];
-            Eigen::Matrix3d R0 = Rs[imu_i] * ric[cam_id];
-            leftPose.leftCols<3>() = R0.transpose();
-            leftPose.rightCols<1>() = -R0.transpose() * t0;
-
-            imu_i = it_per_id.start_frame + it_per_id.feature_per_frame.size() - 1;
-            Eigen::Matrix<double, 3, 4> rightPose;
-            Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[cam_id];
-            Eigen::Matrix3d R1 = Rs[imu_i] * ric[cam_id];
-            rightPose.leftCols<3>() = R1.transpose();
-            rightPose.rightCols<1>() = -R1.transpose() * t1;
-
-            Eigen::Vector3d point0, point1;
-            Eigen::Vector3d point3d;
-            point0 = it_per_id.feature_per_frame[0].point;
-            point1 = it_per_id.feature_per_frame.back().point;
-            //If baseline is not long enough we give up the point depth since it's useless
-            
-            if ((t0 - t1).norm() < depth_estimate_baseline) {
+        if (!has_stereo) {
+            //We need calculate baseline
+            if ((_max - _min).norm() < depth_estimate_baseline) {
+                //Baseline too small; skipping
                 continue;
             }
-
-            triangulatePoint3DPts(leftPose, rightPose, point0, point1, point3d);
-            Eigen::Vector3d localPoint;
-            localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
-
-            it_per_id.depth_inited = true;
-            it_per_id.good_for_solving = true;
-            
-            if (FISHEYE) {
-                //Depth For fisheye should be the radius of the sphere; Not only z axis
-                it_per_id.estimated_depth = localPoint.norm();
-            } else {
-                double depth = localPoint.z();
-                if (depth > 0)
-                    it_per_id.estimated_depth = depth;
-                else
-                    it_per_id.estimated_depth = INIT_DEPTH;
-            }
-            
-            /*
-            Vector3d ptsGt = pts_gt[it_per_id.feature_id];
-            printf("motion  %d pts: %f %f %f gt: %f %f %f \n",it_per_id.feature_id, point3d.x(), point3d.y(), point3d.z(),
-                                                            ptsGt.x(), ptsGt.y(), ptsGt.z());
-            */
-            continue;
         }
+
+        Eigen::Vector3d point3d;
+        triangulatePoint3DPts(poses, ptss, point3d);
+        Eigen::Vector3d localPoint;
+            localPoint = origin_pose.leftCols<3>() * point3d + origin_pose.rightCols<1>();
+        it_per_id.depth_inited = true;
+        it_per_id.good_for_solving = true;
+        it_per_id.estimated_depth = localPoint.norm();
+        // ROS_INFO("Feature ID %d IS stereo %d poses %ld dep %d %f", 
+            // it_per_id.feature_id, 
+            // it_per_id.feature_per_frame[0].is_stereo,
+            // poses.size(),
+            // it_per_id.depth_inited, it_per_id.estimated_depth);
+        // ROS_INFO("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());
     }
 }
 

@@ -79,7 +79,7 @@ use_gpu_acc_flow: 1
 depth_estimate_baseline: 0.05
 top_cnt: 50
 side_cnt: 50
-max_solve_cnt: 120 # Max Point for solve; highly influence performace
+max_solve_cnt: 20 # Max Point for solve; highly influence performace
 
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
