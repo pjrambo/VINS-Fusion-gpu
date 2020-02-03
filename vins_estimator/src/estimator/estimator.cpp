@@ -455,8 +455,9 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         {
             ROS_INFO("Init by pose pnp...");
             f_manager.initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
-            ROS_INFO("Triangulation...");
+            TicToc t_ic;
             f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
+            ROS_INFO("Triangulation cost %fms..", t_ic.toc());
             if (frame_count == WINDOW_SIZE)
             {
                 map<double, ImageFrame>::iterator frame_it;
@@ -517,7 +518,10 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         TicToc t_solve;
         if(!USE_IMU)
             f_manager.initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
+        TicToc t_ic;
         f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
+        ROS_INFO("Triangulation cost %fms..", t_ic.toc());
+        
         optimization();
         set<int> removeIndex;
         outliersRejection(removeIndex);

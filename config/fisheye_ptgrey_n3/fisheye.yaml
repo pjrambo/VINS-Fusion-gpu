@@ -77,9 +77,9 @@ use_gpu_acc_flow: 1
 
 
 depth_estimate_baseline: 0.05
-top_cnt: 30
-side_cnt: 30
-max_solve_cnt: 40 # Max Point for solve; highly influence performace
+top_cnt: 50
+side_cnt: 50
+max_solve_cnt: 120 # Max Point for solve; highly influence performace
 
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
@@ -88,7 +88,9 @@ show_track: 0           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
 #optimization parameters
-max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
+# max_solver_time: 0.04  # max solver itration time (ms), to guarantee real time
+# max_num_iterations: 8   # max solver itrations, to guarantee real time
+max_solver_time: 0.1  # max solver itration time (ms), to guarantee real time
 max_num_iterations: 8   # max solver itrations, to guarantee real time
 keyframe_parallax: 10.0 # keyframe selection threshold (pixel)
 

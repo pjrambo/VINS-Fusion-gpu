@@ -161,10 +161,10 @@ void FeatureManager::setDepth(std::map<int, double> deps)
         auto & it_per_id = feature[_id];
 
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if (it_per_id.used_num < 4 || !it_per_id.good_for_solving)
-            continue;
 
         it_per_id.estimated_depth = 1.0 / depth;
+
+        it_per_id.depth_inited = true;
         //ROS_INFO("feature id %d , start_frame %d, depth %f ", it_per_id->feature_id, it_per_id-> start_frame, it_per_id->estimated_depth);
         if (it_per_id.estimated_depth < 0)
         {
@@ -210,9 +210,11 @@ std::map<int, double> FeatureManager::getDepthVector()
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if (it_per_id.used_num < 4 || !it_per_id.good_for_solving)
             continue;
-        dep_vec[it_per_id.feature_id] = 1. / it_per_id.estimated_depth;
-        if(dep_vec.size() >= MAX_SOLVE_CNT) {
-            break;
+        if(dep_vec.size() < MAX_SOLVE_CNT) {
+            dep_vec[it_per_id.feature_id] = 1. / it_per_id.estimated_depth;
+        } else {
+            //Clear depth; wait for re triangulate
+            it_per_id.depth_inited = false;
         }
     }
     return dep_vec;
@@ -254,6 +256,27 @@ void FeatureManager::triangulatePoint3DPts(Eigen::Matrix<double, 3, 4> &Pose0, E
     design_matrix.row(1) = p0y * Pose0.row(2) - p0z*Pose0.row(1);
     design_matrix.row(2) = p1x * Pose1.row(2) - p1z*Pose1.row(0);
     design_matrix.row(3) = p1y * Pose1.row(2) - p1z*Pose1.row(1);
+    Eigen::Vector4d triangulated_point;
+    triangulated_point =
+              design_matrix.jacobiSvd(Eigen::ComputeFullV).matrixV().rightCols<1>();
+    point_3d(0) = triangulated_point(0) / triangulated_point(3);
+    point_3d(1) = triangulated_point(1) / triangulated_point(3);
+    point_3d(2) = triangulated_point(2) / triangulated_point(3);
+}
+
+void FeatureManager::triangulatePoint3DPts(vector<Eigen::Matrix<double, 3, 4>> &poses, vector<Eigen::Vector3d> &points, Eigen::Vector3d &point_3d)
+{
+    //TODO:Rewrite this for 3d point
+    Eigen::MatrixXd design_matrix(poses.size()*2, 4);
+    assert(poses.size() > 0 && poses.size() == points.size() && "We at least have 2 poses and number of pts and poses must equal");
+    for (unsigned int i = 0; i < poses.size(); i ++) {
+        double p0x = points[i][0];
+        double p0y = points[i][1];
+        double p0z = points[i][2];
+        design_matrix.row(i*2) = p0x * poses[i].row(2) - p0z*poses[i].row(0);
+        design_matrix.row(i*2+1) = p0y * poses[i].row(2) - p0z*poses[i].row(1);
+
+    }
     Eigen::Vector4d triangulated_point;
     triangulated_point =
               design_matrix.jacobiSvd(Eigen::ComputeFullV).matrixV().rightCols<1>();
@@ -362,6 +385,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         if (it_per_id.depth_inited)
             continue;
 
+        std::vector<Eigen::Matrix<double, 3, 4>> poses;
+        std::vector<Eigen::Vector3d> pts;
 
         for (unsigned int frame = 0; frame < it_per_id.feature_per_frame.size(); frame ++) {
             //Must initial after per frame size >
@@ -395,11 +420,6 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
                 Eigen::Vector3d localPoint;
 
                 //Note depth is on frame 0
-                t0 = Ps[it_per_id.start_frame] + Rs[it_per_id.start_frame] * tic[0];
-                R0 = Rs[it_per_id.start_frame] * ric[0];
-                leftPose.leftCols<3>() = R0.transpose();
-                leftPose.rightCols<1>() = -R0.transpose() * t0;
-
                 localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
                 ROS_DEBUG("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());
                 it_per_id.depth_inited = true;
@@ -426,6 +446,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
 
         if(it_per_id.feature_per_frame.size() > 1)
         {
+            // ROS_INFO("Feature ID %d IS stereo %d dep %d %f", it_per_id.feature_id, it_per_id.feature_per_frame[0].is_stereo, 
+                // it_per_id.depth_inited, it_per_id.estimated_depth);
             int cam_id = it_per_id.feature_per_frame[0].camera;
             int imu_i = it_per_id.start_frame;
             Eigen::Matrix<double, 3, 4> leftPose;
