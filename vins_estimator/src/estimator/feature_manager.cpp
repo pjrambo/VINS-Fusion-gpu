@@ -210,6 +210,7 @@ std::map<int, double> FeatureManager::getDepthVector()
         it_per_id.used_num = it_per_id.feature_per_frame.size();
         if(dep_vec.size() < MAX_SOLVE_CNT && it_per_id.used_num >= 4 && it_per_id.good_for_solving) {
             dep_vec[it_per_id.feature_id] = 1. / it_per_id.estimated_depth;
+            ft->setFeatureStatus(it_per_id.feature_id, 3);
         } else {
             //Clear depth; wait for re triangulate
             it_per_id.depth_inited = false;
@@ -386,8 +387,12 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
 {
     for (auto &_it : feature) {
         auto & it_per_id = _it.second;
-        if (it_per_id.depth_inited)
+        if (it_per_id.depth_inited) {
+            if (it_per_id.feature_per_frame.size() >= 4) {
+                ft->setFeatureStatus(it_per_id.feature_id, 1);
+            }
             continue;
+        }
 
         std::vector<Eigen::Matrix<double, 3, 4>> poses;
         std::vector<Eigen::Vector3d> ptss;
@@ -462,16 +467,19 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         Eigen::Vector3d point3d;
         double err = triangulatePoint3DPts(poses, ptss, point3d)*FOCAL_LENGTH;
         if (err > triangulate_max_err) {
-            ROS_WARN("Feature ID %d CAM %d IS stereo %d poses %ld dep %d %f AVG ERR: %f", 
-                it_per_id.feature_id, 
-                it_per_id.main_cam,
-                it_per_id.feature_per_frame[0].is_stereo,
-                poses.size(),
-                it_per_id.depth_inited, it_per_id.estimated_depth, err);
+            // ROS_WARN("Feature ID %d CAM %d IS stereo %d poses %ld dep %d %f AVG ERR: %f", 
+            //     it_per_id.feature_id, 
+            //     it_per_id.main_cam,
+            //     it_per_id.feature_per_frame[0].is_stereo,
+            //     poses.size(),
+            //     it_per_id.depth_inited, it_per_id.estimated_depth, err);
+            ft->setFeatureStatus(it_per_id.feature_id, 2);
         } else {
-             Eigen::Vector3d localPoint;
+            Eigen::Vector3d localPoint;
             localPoint = origin_pose.leftCols<3>() * point3d + origin_pose.rightCols<1>();
-
+            if (it_per_id.feature_per_frame.size() >= 4) {
+                ft->setFeatureStatus(it_per_id.feature_id, 1);            
+            }
             it_per_id.depth_inited = true;
             it_per_id.good_for_solving = true;
             it_per_id.estimated_depth = localPoint.norm();
@@ -491,6 +499,7 @@ void FeatureManager::removeOutlier(set<int> &outlierIndex)
         itSet = outlierIndex.find(index);
         if(itSet != outlierIndex.end())
         {
+            ft->setFeatureStatus(it->second.feature_id, -1);
             feature.erase(it);
             //printf("remove outlier %d \n", index);
         }
@@ -514,6 +523,7 @@ void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3
             if (it.feature_per_frame.size() < 2)
             {
                 feature.erase(_it);
+                ft->setFeatureStatus(_it->second.feature_id, -1);
                 continue;
             }
             else
@@ -523,7 +533,7 @@ void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3
                 Eigen::Vector3d pts_j = new_R.transpose() * (w_pts_i - new_P);
                 double dep_j = pts_j(2);
 
-                it.depth_inited = true;
+                it.depth_inited = false;
                 if (FISHEYE) {
                     it.estimated_depth = pts_j.norm();
                 } else {
@@ -556,8 +566,10 @@ void FeatureManager::removeBack()
         else
         {
             it->second.feature_per_frame.erase(it->second.feature_per_frame.begin());
-            if (it->second.feature_per_frame.size() == 0)
+            if (it->second.feature_per_frame.size() == 0) {
+                ft->setFeatureStatus(it->second.feature_id, -1);
                 feature.erase(it);
+            }
         }
     }
 }
@@ -578,8 +590,10 @@ void FeatureManager::removeFront(int frame_count)
             if (it->second.endFrame() < frame_count - 1)
                 continue;
             it->second.feature_per_frame.erase(it->second.feature_per_frame.begin() + j);
-            if (it->second.feature_per_frame.size() == 0)
+            if (it->second.feature_per_frame.size() == 0) {
+                ft->setFeatureStatus(it->second.feature_id, -1);
                 feature.erase(it);
+            }
         }
     }
 }

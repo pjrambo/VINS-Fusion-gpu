@@ -101,6 +101,10 @@ public:
 
     void detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & mask, vector<cv::Point2f> & n_pts, vector<cv::Point2f> & cur_pts, int require_pts);
 
+    void setFeatureStatus(int feature_id, int status) {
+        this->pts_status[feature_id] = status;
+    }
+
     int row, col;
     cv::Mat imTrack;
     cv::Mat mask;
@@ -126,6 +130,7 @@ public:
     vector<cv::Point2f> pts_velocity, right_pts_velocity;
     vector<int> ids, ids_right;
     vector<int> pts_img_id, pts_img_id_right;
+    map<int, int> pts_status;
 
 
     vector<cv::Point2f> predict_up_side, predict_pts_left_top, predict_pts_right_top, predict_pts_down_side;

@@ -23,6 +23,7 @@ Estimator::Estimator(): f_manager{Rs}
     // sum_t_feature = 0.0;
     // begin_time_count = 10;
     initFirstPoseFlag = false;
+    f_manager.ft = &featureTracker;
 }
 
 void Estimator::setParameter()

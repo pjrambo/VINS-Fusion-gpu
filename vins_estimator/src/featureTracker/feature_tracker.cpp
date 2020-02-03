@@ -166,9 +166,38 @@ void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vect
         if (track_cnt.size() > 0) {
             len = std::min(1.0, 1.0 * track_cnt[j] / 20);
         }
-        cv::circle(img, pts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+        //Not tri
+        //Not solving
+        //Just New point yellow
+        cv::Scalar color = cv::Scalar(255, 255, 0);
+        if (pts_status.find(ids[j]) != pts_status.end()) {
+            int status = pts_status[ids[j]];
+            if (status < 0) {
+                //Removed points
+                color = cv::Scalar(0, 0, 0);
+            }
+
+            if (status == 1) {
+                //Good pt; But not used for solving; Blue 
+                color = cv::Scalar(255, 0, 0);
+            }
+
+            if (status == 2) {
+                //Bad pt; Red
+                color = cv::Scalar(0, 0, 255);
+            }
+
+            if (status == 3) {
+                //Good pt for solving; Green
+                color = cv::Scalar(0, 255, 0);
+            }
+
+        }
+
+        cv::circle(img, pts[j], 1, color, 2);
+
         sprintf(idtext, "%d", ids[j]);
-	    cv::putText(img, idtext, pts[j] - cv::Point2f(5, 0), CV_FONT_HERSHEY_SIMPLEX, 1, cv::Scalar(252, 120, 120), 3);
+	    cv::putText(img, idtext, pts[j] - cv::Point2f(5, 0), CV_FONT_HERSHEY_SIMPLEX, 1, color, 3);
 
     }
 
