@@ -358,7 +358,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             //Must initial after per frame size >
             if(STEREO && it_per_id.feature_per_frame[frame].is_stereo && it_per_id.feature_per_frame.size() > 1)
             {
-                ROS_INFO("Feature ID %d IS stereo %d dep %d %f", it_per_id.feature_id, it_per_id.feature_per_frame[0].is_stereo, 
+                ROS_DEBUG("Feature ID %d IS stereo %d dep %d %f", it_per_id.feature_id, it_per_id.feature_per_frame[0].is_stereo, 
                     it_per_id.depth_inited, it_per_id.estimated_depth);
                 int imu_i = it_per_id.start_frame + frame;
                 Eigen::Matrix<double, 3, 4> leftPose;
@@ -379,8 +379,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
                 Eigen::Vector3d point3d;
                 point0 = it_per_id.feature_per_frame[frame].point;
                 point1 = it_per_id.feature_per_frame[frame].pointRight;
-                cout << "point0 " << point0.transpose() << endl;
-                cout << "point1 " << point1.transpose() << endl;
+                // cout << "point0 " << point0.transpose() << endl;
+                // cout << "point1 " << point1.transpose() << endl;
 
                 triangulatePoint3DPts(leftPose, rightPose, point0, point1, point3d);
                 Eigen::Vector3d localPoint;
@@ -392,7 +392,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
                 leftPose.rightCols<1>() = -R0.transpose() * t0;
 
                 localPoint = leftPose.leftCols<3>() * point3d + leftPose.rightCols<1>();
-                ROS_INFO("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());
+                ROS_DEBUG("Pt3d %f %f %f LocalPt %f %f %f", point3d.x(), point3d.y(), point3d.z(), localPoint.x(), localPoint.y(), localPoint.z());
                 it_per_id.depth_inited = true;
                 it_per_id.good_for_solving = true;
                 if (FISHEYE) {

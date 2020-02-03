@@ -843,7 +843,7 @@ void Estimator::vector2double()
     auto deps = f_manager.getDepthVector();
     param_feature_id.clear();
     for (auto & it : deps) {
-        ROS_INFO("Feature %d invdepth %f feature index %d", it.first, it.second, param_feature_id.size());
+        // ROS_INFO("Feature %d invdepth %f feature index %d", it.first, it.second, param_feature_id.size());
         para_Feature[param_feature_id.size()][0] = it.second;
         param_feature_id_to_index[it.first] = param_feature_id.size();
         param_feature_id.push_back(it.first);
@@ -935,7 +935,7 @@ void Estimator::double2vector()
     std::map<int, double> deps;
     for (unsigned int i = 0; i < param_feature_id.size(); i++) {
         int _id = param_feature_id[i];
-        ROS_INFO("Id %d depth %f", i, 1/para_Feature[i][0]);
+        // ROS_INFO("Id %d depth %f", i, 1/para_Feature[i][0]);
         deps[_id] = para_Feature[i][0];
     }
 
@@ -1098,7 +1098,17 @@ void Estimator::optimization()
                     {
                         ProjectionTwoFrameTwoCamFactor *f = new ProjectionTwoFrameTwoCamFactor(pts_i, pts_j_right, it_per_id.feature_per_frame[0].velocity, it_per_frame.velocityRight,
                                                                     it_per_id.feature_per_frame[0].cur_td, it_per_frame.cur_td);
-                        // problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
+
+                        // std::vector<double*> param_blocks;
+                        // param_blocks.push_back(para_Pose[imu_i]);
+                        // param_blocks.push_back(para_Pose[imu_j]);
+                        // param_blocks.push_back(para_Ex_Pose[0]);
+                        // param_blocks.push_back(para_Ex_Pose[1]);
+                        // param_blocks.push_back(para_Feature[feature_index]);             
+                        // param_blocks.push_back(para_Td[0]);
+                        // ROS_INFO("Check ProjectionTwoFrameTwoCamFactor");
+                        // f->check(param_blocks.data());
+                        problem.AddResidualBlock(f, loss_function, para_Pose[imu_i], para_Pose[imu_j], para_Ex_Pose[0], para_Ex_Pose[1], para_Feature[feature_index], para_Td[0]);
                     }
                     else
                     {
@@ -1110,11 +1120,11 @@ void Estimator::optimization()
                         param_blocks.push_back(para_Ex_Pose[1]);
                         param_blocks.push_back(para_Feature[feature_index]);
                         param_blocks.push_back(para_Td[0]);
-                        ROS_INFO("Check ProjectionOneFrameTwoCamFactor ID: %d, index %d depth init %f Velocity L %f %f %f R %f %f %f", it_per_id.feature_id, feature_index, 
-                            para_Feature[feature_index][0],
-                            it_per_id.feature_per_frame[0].velocity.x(), it_per_id.feature_per_frame[0].velocity.y(), it_per_id.feature_per_frame[0].velocity.z(),
-                            it_per_frame.velocityRight.x(), it_per_frame.velocityRight.y(), it_per_frame.velocityRight.z()
-                            );
+                        // ROS_INFO("Check ProjectionOneFrameTwoCamFactor ID: %d, index %d depth init %f Velocity L %f %f %f R %f %f %f", it_per_id.feature_id, feature_index, 
+                        //     para_Feature[feature_index][0],
+                        //     it_per_id.feature_per_frame[0].velocity.x(), it_per_id.feature_per_frame[0].velocity.y(), it_per_id.feature_per_frame[0].velocity.z(),
+                        //     it_per_frame.velocityRight.x(), it_per_frame.velocityRight.y(), it_per_frame.velocityRight.z()
+                        //     );
                         // f->check(param_blocks.data());
                         // exit(-1);
 
@@ -1148,7 +1158,7 @@ void Estimator::optimization()
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
     //cout << summary.BriefReport() << endl;
-    cout << summary.FullReport() << endl;
+    // cout << summary.FullReport() << endl;
     printf("Iterations : %d", static_cast<int>(summary.iterations.size()));
     printf(" solver costs: %f \n", t_solver.toc());
 
