@@ -30,6 +30,7 @@ ros::Publisher pub_extrinsic;
 ros::Publisher pub_viokeyframe;
 ros::Publisher pub_viononkeyframe;
 ros::Publisher pub_depth_map;
+ros::Publisher pub_depth_cloud;
 CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 static double sum_of_path = 0;
 static Vector3d last_path(0.0, 0.0, 0.0);
@@ -55,6 +56,7 @@ void registerPub(ros::NodeHandle &n)
     pub_viokeyframe = n.advertise<vins::VIOKeyframe>("viokeyframe", 1000);
     pub_viononkeyframe = n.advertise<vins::VIOKeyframe>("viononkeyframe", 1000);
     pub_depth_map = n.advertise<sensor_msgs::Image>("front_depthmap", 1);
+    pub_depth_cloud = n.advertise<sensor_msgs::PointCloud>("depth_cloud", 1000);
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
 }
@@ -251,6 +253,32 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
     if (!estimator.depthmap_front.empty()) {
         sensor_msgs::ImagePtr depth_img_msg = cv_bridge::CvImage(std_msgs::Header(), "32FC1", estimator.depthmap_front).toImageMsg();
         pub_depth_map.publish(depth_img_msg);
+
+        sensor_msgs::PointCloud point_cloud;
+        point_cloud.header = header;
+        for(int v = 0; v < estimator.depthmap_front.rows; v += 2){
+            for(int u = 0; u < estimator.depthmap_front.cols; u += 2)  
+            {
+                double z = estimator.depthmap_front.at<float>(v, u);
+                double fx = estimator.depthmap_front.cols/2;
+                double px_undist = (u -  estimator.depthmap_front.cols/2)/ fx;
+                double py_undist = (v -  estimator.depthmap_front.rows/2)/ fx;
+                double x = px_undist*z;
+                double y = py_undist*z;
+                Vector3d pts_i(x, y, z);
+                Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
+                Eigen::Quaterniond t2 =  t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+                Vector3d w_pts_i = estimator.Rs[WINDOW_SIZE] * estimator.ric[0] * t2 * pts_i + estimator.Ps[WINDOW_SIZE];
+
+                geometry_msgs::Point32 p;
+                p.x = w_pts_i(0);
+                p.y = w_pts_i(1);
+                p.z = w_pts_i(2);
+                
+                point_cloud.points.push_back(p);
+            }
+        }
+        pub_depth_cloud.publish(point_cloud);
     }
 }
 
