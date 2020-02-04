@@ -163,7 +163,7 @@ void FeatureManager::setDepth(std::map<int, double> deps)
         it_per_id.used_num = it_per_id.feature_per_frame.size();
 
         it_per_id.estimated_depth = 1.0 / depth;
-
+        it_per_id.need_triangulation = false;
         it_per_id.depth_inited = true;
         //ROS_INFO("feature id %d , start_frame %d, depth %f ", it_per_id->feature_id, it_per_id-> start_frame, it_per_id->estimated_depth);
         if (it_per_id.estimated_depth < 0)
@@ -213,10 +213,9 @@ std::map<int, double> FeatureManager::getDepthVector()
             && it_per_id.good_for_solving && !id_in_outouliers) {
             dep_vec[it_per_id.feature_id] = 1. / it_per_id.estimated_depth;
             ft->setFeatureStatus(it_per_id.feature_id, 3);
-            it_per_id.use_for_solving = true;
         } else {
             //Clear depth; wait for re triangulate
-            it_per_id.use_for_solving = false;
+            it_per_id.need_triangulation = true;
         }
     }
     return dep_vec;
@@ -391,9 +390,13 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
     for (auto &_it : feature) {
         auto & it_per_id = _it.second;
         //Only solving point dnot re-triangulate
-        if (it_per_id.use_for_solving) {
+        if (!it_per_id.need_triangulation) {
             continue;
         }
+
+        // if (it_per_id.depth_inited) {
+            // continue;
+        // }
 
         std::vector<Eigen::Matrix<double, 3, 4>> poses;
         std::vector<Eigen::Vector3d> ptss;
@@ -533,9 +536,11 @@ void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3
                 Eigen::Vector3d pts_i = uv_i * it.estimated_depth;
                 Eigen::Vector3d w_pts_i = marg_R * pts_i + marg_P;
                 Eigen::Vector3d pts_j = new_R.transpose() * (w_pts_i - new_P);
-                double dep_j = pts_j(2);
+                double dep_j = pts_j.norm();
 
-                it.depth_inited = false;
+                it.depth_inited = true;
+                //We retriangulate this point
+                it.need_triangulation = true;
                 if (FISHEYE) {
                     it.estimated_depth = pts_j.norm();
                 } else {

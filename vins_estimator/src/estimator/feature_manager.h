@@ -75,7 +75,7 @@ class FeaturePerId
     int used_num = 0;
     double estimated_depth = -1;
     bool depth_inited = false;
-    bool use_for_solving = false;
+    bool need_triangulation = true;
     int solve_flag = 0; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
     bool good_for_solving = false;
     int main_cam = 0;

@@ -1163,8 +1163,15 @@ void Estimator::optimization()
     ceres::Solve(options, &problem, &summary);
     //cout << summary.BriefReport() << endl;
     // cout << summary.FullReport() << endl;
-    printf("Iterations : %d", static_cast<int>(summary.iterations.size()));
-    printf(" solver costs: %f \n", t_solver.toc());
+    static double sum_iterations = 0;
+    static double sum_solve_time = 0;
+    static int solve_count = 0;
+    sum_iterations = sum_iterations + summary.iterations.size();
+    sum_solve_time = sum_solve_time + summary.total_time_in_seconds;
+    solve_count += 1;
+    ROS_INFO("AVG Iter %f time %fms Iterations : %d solver costs: %f \n", 
+        sum_iterations/solve_count, sum_solve_time/solve_count,
+        static_cast<int>(summary.iterations.size()),  t_solver.toc());
 
     double2vector();
     //printf("frame_count: %d \n", frame_count);
