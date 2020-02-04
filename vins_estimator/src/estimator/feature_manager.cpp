@@ -9,6 +9,7 @@
 
 #include "feature_manager.h"
 
+// #define DEBUG_DISABLE_RETRIANGULATE
 int FeaturePerId::endFrame()
 {
     return start_frame + feature_per_frame.size() - 1;
@@ -215,7 +216,9 @@ std::map<int, double> FeatureManager::getDepthVector()
             ft->setFeatureStatus(it_per_id.feature_id, 3);
         } else {
             //Clear depth; wait for re triangulate
+#ifndef DEBUG_DISABLE_RETRIANGULATE
             it_per_id.need_triangulation = true;
+#endif
         }
     }
     return dep_vec;
@@ -347,7 +350,7 @@ void FeatureManager::initFramePoseByPnP(int frameCnt, Vector3d Ps[], Matrix3d Rs
         vector<cv::Point3f> pts3D;
         for (auto &_it : feature) {
             auto & it_per_id = _it.second;
-            if (it_per_id.depth_inited && it_per_id.good_for_solving && it_per_id.main_cam == 0)
+            if (it_per_id.depth_inited && it_per_id.good_for_solving && it_per_id.main_cam == 0 && it_per_id.used_num >= 4)
             {
                 int index = frameCnt - it_per_id.start_frame;
                 if((int)it_per_id.feature_per_frame.size() >= index + 1)
@@ -540,7 +543,9 @@ void FeatureManager::removeBackShiftDepth(Eigen::Matrix3d marg_R, Eigen::Vector3
 
                 it.depth_inited = true;
                 //We retriangulate this point
+#ifndef DEBUG_DISABLE_RETRIANGULATE
                 it.need_triangulation = true;
+#endif
                 if (FISHEYE) {
                     it.estimated_depth = pts_j.norm();
                 } else {
