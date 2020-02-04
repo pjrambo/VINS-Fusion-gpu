@@ -720,7 +720,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // hasPrediction = false;
     auto ff = setup_feature_frame();
 
-    printf("feature track whole time %f PTS %ld\n", t_r.toc(), cur_un_pts.size());
+    printf("feature track whole time %f PTS %ld\n", t_r.toc(), ff.size());
     return ff;
 }
 
