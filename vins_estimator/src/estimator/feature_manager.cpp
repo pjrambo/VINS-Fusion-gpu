@@ -396,18 +396,15 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         if (!it_per_id.need_triangulation) {
             continue;
         }
-
-        // if (it_per_id.depth_inited) {
-            // continue;
-        // }
+        if (outlier_features.find(it_per_id.feature_id) != outlier_features.end()) {
+            //Is in outliers
+            ft->setFeatureStatus(it_per_id.feature_id, -1);
+            continue;
+        }
 
         std::vector<Eigen::Matrix<double, 3, 4>> poses;
         std::vector<Eigen::Vector3d> ptss;
         Eigen::Matrix<double, 3, 4> origin_pose;
-        // Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
-        // Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
-        // leftPose.leftCols<3>() = R0.transpose();
-        // leftPose.rightCols<1>() = -R0.transpose() * t0;
         auto t0 = Ps[it_per_id.start_frame] + Rs[it_per_id.start_frame] * tic[0];
         auto R0 = Rs[it_per_id.start_frame] * ric[0];
         origin_pose.leftCols<3>() = R0.transpose();
@@ -481,6 +478,9 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             //     poses.size(),
             //     it_per_id.depth_inited, it_per_id.estimated_depth, err);
             ft->setFeatureStatus(it_per_id.feature_id, 2);
+            it_per_id.good_for_solving = false;
+            it_per_id.depth_inited = false;
+            it_per_id.need_triangulation = true;
         } else {
             Eigen::Vector3d localPoint;
             localPoint = origin_pose.leftCols<3>() * point3d + origin_pose.rightCols<1>();
