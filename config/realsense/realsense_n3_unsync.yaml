@@ -52,9 +52,10 @@ use_gpu: 1
 use_gpu_acc_flow: 1
 
 max_cnt: 120            # max feature number in feature tracking
-max_solve_cnt: 40 # Max Point for solve; highly influence performace
+max_solve_cnt: 50 # Max Point for solve; highly influence performace
 depth_estimate_baseline: 0.05
 thres_outlier : 3.0
+tri_max_err: 1.5
 
 #feature traker paprameters
 min_dist: 30            # min distance between two features 
