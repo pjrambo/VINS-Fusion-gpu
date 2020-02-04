@@ -75,6 +75,7 @@ class FeaturePerId
     int used_num = 0;
     double estimated_depth = -1;
     bool depth_inited = false;
+    bool use_for_solving = false;
     int solve_flag = 0; // 0 haven't solve yet; 1 solve succ; 2 solve fail;
     bool good_for_solving = false;
     int main_cam = 0;
@@ -126,6 +127,8 @@ class FeatureManager
     double last_average_parallax;
     int new_feature_num;
     int long_track_num;
+
+    set<int> outlier_features;
 
   private:
     double compensatedParallax2(const FeaturePerId &it_per_id, int frame_count);

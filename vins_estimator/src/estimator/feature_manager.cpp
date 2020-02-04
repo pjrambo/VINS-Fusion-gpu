@@ -208,12 +208,15 @@ std::map<int, double> FeatureManager::getDepthVector()
     for (auto &_it : feature) {
         auto & it_per_id = _it.second;
         it_per_id.used_num = it_per_id.feature_per_frame.size();
-        if(dep_vec.size() < MAX_SOLVE_CNT && it_per_id.used_num >= 4 && it_per_id.good_for_solving) {
+        bool id_in_outouliers = outlier_features.find(it_per_id.feature_id) != outlier_features.end();
+        if(dep_vec.size() < MAX_SOLVE_CNT && it_per_id.used_num >= 4 
+            && it_per_id.good_for_solving && !id_in_outouliers) {
             dep_vec[it_per_id.feature_id] = 1. / it_per_id.estimated_depth;
             ft->setFeatureStatus(it_per_id.feature_id, 3);
+            it_per_id.use_for_solving = true;
         } else {
             //Clear depth; wait for re triangulate
-            it_per_id.depth_inited = false;
+            it_per_id.use_for_solving = false;
         }
     }
     return dep_vec;
@@ -387,10 +390,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
 {
     for (auto &_it : feature) {
         auto & it_per_id = _it.second;
-        if (it_per_id.depth_inited) {
-            if (it_per_id.feature_per_frame.size() >= 4) {
-                ft->setFeatureStatus(it_per_id.feature_id, 1);
-            }
+        //Only solving point dnot re-triangulate
+        if (it_per_id.use_for_solving) {
             continue;
         }
 
@@ -501,6 +502,7 @@ void FeatureManager::removeOutlier(set<int> &outlierIndex)
         {
             ft->setFeatureStatus(it->second.feature_id, -1);
             feature.erase(it);
+            outlier_features.insert(it->second.feature_id);
             //printf("remove outlier %d \n", index);
         }
     }
