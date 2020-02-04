@@ -10,9 +10,16 @@
  *******************************************************/
 
 #include "feature_tracker.h"
-
+#include "../estimator/estimator.h"
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>
+#include "depth_estimator.h"
+// #define PERF_OUTPUT
+Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
+Eigen::Quaterniond t2 = t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+Eigen::Quaterniond t3 = t2 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+Eigen::Quaterniond t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+Eigen::Quaterniond t_down(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
 
 namespace backward
 {
@@ -360,6 +367,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
     int lack_up_top_pts = require_pts - static_cast<int>(cur_pts.size());
 
     //Add Points Top
+    TicToc tic;
     ROS_DEBUG("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
     if (lack_up_top_pts > require_pts/4) {
         if(mask.empty())
@@ -384,8 +392,10 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
     else {
         n_pts.clear();
     }
+#ifdef PERF_OUTPUT
+    ROS_INFO("Detected %ld npts %fms", n_pts.size(), tic.toc());
+#endif
 
-    ROS_DEBUG("Detected %ld npts", n_pts.size());
  }
 
 void FeatureTracker::setup_feature_frame(FeatureFrame & ff, vector<int> ids, vector<cv::Point2f> cur_pts, vector<cv::Point3f> cur_un_pts, vector<cv::Point3f> cur_pts_vel, int camera_id) {
@@ -451,11 +461,7 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
     //Need to rotate pts
     //Side pos 1,2,3,4 is left front right
     //For downward camera, additational rotate 180 deg on x is required
-    Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
-    Eigen::Quaterniond t2 = t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
-    Eigen::Quaterniond t3 = t2 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
-    Eigen::Quaterniond t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
-    Eigen::Quaterniond t_down(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
+
 
     for (unsigned int i = 0; i < pts.size(); i++)
     {
@@ -517,7 +523,7 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     if (prev_pts.size() == 0) {
         return vector<cv::Point2f>();
     }
-
+    TicToc tic;
     vector<uchar> status;
 
     for (size_t i = 0; i < ids.size(); i ++) {
@@ -587,8 +593,10 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
         reduceVector(track_cnt, status);
     }
 
-    // ROS_DEBUG("temporal optical flow costs: %fms", t_o.toc());
-    
+#ifdef PERF_OUTPUT
+    ROS_INFO("Optical flow costs: %fms Pts %ld", t_og.toc(), ids.size());
+#endif
+
     //printf("track cnt %d\n", (int)ids.size());
 
     for (auto &n : track_cnt)
@@ -606,7 +614,10 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     return prevMap;
 }
 
-FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1) {
+FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
+        const Eigen::Vector3d & tic0, const Eigen::Matrix3d & ric0,
+        const Eigen::Vector3d & tic1, const Eigen::Matrix3d & ric1,
+        cv::Mat & depthmap) {
     TicToc t_r;
     cur_time = _cur_time;
 
@@ -617,7 +628,16 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     auto down_side_img = concat_side(fisheye_imgs_down);
     auto & up_top_img = fisheye_imgs_up[0];
     auto & down_top_img = fisheye_imgs_down[0];
+    cv::Mat cam_side;
 
+    //
+    Eigen::Matrix3d _cam_side;
+    _cam_side << fisheys_undists[0].f_side, 0, fisheys_undists[0].cx_side, 0, fisheys_undists[0].f_side, fisheys_undists[0].cy_side, 0, 0, 1;
+    cv::eigen2cv(_cam_side, cam_side);
+    
+    DepthEstimator dep_est(tic0, ric0*t2, tic1, ric1*(t_down*t2), cam_side, SHOW_TRACK);
+    cv::Mat depth_img = dep_est.ComputeDepthImage(fisheye_imgs_up[2], fisheye_imgs_down[2]);
+    depthmap = depth_img.clone();
     top_size = up_top_img.size();
     side_size = up_side_img.size();
 
@@ -635,6 +655,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
     //If has predict;
     if (enable_up_top) {
+        // ROS_INFO("Tracking top");
         cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img, prev_up_top_pts, ids_up_top, track_up_top_cnt, FLOW_BACK);
     }
     if (enable_up_side) {
@@ -648,6 +669,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
     setMaskFisheye();
     if (enable_up_top) {
+        // ROS_INFO("Detecting top");
         detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
     }
     if (enable_down_top) {

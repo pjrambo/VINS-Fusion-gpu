@@ -9,6 +9,7 @@
 
 #include "visualization.h"
 #include <vins/VIOKeyframe.h>
+#include <sensor_msgs/PointCloud.h>
 
 using namespace ros;
 using namespace Eigen;
@@ -28,7 +29,7 @@ ros::Publisher pub_keyframe_point;
 ros::Publisher pub_extrinsic;
 ros::Publisher pub_viokeyframe;
 ros::Publisher pub_viononkeyframe;
-
+ros::Publisher pub_depth_map;
 CameraPoseVisualization cameraposevisual(1, 0, 0, 1);
 static double sum_of_path = 0;
 static Vector3d last_path(0.0, 0.0, 0.0);
@@ -53,7 +54,7 @@ void registerPub(ros::NodeHandle &n)
     pub_extrinsic = n.advertise<nav_msgs::Odometry>("extrinsic", 1000);
     pub_viokeyframe = n.advertise<vins::VIOKeyframe>("viokeyframe", 1000);
     pub_viononkeyframe = n.advertise<vins::VIOKeyframe>("viononkeyframe", 1000);
-
+    pub_depth_map = n.advertise<sensor_msgs::Image>("front_depthmap", 1);
     cameraposevisual.setScale(0.1);
     cameraposevisual.setLineWidth(0.01);
 }
@@ -75,6 +76,8 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
     odometry.twist.twist.linear.y = V.y();
     odometry.twist.twist.linear.z = V.z();
     pub_latest_odometry.publish(odometry);
+
+
 }
 
 void printStatistics(const Estimator &estimator, double t)
@@ -122,6 +125,8 @@ void printStatistics(const Estimator &estimator, double t)
 
 void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
 {
+
+    
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
         nav_msgs::Odometry odometry;
@@ -241,6 +246,11 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
 
         }
         pub_viononkeyframe.publish(vkf);
+    }
+    
+    if (!estimator.depthmap_front.empty()) {
+        sensor_msgs::ImagePtr depth_img_msg = cv_bridge::CvImage(std_msgs::Header(), "32FC1", estimator.depthmap_front).toImageMsg();
+        pub_depth_map.publish(depth_img_msg);
     }
 }
 

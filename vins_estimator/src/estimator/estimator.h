@@ -175,4 +175,7 @@ class Estimator
     bool fast_prop_inited;
 
     bool initFirstPoseFlag;
+
+
+    cv::Mat depthmap_front;
 };

@@ -60,10 +60,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     TicToc featureTrackerTime;
     
     if (FISHEYE) {
-        if(_img1.empty())
-            featureFrame = featureTracker.trackImage_fisheye(t, _img);
-        else
-            featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1);
+        featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, tic[0], ric[0], tic[1], ric[1], this->depthmap_front);
     } else {
         if(_img1.empty())
             featureFrame = featureTracker.trackImage(t, _img);

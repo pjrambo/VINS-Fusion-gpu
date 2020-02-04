@@ -28,6 +28,9 @@ class FisheyeUndist {
 public:
     camodocal::CameraPtr cam_top;
     camodocal::CameraPtr cam_side;
+    double f_side = 0;
+    double f_center = 0;
+    double cx_side = 0, cy_side = 0;
 
     FisheyeUndist(const std::string & camera_config_file, int _id, double _fov, bool _enable_cuda = true, int imgWidth = 600):
     imgWidth(imgWidth), fov(_fov), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda), cam_id(_id) {
@@ -101,15 +104,16 @@ public:
         
         auto t = Eigen::Quaterniond::Identity();
         // calculate focal length of fake pinhole cameras (pixel size = 1 unit)
-        double f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
-        double f_side = (double)imgWidth / 2;
+        f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
+        f_side = (double)imgWidth / 2;
         // ROS_INFO("Pinhole cameras focal length: center %f side %f", f_center, f_side);
 
         cam_top = camodocal::PinholeCameraPtr( new camodocal::PinholeCamera("top",
                   imgWidth, imgWidth,0, 0, 0, 0,
                   f_center, f_center, imgWidth/2, imgWidth/2));
          
-
+        cx_side = imgWidth/2;
+        cy_side = sideImgHeight/2;
         cam_side = camodocal::PinholeCameraPtr(new camodocal::PinholeCamera("side",
                   imgWidth, sideImgHeight,0, 0, 0, 0,
                   f_side, f_side, imgWidth/2, sideImgHeight/2));

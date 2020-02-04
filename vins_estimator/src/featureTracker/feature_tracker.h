@@ -41,13 +41,18 @@ typedef Eigen::Matrix<double, 8, 1> TrackFeatureNoId;
 typedef pair<int, TrackFeatureNoId> TrackFeature;
 typedef vector<TrackFeature> FeatureFramenoId;
 typedef map<int, FeatureFramenoId> FeatureFrame;
-
+class Estimator;
 class FeatureTracker
 {
 public:
+    Estimator * estimator = nullptr;
     FeatureTracker();
     FeatureFrame trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
-    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1, 
+        const Eigen::Vector3d & tic0, const Eigen::Matrix3d & ric0,
+        const Eigen::Vector3d & tic1, const Eigen::Matrix3d & ric1,
+        cv::Mat & depthmap
+    );
 
     vector<cv::Point2f> opticalflow_track(cv::cuda::GpuMat & cur_img, 
                         cv::cuda::GpuMat & prev_img, vector<cv::Point2f> & prev_pts, 
