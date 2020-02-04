@@ -103,6 +103,9 @@ public:
 
     void setFeatureStatus(int feature_id, int status) {
         this->pts_status[feature_id] = status;
+        if (status < 0) {
+            removed_pts.insert(feature_id);
+        }
     }
 
     int row, col;
@@ -147,6 +150,7 @@ public:
     map<int, cv::Point2f> down_top_prevLeftPtsMap;
     map<int, cv::Point2f> up_side_prevLeftPtsMap;
     map<int, cv::Point2f> down_side_prevLeftPtsMap;
+    set<int> removed_pts;
 
 
     // vector<cv::Point2f> prev_un_pts, cur_un_pts, cur_un_right_pts;

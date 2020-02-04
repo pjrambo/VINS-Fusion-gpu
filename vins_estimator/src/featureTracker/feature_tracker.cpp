@@ -90,12 +90,14 @@ cv::Mat FeatureTracker::setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur
 
     for (auto &it : cnt_pts_id)
     {
-        if (mask.at<uchar>(it.second.first) == 255)
-        {
-            cur_pts.push_back(it.second.first);
-            ids.push_back(it.second.second);
-            track_cnt.push_back(it.first);
-            cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
+        if (removed_pts.find(it.second.second) == removed_pts.end()) {
+            if (mask.at<uchar>(it.second.first) == 255)
+            {
+                cur_pts.push_back(it.second.first);
+                ids.push_back(it.second.second);
+                track_cnt.push_back(it.first);
+                cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
+            }
         }
     }
 
@@ -131,12 +133,14 @@ void FeatureTracker::setMask()
 
     for (auto &it : cnt_pts_id)
     {
-        if (mask.at<uchar>(it.second.first) == 255)
-        {
-            cur_pts.push_back(it.second.first);
-            ids.push_back(it.second.second);
-            track_cnt.push_back(it.first);
-            cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
+        if (removed_pts.find(it.second.second) == removed_pts.end()) {
+            if (mask.at<uchar>(it.second.first) == 255)
+            {
+                cur_pts.push_back(it.second.first);
+                ids.push_back(it.second.second);
+                track_cnt.push_back(it.first);
+                cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
+            }
         }
     }
 }
