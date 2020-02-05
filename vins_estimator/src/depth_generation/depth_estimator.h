@@ -33,7 +33,7 @@ class DepthEstimator {
 public:
     DepthEstimator(Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,
     bool _show):
-        cameraMatrix(camera_mat),show(_show)
+        cameraMatrix(camera_mat.clone()),show(_show)
     {
         cv::eigen2cv(R01, R);
         cv::eigen2cv(t01, T);

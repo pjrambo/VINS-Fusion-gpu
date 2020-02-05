@@ -11,7 +11,11 @@
 
 class DepthCamManager {
 
-    ros::Publisher pub_depth_map;
+    ros::Publisher pub_depth_cloud_front;
+    ros::Publisher pub_depth_cloud_left;
+    ros::Publisher pub_depth_cloud_right;
+    ros::Publisher pub_depth_cloud_rear;
+
     ros::Publisher pub_depth_cloud;
     ros::Publisher up_cam_info_pub, down_cam_info_pub;
     ros::Publisher pub_camera_up, pub_camera_down;
@@ -20,14 +24,19 @@ class DepthCamManager {
     bool publish_raw_image = false;
 
     bool estimate_front_depth = true;
-    bool estimate_left_depth = false;
-    bool estimate_right_depth = false;
+    bool estimate_left_depth = true;
+    bool estimate_right_depth = true;
+    bool estimate_rear_depth = false;
+
     double downsample_ratio = 0.5;
     Eigen::Matrix3d cam_side;
     Eigen::Matrix3d cam_side_transpose;
     cv::Mat cam_side_cv, cam_side_cv_transpose;
 
     int pub_cloud_step = 1;
+
+    std::vector<DepthEstimator *> deps;
+
 public:
     FisheyeUndist * fisheye = nullptr;
 
@@ -35,7 +44,10 @@ public:
     double f_side, cx_side, cy_side;
 
     DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye): nh(_nh), fisheye(_fisheye) {
-        pub_depth_map = nh.advertise<sensor_msgs::Image>("front_depthmap", 1);
+        pub_depth_cloud_front = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_front", 1);
+        pub_depth_cloud_left = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_left", 1);
+        pub_depth_cloud_right = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_right", 1);
+        pub_depth_cloud_rear = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_rear", 1);
 
 
         pub_camera_up = nh.advertise<sensor_msgs::Image>("/front_stereo/left/image_raw", 1);
@@ -62,6 +74,68 @@ public:
                 0, f_side*downsample_ratio, cx_side*downsample_ratio, 0, 0, 1;
         cv::eigen2cv(cam_side, cam_side_cv);
         cv::eigen2cv(cam_side_transpose, cam_side_cv_transpose);
+
+        deps.push_back(nullptr);
+        deps.push_back(nullptr);
+        deps.push_back(nullptr);
+        deps.push_back(nullptr);
+    }
+
+
+    void update_front_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+        Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
+        Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
+        Eigen::Matrix3d R, Eigen::Vector3d P, int direction) {
+        cv::cuda::GpuMat up_front, down_front;
+        // ric1 = ric1*t2*t_transpose;
+        // ric2 = ric2*t_down*t2*t_transpose;
+        cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
+        cv::cuda::resize(_down_front, down_front, cv::Size(), downsample_ratio, downsample_ratio);
+        if (_up_front.channels() == 3) {
+            cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
+            cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
+        }
+
+        //After transpose, we need flip for rotation
+
+        cv::cuda::GpuMat tmp;
+
+        cv::cuda::transpose(up_front, tmp);
+        cv::cuda::flip(tmp, up_front, 0);
+
+        cv::cuda::transpose(down_front, tmp);
+        cv::cuda::flip(tmp, down_front, 0);
+
+        Eigen::Vector3d t01 = tic2 - tic1;
+        // std::cout << "T01" << t01 << std::endl;
+        // t01.x() = t01.x()*fisheye->f_side*downsample_ratio;
+        // t01.y() = 0;
+        // t01.z() = 0;
+        t01 = ric1.transpose()*t01;
+        t01.y() = 0;
+        t01.z() = 0;
+
+        // std::cout << tic <<std::endl;
+        // std::cout << "R" << ric1.transpose() * ric2 << "\nT" << t01 << std::endl;
+        DepthEstimator * dep_est;
+        if (deps[direction] == nullptr) {
+            deps[direction] = new DepthEstimator(-t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
+        }
+        dep_est = deps[direction];
+        
+        cv::Mat pointcloud_up = dep_est->ComputeDepthCloud(up_front, down_front);
+
+        cv::Mat up_front_cpu;
+        cv::Mat tmp2;
+
+        _up_front.download(up_front_cpu);
+        cv::transpose(up_front_cpu, tmp2);
+        cv::flip(tmp2, up_front_cpu, 0);
+        cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
+        if (pub_cloud_step > 0) { 
+            // publish_world_point_cloud(pointcloud_up, R*ric1, P+tic1, stamp, 3, up_front_cpu);
+            publish_world_point_cloud(pointcloud_up, R*ric1, P+R*tic1, stamp, direction, pub_cloud_step, up_front_cpu);
+        }
     }
 
     void update_images(ros::Time stamp, std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams,
@@ -71,60 +145,34 @@ public:
     ) {
         
         if (estimate_front_depth) {
-            cv::cuda::GpuMat up_front, down_front;
-            ric1 = ric1*t2*t_transpose;
-            ric2 = ric2*t_down*t2*t_transpose;
-            cv::cuda::resize(up_cams[2].clone(), up_front, cv::Size(), downsample_ratio, downsample_ratio);
-            cv::cuda::resize(down_cams[2].clone(), down_front, cv::Size(), downsample_ratio, downsample_ratio);
-            if (up_cams[2].channels() == 3) {
-                cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
-                cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
-            }
-
-            //After transpose, we need flip for rotation
-
-            cv::cuda::GpuMat tmp;
-
-            cv::cuda::transpose(up_front, tmp);
-            cv::cuda::flip(tmp, up_front, 0);
-
-            cv::cuda::transpose(down_front, tmp);
-            cv::cuda::flip(tmp, down_front, 0);
-
-            Eigen::Vector3d t01 = tic2 - tic1;
-            std::cout << "T01" << t01 << std::endl;
-            // t01.x() = t01.x()*fisheye->f_side*downsample_ratio;
-            // t01.y() = 0;
-            // t01.z() = 0;
-            t01 = ric1.transpose()*t01;
-            t01.y() = 0;
-            t01.z() = 0;
-
-            // std::cout << tic <<std::endl;
-            std::cout << "R" << ric1.transpose() * ric2 << "\nT" << t01 << std::endl;
-            // DepthEstimator dep(-t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
-            DepthEstimator dep(-t01, Eigen::Matrix3d::Identity(), cam_side_cv_transpose, SHOW_TRACK);
-            cv::Mat pointcloud_up = dep.ComputeDepthCloud(up_front, down_front);
-
-            cv::Mat up_front_cpu;
-            cv::Mat tmp2;
-            // up_cams[2].download(up_front_cpu);
-            // cv::transpose(up_front_cpu, tmp2);
-            // cv::flip(tmp2, up_front_cpu, 0);
-            // cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
-            if (pub_cloud_step > 0) { 
-                // publish_world_point_cloud(pointcloud_up, R*ric1, P+tic1, stamp, 3, up_front_cpu);
-                publish_world_point_cloud(pointcloud_up, R*ric1, P+R*tic1, stamp, pub_cloud_step, up_front_cpu);
-            }
+            update_front_image(stamp, up_cams[2], down_cams[2], ric1*t2*t_transpose, 
+                tic1, ric2*t_down*t2*t_transpose, tic2, R, P, 1);
         }
     
+        if (estimate_left_depth) {
+            update_front_image(stamp, up_cams[1], down_cams[1], ric1*t1*t_transpose, 
+                tic1, ric2*t_down*t1*t_transpose, tic2, R, P, 0);
+        }
+
+        if (estimate_right_depth) {
+            update_front_image(stamp, up_cams[3], down_cams[3], ric1*t3*t_transpose, 
+                tic1, ric2*t_down*t3*t_transpose, tic2, R, P, 2);
+        }
+
+        if (estimate_rear_depth) {
+            update_front_image(stamp, up_cams[4], down_cams[4], ric1*t4*t_transpose, 
+                tic1, ric2*t_down*t4*t_transpose, tic2, R, P, 3);
+        }
+
+
         if (publish_raw_image) {
             publish_front_images_for_external_sbgm(stamp, up_cams[2], down_cams[2], ric1, tic1, ric2, tic2, R, P);
         }
 
     }
 
-    void publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp, int step = 3, cv::Mat color = cv::Mat()) {
+    void publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp,
+        int dir, int step = 3, cv::Mat color = cv::Mat()) {
         std::cout<< "Pts3d Size " << pts3d.size() << std::endl;
         std::cout<< "Color Size " << color.size() << std::endl;
         sensor_msgs::PointCloud point_cloud;
@@ -168,7 +216,16 @@ public:
                 }
             }
         }
-        pub_depth_cloud.publish(point_cloud);
+
+        if (dir == 1) {
+            pub_depth_cloud_front.publish(point_cloud);
+        } else if(dir == 0) {
+            pub_depth_cloud_left.publish(point_cloud);
+        } else if(dir == 2) {
+            pub_depth_cloud_right.publish(point_cloud);
+        } else if(dir == 3) {
+            pub_depth_cloud_rear.publish(point_cloud);
+        }
     }
 
     void publish_front_images_for_external_sbgm(ros::Time stamp, const cv::cuda::GpuMat front_up, const cv::cuda::GpuMat front_down,
@@ -264,10 +321,4 @@ public:
         br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "camera_up_front"));
     }
 
-    void publish_depthmap(cv::Mat & depthmap) {
-        sensor_msgs::ImagePtr depth_img_msg = cv_bridge::CvImage(std_msgs::Header(), "32FC1", depthmap).toImageMsg();
-        pub_depth_map.publish(depth_img_msg);
-    }
-
-    
 };

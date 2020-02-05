@@ -15,16 +15,16 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
     //OutputArray Q,
     //  int flags=CALIB_ZERO_DISPARITY, double alpha=-1, 
     // Size newImageSize=Size(), Rect* validPixROI1=0, Rect* validPixROI2=0 )¶
-
+    TicToc tic;
     if (first_init) {
         cv::Size imgSize = left.size();
 
-        std::cout << "ImgSize" << imgSize << "\nR" << R << "\nT" << T << std::endl;
+        // std::cout << "ImgSize" << imgSize << "\nR" << R << "\nT" << T << std::endl;
         cv::stereoRectify(cameraMatrix, cv::Mat(), cameraMatrix, cv::Mat(), imgSize, 
             R, T, R1, R2, P1, P2, Q, 0);
         // Q.at<double>(3, 2) = -Q.at<double>(3, 2);
         std::cout << Q << std::endl;
-        std::cout << "R1" << R1 << "P1" << P1 << std::endl; 
+        // std::cout << "R1" << R1 << "P1" << P1 << std::endl; 
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R1, P1, imgSize, CV_32FC1, _map11,
                                 _map12);
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R2, P2, imgSize, CV_32FC1, _map21,
@@ -60,7 +60,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         // disparity.convertTo(disparity, CV_16S, 16);
 
         // std::cout << "DIS size " << disparity.size() << disparity.type() << std::endl;
-
+        ROS_INFO("SGBM time cost %fms", tic.toc());
         if (show) {
             cv::Mat _show;
             cv::Mat raw_disp_map = disparity.clone();
