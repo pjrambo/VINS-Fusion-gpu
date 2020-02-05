@@ -112,8 +112,8 @@ public:
         // t01.y() = 0;
         // t01.z() = 0;
         t01 = ric1.transpose()*t01;
-        t01.y() = 0;
-        t01.z() = 0;
+        // t01.y() = 0;
+        // t01.z() = 0;
 
         // std::cout << tic <<std::endl;
         // std::cout << "R" << ric1.transpose() * ric2 << "\nT" << t01 << std::endl;
