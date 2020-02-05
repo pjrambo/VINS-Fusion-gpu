@@ -7,6 +7,7 @@
 #include "../utility/tic_toc.h"
 #include <opencv2/ximgproc/disparity_filter.hpp>
 #include "../estimator/parameters.h"
+#include <libsgm.h>
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
@@ -80,6 +81,16 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::imshow("raw_disp_map", _show);
         }
         return disparity;
+    } else {
+        cv::Mat _disp;
+
+    	sgm::LibSGMWrapper sgm(num_disp, _p1, _p2, uniquenessRatio, true, 
+            sgm::PathType::SCAN_8PATH, min_disparity, disp12Maxdiff);
+		sgm.execute(leftRectify, rightRectify, disparity);
+		disparity.download(_disp);
+        ROS_INFO("SGBM time cost %fms", tic.toc());
+
+        return _disp;
     }
 
    
@@ -95,26 +106,5 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
     cv::Mat XYZ = cv::Mat::zeros(imgDisparity32F.rows, imgDisparity32F.cols, CV_32FC3);   // Output point cloud
     cv::reprojectImageTo3D(imgDisparity32F, XYZ, Q);    // cv::project
 
-    // cv::Mat_<float> vec_tmp(4,1);
-    // std::cout << "Q" << Q << std::endl;
-    // for(int y=0; y<imgDisparity32F.rows; ++y) {
-    //     for(int x=0; x<imgDisparity32F.cols; ++x) {
-            
-    //         vec_tmp(0)=x; 
-    //         vec_tmp(1)=y; 
-    //         vec_tmp(2)=imgDisparity32F.at<float>(y,x); 
-    //         vec_tmp(3)=1;
-    //         if (vec_tmp(2) > min_disparity) {
-    //             vec_tmp = Q*vec_tmp;
-    //             vec_tmp /= vec_tmp(3);
-    //             cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
-    //             point[0] = vec_tmp(0);
-    //             point[1] = vec_tmp(1);
-    //             point[2] = vec_tmp(2);
-    //             // std::cout << "Q" << Q << std::endl;
-    //             // std::cout << "Disparity" << imgDisparity32F.at<float>(y,x) << " Vec" << vec_tmp << "Pt" << point << std::endl;                }
-    //         }
-    //     }
-    // }
     return XYZ;
 }

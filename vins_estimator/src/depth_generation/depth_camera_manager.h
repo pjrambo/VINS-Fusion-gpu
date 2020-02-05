@@ -28,7 +28,7 @@ class DepthCamManager {
     bool estimate_right_depth = true;
     bool estimate_rear_depth = false;
 
-    double downsample_ratio = 0.5;
+    double downsample_ratio = 1.0;
     Eigen::Matrix3d cam_side;
     Eigen::Matrix3d cam_side_transpose;
     cv::Mat cam_side_cv, cam_side_cv_transpose;
@@ -173,8 +173,8 @@ public:
 
     void publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp,
         int dir, int step = 3, cv::Mat color = cv::Mat()) {
-        std::cout<< "Pts3d Size " << pts3d.size() << std::endl;
-        std::cout<< "Color Size " << color.size() << std::endl;
+        // std::cout<< "Pts3d Size " << pts3d.size() << std::endl;
+        // std::cout<< "Color Size " << color.size() << std::endl;
         sensor_msgs::PointCloud point_cloud;
         point_cloud.header.stamp = stamp;
         point_cloud.header.frame_id = "world";

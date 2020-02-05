@@ -4,7 +4,7 @@ project(vins)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11")
 #-DEIGEN_USE_MKL_ALL")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g ")
 
 find_package(catkin REQUIRED COMPONENTS
     message_generation
@@ -32,6 +32,8 @@ include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(Eigen3)
+find_package(CUDA REQUIRED)
+
 include_directories(
     include
   ${catkin_INCLUDE_DIRS}
@@ -84,8 +86,8 @@ add_library(estimator_lib SHARED
 target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
 
 
-add_executable(vins_node src/rosNodeTest.cpp)
-target_link_libraries(vins_node vins_lib estimator_lib)
+cuda_add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})
+target_link_libraries(vins_node vins_lib estimator_lib sgm ${CUDA_LIBRARIES})
 
 # add_library(vins_nodelet_lib src/rosNodelet.cpp)
 # target_link_libraries(vins_nodelet_lib vins_lib estimator_lib)

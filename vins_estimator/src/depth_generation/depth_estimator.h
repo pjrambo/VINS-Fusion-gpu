@@ -11,8 +11,8 @@ class DepthEstimator {
     Eigen::Matrix3d R01;
     cv::Mat cameraMatrix;
     bool show = false;
-    int num_disp = 16;
-    bool use_sgbm_cpu = true;
+    int num_disp = 64;
+    bool use_sgbm_cpu = false;
     cv::Mat _map11, _map12, _map21, _map22;
     cv::cuda::GpuMat map11, map12, map21, map22;
     bool first_init = true;
