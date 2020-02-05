@@ -14,7 +14,7 @@ output_path: "/home/xuhao/output"
 
 cam0_calib: "up.yaml"
 cam1_calib: "down.yaml"
-image_width: 400 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
+image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
 image_height: 400
 show_width: 1920
 
@@ -35,22 +35,23 @@ body_T_cam0: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 9.9970152931501111e-01, -2.4334070146456496e-02,
-       -2.1691738831616180e-03, 2.4271285208706174e-02,
-       2.4313045731037753e-02, 9.9966167038360143e-01,
-       -9.2423250942725247e-03, 4.6146656309142874e-03,
-       2.3933433745542093e-03, 9.1868273073508668e-03,
-       9.9995493604037800e-01, 8.9835134676070530e-02, 0., 0., 0., 1. ]
+   data: [ 9.9962518025136060e-01, -2.7028085413917921e-02,
+       -4.3567885297261036e-03, 3.3259587007775364e-02,
+       2.6968443162825491e-02, 9.9954897632742379e-01,
+       -1.3211623525239644e-02, -5.8150961859713979e-04,
+       4.7119084040594932e-03, 1.3089175743994428e-02,
+       9.9990323101664924e-01, 5.9227130089820078e-02, 0., 0., 0., 1. ]
 body_T_cam1: !!opencv-matrix
    rows: 4
    cols: 4
    dt: d
-   data: [ 9.9985740148420199e-01, 1.3221990047149310e-02,
-       1.0505031006729837e-02, 2.1768721164581610e-02,
-       1.3173059971592354e-02, -9.9990212239267229e-01,
-       4.7133985207440873e-03, 2.1485901422100902e-03,
-       1.0566323307759515e-02, -4.5743429936555748e-03,
-       -9.9993371190191072e-01, -2.4828776478011370e-02, 0., 0., 0., 1. ]
+   data: [ 9.9981224379186717e-01, 1.6006130609714612e-02,
+       1.0921581697572881e-02, 3.2777616510877204e-02,
+       1.5920540849220906e-02, -9.9984221478481472e-01,
+       7.8792076546535320e-03, -1.8948081248206037e-03,
+       1.1045974060276010e-02, -7.7038507969468912e-03,
+       -9.9990931445804554e-01, -5.0164096186569078e-02, 0., 0., 0., 1. ]
+
 
 
 # body_T_cam0: !!opencv-matrix
@@ -80,19 +81,19 @@ use_gpu_acc_flow: 1
 depth_estimate_baseline: 0.05
 top_cnt: 30
 side_cnt: 30
-max_solve_cnt: 40 # Max Point for solve; highly influence performace
+max_solve_cnt: 120 # Max Point for solve; highly influence performace
 
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 0           # publish tracking image as topic
+show_track: 1           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
 sgbm_p1: 300
 sgbm_p2: 1200
 #optimization parameters
-max_solver_time: 0.01 # max solver itration time (ms), to guarantee real time
-max_num_iterations: 4   # max solver itrations, to guarantee real time
+max_solver_time: 0.04 # max solver itration time (ms), to guarantee real time
+max_num_iterations: 8   # max solver itrations, to guarantee real time
 # max_solver_time: 1.0  # max solver itration time (ms), to guarantee real time
 # max_num_iterations: 100   # max solver itrations, to guarantee real time
 keyframe_parallax: 10.0 # keyframe selection threshold (pixel)

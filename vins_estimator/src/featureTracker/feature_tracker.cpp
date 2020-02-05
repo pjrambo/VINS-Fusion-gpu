@@ -13,7 +13,6 @@
 #include "../estimator/estimator.h"
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>
-#include "depth_estimator.h"
 // #define PERF_OUTPUT
 Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
 Eigen::Quaterniond t2 = t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
@@ -247,21 +246,22 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
 
     cv::resize(fisheye_up, fisheye_up, cv::Size(width, width));
     cv::resize(fisheye_down, fisheye_down, cv::Size(width, width));
-    
-    cv::cvtColor(fisheye_up,   fisheye_up,   cv::COLOR_GRAY2BGR);
-    cv::cvtColor(fisheye_down, fisheye_down, cv::COLOR_GRAY2BGR);
+    if (fisheye_up.channels() != 3) {
+        cv::cvtColor(fisheye_up,   fisheye_up,   cv::COLOR_GRAY2BGR);
+        cv::cvtColor(fisheye_down, fisheye_down, cv::COLOR_GRAY2BGR);
+    }
+
+    if (imUpTop.channels() != 3) {
+        cv::cuda::cvtColor(imUpTop, imUpTop, cv::COLOR_GRAY2BGR);
+        cv::cuda::cvtColor(imDownTop, imDownTop, cv::COLOR_GRAY2BGR);
+        cv::cuda::cvtColor(imUpSide_cuda, imUpSide_cuda, cv::COLOR_GRAY2BGR);
+        cv::cuda::cvtColor(imDownSide_cuda, imDownSide_cuda, cv::COLOR_GRAY2BGR);
+    }
 
     imUpTop.download(up_camera);
-    cv::cvtColor(up_camera, up_camera, cv::COLOR_GRAY2BGR);
     imDownTop.download(down_camera);
-    cv::cvtColor(down_camera, down_camera, cv::COLOR_GRAY2BGR);
-
-
     imUpSide_cuda.download(imUpSide);
-    cv::cvtColor(imUpSide, imUpSide, cv::COLOR_GRAY2BGR);
-
     imDownSide_cuda.download(imDownSide);
-    cv::cvtColor(imDownSide, imDownSide, cv::COLOR_GRAY2BGR);
 
     drawTrackImage(up_camera, cur_up_top_pts, ids_up_top, track_up_top_cnt, up_top_prevLeftPtsMap);
     drawTrackImage(down_camera, cur_down_top_pts, ids_down_top, track_down_top_cnt, down_top_prevLeftPtsMap);
@@ -325,11 +325,17 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
         for (int i = 1; i < 5; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
         }
+        if(NewImg.channels() == 3) {
+            cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
+        }
         return NewImg;
     } else {
         cv::cuda::GpuMat NewImg(rows, cols*3, arr[1].type()); 
         for (int i = 1; i < 4; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
+        }
+        if(NewImg.channels() == 3) {
+            cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
         }
         return NewImg;
     }
@@ -614,7 +620,6 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     return prevMap;
 }
 
-DepthEstimator * dep_est = nullptr;
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
@@ -624,10 +629,17 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
     fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
 
-    auto up_side_img = concat_side(fisheye_imgs_up);
-    auto down_side_img = concat_side(fisheye_imgs_down);
-    auto & up_top_img = fisheye_imgs_up[0];
-    auto & down_top_img = fisheye_imgs_down[0];
+
+
+    cv::cuda::GpuMat up_side_img = concat_side(fisheye_imgs_up);
+    cv::cuda::GpuMat down_side_img = concat_side(fisheye_imgs_down);
+    cv::cuda::GpuMat up_top_img = fisheye_imgs_up[0];
+    cv::cuda::GpuMat down_top_img = fisheye_imgs_down[0];
+
+    if (up_top_img.channels() == 3) {
+        cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
+        cv::cuda::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
+    }
 
     // cv::Mat cam_side;
     // //

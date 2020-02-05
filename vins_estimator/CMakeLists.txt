@@ -74,7 +74,8 @@ add_library(vins_lib
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
     src/featureTracker/feature_tracker.cpp
-    src/featureTracker/depth_estimator.cpp
+    src/depth_generation/depth_estimator.cpp
+    # src/depth_generation/stereo_matching.cpp
     )
 
 add_library(estimator_lib

@@ -20,7 +20,7 @@
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
-#include "featureTracker/depth_camera_manager.h"
+#include "depth_generation/depth_camera_manager.h"
 
 Estimator estimator;
 
@@ -61,9 +61,13 @@ cv::Mat getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
         img.encoding = "mono8";
         ptr = cv_bridge::toCvCopy(img, sensor_msgs::image_encodings::MONO8);
     }
-    else
-        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
-
+    else{
+        if (FISHEYE) {
+            ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
+        } else {
+            ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);        
+        }
+    }
     cv::Mat img = ptr->image.clone();
     return img;
 }
@@ -218,9 +222,8 @@ int main(int argc, char **argv)
 
     readParameters(config_file);
     estimator.setParameter();
-    DepthCamManager cam_manager(n);
+    DepthCamManager cam_manager(n, &(estimator.featureTracker.fisheys_undists[0]));
     estimator.depth_cam_manager = &cam_manager;
-    cam_manager.fisheye = &(estimator.featureTracker.fisheys_undists[0]);
 
 #ifdef EIGEN_DONT_PARALLELIZE
     ROS_DEBUG("EIGEN_DONT_PARALLELIZE");
