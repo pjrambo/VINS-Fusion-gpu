@@ -22,7 +22,7 @@ class DepthCamManager {
     bool estimate_front_depth = true;
     bool estimate_left_depth = false;
     bool estimate_right_depth = false;
-    double downsample_ratio = 0.5;
+    double downsample_ratio = 1.0;
     Eigen::Matrix3d cam_side;
     Eigen::Matrix3d cam_side_transpose;
     cv::Mat cam_side_cv, cam_side_cv_transpose;
@@ -51,7 +51,7 @@ public:
         t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
         t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
 
-        t_transpose = Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(0, 0, 1));
+        t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
 
         f_side = fisheye->f_side;
         cx_side = fisheye->cx_side;
@@ -80,11 +80,23 @@ public:
                 cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
                 cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
             }
-        
-            cv::cuda::transpose(up_front, up_front);
-            cv::cuda::transpose(down_front, down_front);
-        
+
+            cv::Size target(up_front.size().height, up_front.size().width);
+            // cv::cuda::rotate(up_front, up_front,    target, -90);
+            // cv::cuda::rotate(down_front, down_front, target, -90);
+
+            //After transpose, we need flip for rotation
+
+            cv::cuda::GpuMat tmp;
+
+            cv::cuda::transpose(up_front, tmp);
+            cv::cuda::flip(tmp, up_front, 1);
+
+            cv::cuda::transpose(down_front, tmp);
+            cv::cuda::flip(tmp, down_front, 1);
+
             Eigen::Vector3d t01 = tic2 - tic1;
+            std::cout << "T01" << t01 << std::endl;
             // t01.x() = t01.x()*fisheye->f_side*downsample_ratio;
             // t01.y() = 0;
             // t01.z() = 0;
