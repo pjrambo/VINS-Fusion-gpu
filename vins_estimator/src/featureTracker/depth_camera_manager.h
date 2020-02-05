@@ -18,7 +18,7 @@ class DepthCamManager {
 public:
     FisheyeUndist * fisheye = nullptr;
 
-    Eigen::Quaterniond t1, t2, t3, t4, t_down;
+    Eigen::Quaterniond t1, t2, t3, t4, t_down, t_transpose;
 
 
     DepthCamManager(ros::NodeHandle & _nh): nh(_nh) {
@@ -37,6 +37,8 @@ public:
         t3 = t2 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
         t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
         t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
+
+        t_transpose = Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(0, 0, 1));
     }
 
     void update_images(ros::Time stamp, std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams,
@@ -54,27 +56,32 @@ public:
         sensor_msgs::CameraInfo cam_info_left, cam_info_right;
         cam_info_left.K[0] = fisheye->f_side;
         cam_info_left.K[1] = 0;
-        cam_info_left.K[2] = fisheye->cx_side;
+        // cam_info_left.K[2] = fisheye->cx_side;
+        cam_info_left.K[2] = fisheye->cy_side;
         cam_info_left.K[3] = 0;
         cam_info_left.K[4] = fisheye->f_side;
-        cam_info_left.K[5] = fisheye->cy_side;
+        // cam_info_left.K[5] = fisheye->cy_side;
+        cam_info_left.K[5] = fisheye->cx_side;
         cam_info_left.K[6] = 0;
         cam_info_left.K[7] = 0;
         cam_info_left.K[8] = 1;
 
         cam_info_left.header.stamp = stamp;
-        cam_info_left.width = fisheye->imgWidth;
-        cam_info_left.height = fisheye->sideImgHeight;
+        cam_info_left.header.frame_id = "camera_up_front";
+        // cam_info_left.width = fisheye->imgWidth;
+        // cam_info_left.height = fisheye->sideImgHeight;
+        cam_info_left.width = fisheye->sideImgHeight;
+        cam_info_left.height = fisheye->imgWidth;
         // cam_info_left.
         // cam_info_left.
         cam_info_left.P[0] = fisheye->f_side;
         cam_info_left.P[1] = 0;
-        cam_info_left.P[2] = fisheye->cx_side;
+        cam_info_left.P[2] = cam_info_left.K[2];
         cam_info_left.P[3] = 0;
 
         cam_info_left.P[4] = 0;
         cam_info_left.P[5] = fisheye->f_side;
-        cam_info_left.P[6] = fisheye->cy_side;
+        cam_info_left.P[6] = cam_info_left.K[5];
         cam_info_left.P[7] = 0;
         
         cam_info_left.P[8] = 0;
@@ -82,6 +89,10 @@ public:
         cam_info_left.P[10] = 1;
         cam_info_left.P[11] = 0;
 
+        // ric1 = Eigen::Matrix3d::Identity();
+        // ric2 = Eigen::Matrix3d::Identity();
+        ric1 = ric1*t2*t_transpose;
+        ric2 = ric2*t_down*t2*t_transpose;
         Eigen::Vector3d t01 = tic2 - tic1;
         // t01 = R0.transpose() * t01;
         t01 = ric1.transpose() * t01;
@@ -89,11 +100,13 @@ public:
         Eigen::Matrix3d R01 = (ric1.transpose() * ric2);
 
         cam_info_right = cam_info_left;
-        cam_info_right.P[3] = t01.x();
-        cam_info_right.P[7] = t01.y();
+        cam_info_right.P[3] = - t01.x()*fisheye->f_side;
+        cam_info_right.P[7] = 0;
         cam_info_right.P[11] = 0;
 
-        memcpy(cam_info_right.R.data(), R01.data(), 9*sizeof(double));
+        Eigen::Matrix3d R_iden = Eigen::Matrix3d::Identity();
+        memcpy(cam_info_left.R.data(), R_iden.data(), 9*sizeof(double));
+        memcpy(cam_info_right.R.data(), R_iden.data(), 9*sizeof(double));
 
 
         up_cam_info_pub.publish(cam_info_left);
@@ -103,8 +116,15 @@ public:
         front_up.download(up_cam);
         front_down.download(down_cam);
 
+        cv::transpose(up_cam, up_cam);
+        cv::transpose(down_cam, down_cam);
         sensor_msgs::ImagePtr up_img_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", up_cam).toImageMsg();
+        up_img_msg->header.stamp = stamp;
+        up_img_msg->header.frame_id = "camera_up_front";
         sensor_msgs::ImagePtr down_img_msg = cv_bridge::CvImage(std_msgs::Header(), "mono8", down_cam).toImageMsg();
+        down_img_msg->header.stamp = stamp;
+        down_img_msg->header.frame_id = "camera_up_front";
+        
 
         pub_camera_up.publish(up_img_msg);
         pub_camera_down.publish(down_img_msg);
