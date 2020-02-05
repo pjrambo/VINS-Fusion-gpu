@@ -29,6 +29,8 @@ extern double triangulate_max_err;
 extern double INIT_DEPTH;
 extern double THRES_OUTLIER;
 extern double MIN_PARALLAX;
+extern double p1;
+extern double p2;
 extern int ESTIMATE_EXTRINSIC;
 
 extern double ACC_N, ACC_W;

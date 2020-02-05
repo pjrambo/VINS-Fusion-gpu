@@ -256,26 +256,34 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
 
         sensor_msgs::PointCloud point_cloud;
         point_cloud.header = header;
-        for(int v = 0; v < estimator.depthmap_front.rows; v += 2){
-            for(int u = 0; u < estimator.depthmap_front.cols; u += 2)  
+        for(int v = 0; v < estimator.depthmap_front.rows; v += 3){
+            for(int u = 0; u < estimator.depthmap_front.cols; u += 3)  
             {
-                double z = estimator.depthmap_front.at<float>(v, u);
-                double fx = estimator.depthmap_front.cols/2;
-                double px_undist = (u -  estimator.depthmap_front.cols/2)/ fx;
-                double py_undist = (v -  estimator.depthmap_front.rows/2)/ fx;
-                double x = px_undist*z;
-                double y = py_undist*z;
-                Vector3d pts_i(x, y, z);
-                Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
-                Eigen::Quaterniond t2 =  t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
-                Vector3d w_pts_i = estimator.Rs[WINDOW_SIZE] * estimator.ric[0] * t2 * pts_i + estimator.Ps[WINDOW_SIZE];
+                // double z = estimator.depthmap_front.at<float>(v, u);
+                cv::Vec3f vec = estimator.depthmap_front.at<cv::Vec3f>(v, u);
+                double x = vec[0];
+                double y = vec[1];
+                double z = vec[2];
+                if (z > 0.2) {
+                    // double cx = estimator.featureTracker.fisheys_undists[0].cx_side;
+                    // double cy = estimator.featureTracker.fisheys_undists[0].cy_side;
+                    // double fx = estimator.featureTracker.fisheys_undists[0].f_side;
+                    // double px_undist = (u -  cx)/ fx;
+                    // double py_undist = (v -  cy)/ fx;
+                    // double x = px_undist*z;
+                    // double y = py_undist*z;
+                    Vector3d pts_i(x, y, z);
+                    Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
+                    Eigen::Quaterniond t2 =  t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+                    Vector3d w_pts_i = estimator.Rs[WINDOW_SIZE] * estimator.ric[0] * t2 * pts_i + estimator.Ps[WINDOW_SIZE];
 
-                geometry_msgs::Point32 p;
-                p.x = w_pts_i(0);
-                p.y = w_pts_i(1);
-                p.z = w_pts_i(2);
-                
-                point_cloud.points.push_back(p);
+                    geometry_msgs::Point32 p;
+                    p.x = w_pts_i(0);
+                    p.y = w_pts_i(1);
+                    p.z = w_pts_i(2);
+                    
+                    point_cloud.points.push_back(p);
+                }
             }
         }
         pub_depth_cloud.publish(point_cloud);

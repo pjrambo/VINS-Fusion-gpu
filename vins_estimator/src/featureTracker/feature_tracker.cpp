@@ -614,6 +614,7 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     return prevMap;
 }
 
+DepthEstimator * dep_est = nullptr;
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
         const Eigen::Vector3d & tic0, const Eigen::Matrix3d & ric0,
         const Eigen::Vector3d & tic1, const Eigen::Matrix3d & ric1,
@@ -634,9 +635,10 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     Eigen::Matrix3d _cam_side;
     _cam_side << fisheys_undists[0].f_side, 0, fisheys_undists[0].cx_side, 0, fisheys_undists[0].f_side, fisheys_undists[0].cy_side, 0, 0, 1;
     cv::eigen2cv(_cam_side, cam_side);
-    
-    DepthEstimator dep_est(tic0, ric0*t2, tic1, ric1*(t_down*t2), cam_side, SHOW_TRACK);
-    cv::Mat depth_img = dep_est.ComputeDepthImage(fisheye_imgs_up[2], fisheye_imgs_down[2]);
+    if (dep_est == nullptr) {
+        dep_est = new DepthEstimator(tic0, ric0*t2, tic1, ric1*(t_down*t2), cam_side, SHOW_TRACK);
+    }
+    cv::Mat depth_img = dep_est->ComputeDepthImage(fisheye_imgs_up[2], fisheye_imgs_down[2]);
     depthmap = depth_img.clone();
     top_size = up_top_img.size();
     side_size = up_side_img.size();
