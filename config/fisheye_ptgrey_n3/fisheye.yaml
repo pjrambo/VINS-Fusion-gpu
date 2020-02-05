@@ -86,11 +86,11 @@ max_solve_cnt: 30 # Max Point for solve; highly influence performace
 min_dist: 20            # min distance between two features 
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1           # publish tracking image as topic
+show_track: 0           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
-sgbm_p1: 300
-sgbm_p2: 1200
+sgbm_p1: 3000
+sgbm_p2: 3600
 #optimization parameters
 max_solver_time: 0.04 # max solver itration time (ms), to guarantee real time
 max_num_iterations: 8   # max solver itrations, to guarantee real time

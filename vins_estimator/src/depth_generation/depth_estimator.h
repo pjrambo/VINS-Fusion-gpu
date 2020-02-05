@@ -20,13 +20,16 @@ class DepthEstimator {
     double baseline = 0;
 
     int block_size = 9;
-    int min_disparity = 2;
+    int min_disparity = 1;
     int disp12Maxdiff = 28;
     int prefilterCap = 39;
+    int prefilterSize = 5;
     int uniquenessRatio = 25;
     int speckleWindowSize = 300;
     int speckleRange = 5;
     int mode = cv::StereoSGBM::MODE_HH;
+    int _p1 = 3000;
+    int _p2 = 3600;
 public:
     DepthEstimator(Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,
     bool _show):

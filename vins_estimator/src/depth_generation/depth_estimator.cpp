@@ -49,13 +49,13 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         rightRectify.download(right_rect);
         
         auto sgbm = cv::StereoSGBM::create(min_disparity, num_disp, block_size,
-            p1, p2, disp12Maxdiff, prefilterCap, uniquenessRatio, speckleWindowSize, 
+            _p1, _p2, disp12Maxdiff, prefilterCap, uniquenessRatio, speckleWindowSize, 
             speckleRange, mode);
 
         // sgbm->setBlockSize(block_size);
         // sgbm->setNumDisparities(num_disp);
         // sgbm->set
-
+        // sgbm->setP
         sgbm->compute(left_rect, right_rect, disparity);
         // disparity.convertTo(disparity, CV_16S, 16);
 

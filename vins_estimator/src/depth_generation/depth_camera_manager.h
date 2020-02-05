@@ -74,16 +74,12 @@ public:
             cv::cuda::GpuMat up_front, down_front;
             ric1 = ric1*t2*t_transpose;
             ric2 = ric2*t_down*t2*t_transpose;
-            cv::cuda::resize(up_cams[2], up_front, cv::Size(), downsample_ratio, downsample_ratio);
-            cv::cuda::resize(down_cams[2], down_front, cv::Size(), downsample_ratio, downsample_ratio);
+            cv::cuda::resize(up_cams[2].clone(), up_front, cv::Size(), downsample_ratio, downsample_ratio);
+            cv::cuda::resize(down_cams[2].clone(), down_front, cv::Size(), downsample_ratio, downsample_ratio);
             if (up_cams[2].channels() == 3) {
                 cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
                 cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
             }
-
-            cv::Size target(up_front.size().height, up_front.size().width);
-            // cv::cuda::rotate(up_front, up_front,    target, -90);
-            // cv::cuda::rotate(down_front, down_front, target, -90);
 
             //After transpose, we need flip for rotation
 
@@ -101,18 +97,21 @@ public:
             // t01.y() = 0;
             // t01.z() = 0;
             t01 = ric1.transpose()*t01;
+            t01.y() = 0;
+            t01.z() = 0;
 
             // std::cout << tic <<std::endl;
             std::cout << "R" << ric1.transpose() * ric2 << "\nT" << t01 << std::endl;
-            DepthEstimator dep(-t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
+            // DepthEstimator dep(-t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
+            DepthEstimator dep(-t01, Eigen::Matrix3d::Identity(), cam_side_cv_transpose, SHOW_TRACK);
             cv::Mat pointcloud_up = dep.ComputeDepthCloud(up_front, down_front);
 
             cv::Mat up_front_cpu;
             cv::Mat tmp2;
-            up_cams[2].download(up_front_cpu);
-            cv::transpose(up_front_cpu, tmp2);
-            cv::flip(tmp2, up_front_cpu, 0);
-            cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
+            // up_cams[2].download(up_front_cpu);
+            // cv::transpose(up_front_cpu, tmp2);
+            // cv::flip(tmp2, up_front_cpu, 0);
+            // cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
             if (pub_cloud_step > 0) { 
                 // publish_world_point_cloud(pointcloud_up, R*ric1, P+tic1, stamp, 3, up_front_cpu);
                 publish_world_point_cloud(pointcloud_up, R*ric1, P+R*tic1, stamp, pub_cloud_step, up_front_cpu);
@@ -158,12 +157,14 @@ public:
                     
                     point_cloud.points.push_back(p);
 
-                    const cv::Vec3b& bgr = color.at<cv::Vec3b>(v, u);
-                    int32_t rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
-                    point_cloud.channels[0].values.push_back(*(float*)(&rgb_packed));
+                    if (!color.empty()) {
+                        const cv::Vec3b& bgr = color.at<cv::Vec3b>(v, u);
+                        int32_t rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
+                        point_cloud.channels[0].values.push_back(*(float*)(&rgb_packed));
 
-                    point_cloud.channels[1].values.push_back(u);
-                    point_cloud.channels[2].values.push_back(v);
+                        point_cloud.channels[1].values.push_back(u);
+                        point_cloud.channels[2].values.push_back(v);
+                    }
                 }
             }
         }
