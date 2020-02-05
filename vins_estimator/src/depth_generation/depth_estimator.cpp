@@ -52,6 +52,10 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             p1, p2, disp12Maxdiff, prefilterCap, uniquenessRatio, speckleWindowSize, 
             speckleRange, mode);
 
+        // sgbm->setBlockSize(block_size);
+        // sgbm->setNumDisparities(num_disp);
+        // sgbm->set
+
         sgbm->compute(left_rect, right_rect, disparity);
         // disparity.convertTo(disparity, CV_16S, 16);
 
@@ -89,26 +93,28 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
     cv::Mat map3d, imgDisparity32F;
     dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
     cv::Mat XYZ = cv::Mat::zeros(imgDisparity32F.rows, imgDisparity32F.cols, CV_32FC3);   // Output point cloud
-    cv::Mat_<float> vec_tmp(4,1);
-    std::cout << "Q" << Q << std::endl;
-    for(int y=0; y<imgDisparity32F.rows; ++y) {
-        for(int x=0; x<imgDisparity32F.cols; ++x) {
+    cv::reprojectImageTo3D(imgDisparity32F, XYZ, Q);    // cv::project
+
+    // cv::Mat_<float> vec_tmp(4,1);
+    // std::cout << "Q" << Q << std::endl;
+    // for(int y=0; y<imgDisparity32F.rows; ++y) {
+    //     for(int x=0; x<imgDisparity32F.cols; ++x) {
             
-            vec_tmp(0)=x; 
-            vec_tmp(1)=y; 
-            vec_tmp(2)=imgDisparity32F.at<float>(y,x); 
-            vec_tmp(3)=1;
-            if (vec_tmp(2) > min_disparity) {
-                vec_tmp = Q*vec_tmp;
-                vec_tmp /= vec_tmp(3);
-                cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
-                point[0] = vec_tmp(0);
-                point[1] = vec_tmp(1);
-                point[2] = vec_tmp(2);
-                // std::cout << "Q" << Q << std::endl;
-                // std::cout << "Disparity" << imgDisparity32F.at<float>(y,x) << " Vec" << vec_tmp << "Pt" << point << std::endl;                }
-            }
-        }
-    }
+    //         vec_tmp(0)=x; 
+    //         vec_tmp(1)=y; 
+    //         vec_tmp(2)=imgDisparity32F.at<float>(y,x); 
+    //         vec_tmp(3)=1;
+    //         if (vec_tmp(2) > min_disparity) {
+    //             vec_tmp = Q*vec_tmp;
+    //             vec_tmp /= vec_tmp(3);
+    //             cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
+    //             point[0] = vec_tmp(0);
+    //             point[1] = vec_tmp(1);
+    //             point[2] = vec_tmp(2);
+    //             // std::cout << "Q" << Q << std::endl;
+    //             // std::cout << "Disparity" << imgDisparity32F.at<float>(y,x) << " Vec" << vec_tmp << "Pt" << point << std::endl;                }
+    //         }
+    //     }
+    // }
     return XYZ;
 }

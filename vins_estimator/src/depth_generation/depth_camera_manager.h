@@ -22,12 +22,12 @@ class DepthCamManager {
     bool estimate_front_depth = true;
     bool estimate_left_depth = false;
     bool estimate_right_depth = false;
-    double downsample_ratio = 1.0;
+    double downsample_ratio = 0.5;
     Eigen::Matrix3d cam_side;
     Eigen::Matrix3d cam_side_transpose;
     cv::Mat cam_side_cv, cam_side_cv_transpose;
 
-    int pub_cloud_step = 3;
+    int pub_cloud_step = 1;
 public:
     FisheyeUndist * fisheye = nullptr;
 
@@ -90,10 +90,10 @@ public:
             cv::cuda::GpuMat tmp;
 
             cv::cuda::transpose(up_front, tmp);
-            cv::cuda::flip(tmp, up_front, 1);
+            cv::cuda::flip(tmp, up_front, 0);
 
             cv::cuda::transpose(down_front, tmp);
-            cv::cuda::flip(tmp, down_front, 1);
+            cv::cuda::flip(tmp, down_front, 0);
 
             Eigen::Vector3d t01 = tic2 - tic1;
             std::cout << "T01" << t01 << std::endl;
@@ -104,13 +104,18 @@ public:
 
             // std::cout << tic <<std::endl;
             std::cout << "R" << ric1.transpose() * ric2 << "\nT" << t01 << std::endl;
-            DepthEstimator dep(t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
+            DepthEstimator dep(-t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
             cv::Mat pointcloud_up = dep.ComputeDepthCloud(up_front, down_front);
 
             cv::Mat up_front_cpu;
-            // up_cams[2].download(up_front_cpu);
+            cv::Mat tmp2;
+            up_cams[2].download(up_front_cpu);
+            cv::transpose(up_front_cpu, tmp2);
+            cv::flip(tmp2, up_front_cpu, 0);
+            cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
             if (pub_cloud_step > 0) { 
-                publish_world_point_cloud(pointcloud_up, R*ric1, P+tic1, stamp, 3, up_front_cpu);
+                // publish_world_point_cloud(pointcloud_up, R*ric1, P+tic1, stamp, 3, up_front_cpu);
+                publish_world_point_cloud(pointcloud_up, R*ric1, P+R*tic1, stamp, pub_cloud_step, up_front_cpu);
             }
         }
     
@@ -121,18 +126,27 @@ public:
     }
 
     void publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp, int step = 3, cv::Mat color = cv::Mat()) {
+        std::cout<< "Pts3d Size " << pts3d.size() << std::endl;
+        std::cout<< "Color Size " << color.size() << std::endl;
         sensor_msgs::PointCloud point_cloud;
         point_cloud.header.stamp = stamp;
         point_cloud.header.frame_id = "world";
-
-        for(int v = 0; v < pts3d.rows; v += 3){
-            for(int u = 0; u < pts3d.cols; u += 3)  
+        point_cloud.channels.resize(3);
+        point_cloud.channels[0].name = "rgb";
+        point_cloud.channels[0].values.resize(0);
+        point_cloud.channels[1].name = "u";
+        point_cloud.channels[1].values.resize(0);
+        point_cloud.channels[2].name = "v";
+        point_cloud.channels[2].values.resize(0);
+  
+        for(int v = 0; v < pts3d.rows; v += step){
+            for(int u = 0; u < pts3d.cols; u += step)  
             {
                 cv::Vec3f vec = pts3d.at<cv::Vec3f>(v, u);
                 double x = vec[0];
                 double y = vec[1];
                 double z = vec[2];
-                if (fabs(z) > 0.2) {
+                if (z > 0.2) {
                     Vector3d pts_i(x, y, z);
                     Vector3d w_pts_i = R * pts_i + P;
                     // Vector3d w_pts_i = pts_i;
@@ -143,6 +157,13 @@ public:
                     p.z = w_pts_i(2);
                     
                     point_cloud.points.push_back(p);
+
+                    const cv::Vec3b& bgr = color.at<cv::Vec3b>(v, u);
+                    int32_t rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
+                    point_cloud.channels[0].values.push_back(*(float*)(&rgb_packed));
+
+                    point_cloud.channels[1].values.push_back(u);
+                    point_cloud.channels[2].values.push_back(v);
                 }
             }
         }
