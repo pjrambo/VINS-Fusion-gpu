@@ -223,10 +223,10 @@ void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vect
 
 void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     const cv::Mat & img_down,
-    cv::cuda::GpuMat & imUpTop,
-    cv::cuda::GpuMat &imDownTop,
-    cv::cuda::GpuMat &imUpSide_cuda, 
-    cv::cuda::GpuMat &imDownSide_cuda)
+    cv::cuda::GpuMat imUpTop,
+    cv::cuda::GpuMat imDownTop,
+    cv::cuda::GpuMat imUpSide_cuda, 
+    cv::cuda::GpuMat imDownSide_cuda)
 {
     // ROS_INFO("Up image %d, down %d", imUp.size(), imDown.size());
     cv::Mat up_camera;
@@ -725,7 +725,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
     // ROS_INFO("Up top VEL %ld", up_top_vel.size());
     if (SHOW_TRACK) {
-        drawTrackFisheye(_img, _img1,up_top_img, down_top_img, up_side_img, down_side_img);
+        drawTrackFisheye(_img, _img1, up_top_img, down_top_img, up_side_img, down_side_img);
     }
         
     prev_up_top_img = up_top_img;

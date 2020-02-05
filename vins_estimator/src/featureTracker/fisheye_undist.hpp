@@ -19,13 +19,9 @@ class FisheyeUndist {
 
     camodocal::CameraPtr cam;
 
-    double fov = 0; //in degree
     std::vector<cv::Mat> undistMaps;
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
-    Eigen::Vector3d cameraRotation;
-    bool enable_cuda = false;
-    int cam_id = 0;
 public:
     camodocal::CameraPtr cam_top;
     camodocal::CameraPtr cam_side;
@@ -33,6 +29,11 @@ public:
     double f_center = 0;
     double cx_side = 0, cy_side = 0;
     int imgWidth = 0;
+    double fov = 0; //in degree
+    Eigen::Vector3d cameraRotation;
+    bool enable_cuda = false;
+    int cam_id = 0;
+
     int sideImgHeight = 0;
 
     FisheyeUndist(const std::string & camera_config_file, int _id, double _fov, bool _enable_cuda = true, int imgWidth = 600):

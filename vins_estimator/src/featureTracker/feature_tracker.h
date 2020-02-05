@@ -89,10 +89,10 @@ public:
     FeatureFrame setup_feature_frame();
     
     void drawTrackFisheye(const cv::Mat & img_up, const cv::Mat & img_down, 
-                            cv::cuda::GpuMat & imUpTop,
-                            cv::cuda::GpuMat & imDownTop,
-                            cv::cuda::GpuMat & imUpSide, 
-                            cv::cuda::GpuMat & imDownSide);
+                            cv::cuda::GpuMat imUpTop,
+                            cv::cuda::GpuMat imDownTop,
+                            cv::cuda::GpuMat imUpSide, 
+                            cv::cuda::GpuMat imDownSide);
     
     void drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, vector<int> track_cnt, map<int, cv::Point2f> prev_pts);
 

@@ -51,7 +51,7 @@ public:
         t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
         t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
 
-        t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
+        t_transpose = Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(0, 0, 1));
 
         f_side = fisheye->f_side;
         cx_side = fisheye->cx_side;
@@ -74,21 +74,29 @@ public:
             cv::cuda::GpuMat up_front, down_front;
             ric1 = ric1*t2*t_transpose;
             ric2 = ric2*t_down*t2*t_transpose;
+            cv::cuda::resize(up_cams[2], up_front, cv::Size(), downsample_ratio, downsample_ratio);
+            cv::cuda::resize(down_cams[2], down_front, cv::Size(), downsample_ratio, downsample_ratio);
             if (up_cams[2].channels() == 3) {
-                cv::cuda::cvtColor(up_cams[2], up_front, cv::COLOR_BGR2GRAY);
-                cv::cuda::cvtColor(down_cams[2], down_front, cv::COLOR_BGR2GRAY);
-                cv::cuda::transpose(up_front, up_front);
-                cv::cuda::transpose(down_front, down_front);
-            } else {
-                cv::cuda::transpose(up_cams[2], up_front);
-                cv::cuda::transpose(down_cams[2], down_front);
+                cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
+                cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
             }
+        
+            cv::cuda::transpose(up_front, up_front);
+            cv::cuda::transpose(down_front, down_front);
+        
+            Eigen::Vector3d t01 = tic2 - tic1;
+            // t01.x() = t01.x()*fisheye->f_side*downsample_ratio;
+            // t01.y() = 0;
+            // t01.z() = 0;
+            t01 = ric1.transpose()*t01;
 
-            DepthEstimator dep(tic1, ric1, tic2, ric2, cam_side_cv_transpose, SHOW_TRACK);
+            // std::cout << tic <<std::endl;
+            std::cout << "R" << ric1.transpose() * ric2 << "\nT" << t01 << std::endl;
+            DepthEstimator dep(t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
             cv::Mat pointcloud_up = dep.ComputeDepthCloud(up_front, down_front);
 
             cv::Mat up_front_cpu;
-            up_cams[2].download(up_front_cpu);
+            // up_cams[2].download(up_front_cpu);
             if (pub_cloud_step > 0) { 
                 publish_world_point_cloud(pointcloud_up, R*ric1, P+tic1, stamp, 3, up_front_cpu);
             }
@@ -112,9 +120,10 @@ public:
                 double x = vec[0];
                 double y = vec[1];
                 double z = vec[2];
-                if (z > 0.2) {
+                if (fabs(z) > 0.2) {
                     Vector3d pts_i(x, y, z);
                     Vector3d w_pts_i = R * pts_i + P;
+                    // Vector3d w_pts_i = pts_i;
 
                     geometry_msgs::Point32 p;
                     p.x = w_pts_i(0);

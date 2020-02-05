@@ -1666,7 +1666,7 @@ void Estimator::updateLatestStates()
 
     latest_time = Headers[frame_count] + td;
     latest_P = Ps[frame_count];
-    std::cout << "Ps[frame_count] is " << Ps[frame_count].transpose();
+    // std::cout << "Ps[frame_count] is " << Ps[frame_count].transpose();
     latest_Q = Rs[frame_count];
     latest_V = Vs[frame_count];
     latest_Ba = Bas[frame_count];
