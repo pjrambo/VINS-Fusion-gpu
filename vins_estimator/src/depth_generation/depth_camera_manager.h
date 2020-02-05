@@ -82,7 +82,7 @@ public:
     }
 
 
-    void update_front_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+    void update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
         Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
         Eigen::Matrix3d R, Eigen::Vector3d P, int direction) {
@@ -145,22 +145,22 @@ public:
     ) {
         
         if (estimate_front_depth) {
-            update_front_image(stamp, up_cams[2], down_cams[2], ric1*t2*t_transpose, 
+            update_depth_image(stamp, up_cams[2], down_cams[2], ric1*t2*t_transpose, 
                 tic1, ric2*t_down*t2*t_transpose, tic2, R, P, 1);
         }
     
         if (estimate_left_depth) {
-            update_front_image(stamp, up_cams[1], down_cams[1], ric1*t1*t_transpose, 
+            update_depth_image(stamp, up_cams[1], down_cams[1], ric1*t1*t_transpose, 
                 tic1, ric2*t_down*t1*t_transpose, tic2, R, P, 0);
         }
 
         if (estimate_right_depth) {
-            update_front_image(stamp, up_cams[3], down_cams[3], ric1*t3*t_transpose, 
+            update_depth_image(stamp, up_cams[3], down_cams[3], ric1*t3*t_transpose, 
                 tic1, ric2*t_down*t3*t_transpose, tic2, R, P, 2);
         }
 
         if (estimate_rear_depth) {
-            update_front_image(stamp, up_cams[4], down_cams[4], ric1*t4*t_transpose, 
+            update_depth_image(stamp, up_cams[4], down_cams[4], ric1*t4*t_transpose, 
                 tic1, ric2*t_down*t4*t_transpose, tic2, R, P, 3);
         }
 
