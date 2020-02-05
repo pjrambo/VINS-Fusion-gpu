@@ -21,8 +21,10 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
 
         cv::stereoRectify(cameraMatrix, cv::Mat(), cameraMatrix, cv::Mat(), imgSize, 
             R, T, R1, R2, P1, P2, Q, 0);
-    
-        baseline = - 1.0/Q.at<double>(3, 2);
+        Q.at<double>(3, 2) = -Q.at<double>(3, 2);
+        std::cout << Q << std::endl;
+        // baseline = -1.0/Q.at<double>(3, 2);
+        // assert(baseline > 0 && "Baseline must > 0");
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R1, P1, imgSize, CV_32FC1, _map11,
                                 _map12);
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R2, P2, imgSize, CV_32FC1, _map21,
@@ -75,10 +77,14 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             double min_val, max_val;
             cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
             raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+            
             cv::transpose(left_rect, left_rect);
             cv::transpose(right_rect, right_rect);
+
             cv::vconcat(left_rect, right_rect, _show);
             cv::vconcat(_show, scaled_disp_map, _show);
+            // cv::hconcat(left_rect, right_rect, _show);
+            // cv::hconcat(_show, scaled_disp_map, _show);
             cv::imshow("raw_disp_map", _show);
         }
         return disparity;
@@ -97,7 +103,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         leftRectify_Rotate.download(leftRectifyCPU);
         rightRectify_Rotate.download(rightRectifyCPU);
         disparity.download(disparityCPU);
-        disparityCPU.convertTo(disparityCPU, CV_16S, 16);
+        // disparityCPU.convertTo(disparityCPU, CV_16S, 16);
 
 
         double min_val, max_val;
@@ -204,20 +210,27 @@ cv::Mat DepthEstimator::ComputeDepthImage(cv::cuda::GpuMat & left, cv::cuda::Gpu
     // }
     cv::Mat map3d, imgDisparity32F;
     dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
-    cv::Mat_<cv::Vec3f> XYZ(imgDisparity32F.rows ,imgDisparity32F.cols);   // Output point cloud
+    cv::Mat XYZ = cv::Mat::zeros(imgDisparity32F.rows ,imgDisparity32F.cols, CV_32FC3);   // Output point cloud
     cv::Mat_<float> vec_tmp(4,1);
-    std::cout << "Q" << Q << std::endl;
     for(int y=0; y<imgDisparity32F.rows; ++y) {
         for(int x=0; x<imgDisparity32F.cols; ++x) {
-            vec_tmp(0)=x; vec_tmp(1)=y; vec_tmp(2)=imgDisparity32F.at<float>(y,x); vec_tmp(3)=1;
-            vec_tmp = Q*vec_tmp;
-            vec_tmp /= vec_tmp(3);
-            cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
-            point[0] = vec_tmp(0);
-            point[1] = vec_tmp(1);
-            point[2] = vec_tmp(2);
-
-            // point = compute_3D_world_coordinates(y, x, Q, imgDisparity32F);
+            
+            vec_tmp(0)=x; 
+            vec_tmp(1)=y; 
+            vec_tmp(2)=imgDisparity32F.at<float>(y,x); 
+            vec_tmp(3)=1;
+            if (vec_tmp(2) >0) {
+                vec_tmp = Q*vec_tmp;
+                if (vec_tmp(3) > 0.01) {
+                    vec_tmp /= vec_tmp(3);
+                    cv::Vec3f &point = XYZ.at<cv::Vec3f>(y,x);
+                    point[0] = vec_tmp(0);
+                    point[1] = vec_tmp(1);
+                    point[2] = vec_tmp(2);
+                    // std::cout << "Q" << Q << std::endl;
+                    // std::cout << "Disparity" << imgDisparity32F.at<float>(y,x) << " Vec" << vec_tmp << "Pt" << point << std::endl;
+                }
+            }
         }
     }
     return XYZ;

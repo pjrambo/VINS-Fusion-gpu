@@ -88,8 +88,8 @@ F_threshold: 1.0        # ransac threshold (pixel)
 show_track: 1           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
-sgbm_p1: 200
-sgbm_p2: 800
+sgbm_p1: 300
+sgbm_p2: 1200
 #optimization parameters
 max_solver_time: 0.01 # max solver itration time (ms), to guarantee real time
 max_num_iterations: 4   # max solver itrations, to guarantee real time

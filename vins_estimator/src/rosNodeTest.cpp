@@ -20,6 +20,7 @@
 #include "estimator/estimator.h"
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
+#include "featureTracker/depth_camera_manager.h"
 
 Estimator estimator;
 
@@ -217,6 +218,9 @@ int main(int argc, char **argv)
 
     readParameters(config_file);
     estimator.setParameter();
+    DepthCamManager cam_manager(n);
+    estimator.depth_cam_manager = &cam_manager;
+    cam_manager.fisheye = &(estimator.featureTracker.fisheys_undists[0]);
 
 #ifdef EIGEN_DONT_PARALLELIZE
     ROS_DEBUG("EIGEN_DONT_PARALLELIZE");

@@ -35,7 +35,9 @@
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
 #include "../factor/projectionOneFrameTwoCamFactor.h"
 #include "../featureTracker/feature_tracker.h"
+#include <opencv2/cudaimgproc.hpp>
 
+class DepthCamManager;
 
 class Estimator
 {
@@ -176,6 +178,8 @@ class Estimator
 
     bool initFirstPoseFlag;
 
+    DepthCamManager * depth_cam_manager = nullptr;
 
-    cv::Mat depthmap_front;
+    std::vector<cv::cuda::GpuMat> fisheye_imgs_up;
+    std::vector<cv::cuda::GpuMat> fisheye_imgs_down;
 };

@@ -48,10 +48,9 @@ public:
     Estimator * estimator = nullptr;
     FeatureTracker();
     FeatureFrame trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
-    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1, 
-        const Eigen::Vector3d & tic0, const Eigen::Matrix3d & ric0,
-        const Eigen::Vector3d & tic1, const Eigen::Matrix3d & ric1,
-        cv::Mat & depthmap
+    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,        
+        std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
+        std::vector<cv::cuda::GpuMat> & fisheye_imgs_down
     );
 
     vector<cv::Point2f> opticalflow_track(cv::cuda::GpuMat & cur_img, 

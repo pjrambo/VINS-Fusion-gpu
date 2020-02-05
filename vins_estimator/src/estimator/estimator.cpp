@@ -9,6 +9,7 @@
 
 #include "estimator.h"
 #include "../utility/visualization.h"
+#include "../featureTracker/depth_camera_manager.h"
 
 Estimator::Estimator(): f_manager{Rs}
 {
@@ -60,7 +61,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     TicToc featureTrackerTime;
     
     if (FISHEYE) {
-        featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, tic[0], ric[0], tic[1], ric[1], this->depthmap_front);
+        featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, fisheye_imgs_up, fisheye_imgs_down);
     } else {
         if(_img1.empty())
             featureFrame = featureTracker.trackImage(t, _img);
@@ -557,6 +558,10 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         last_R0 = Rs[0];
         last_P0 = Ps[0];
         updateLatestStates();
+
+        depth_cam_manager->update_images(ros::Time(header), fisheye_imgs_up, fisheye_imgs_down,
+            ric[0], tic[0], ric[1], tic[1], latest_Q.toRotationMatrix(), latest_P
+        );
     }  
 }
 

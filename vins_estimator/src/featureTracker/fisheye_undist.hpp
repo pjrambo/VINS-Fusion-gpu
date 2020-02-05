@@ -1,3 +1,5 @@
+#pragma once
+
 #include "ros/ros.h"
 #include "sensor_msgs/Image.h"
 #include "opencv2/core/core.hpp"
@@ -16,8 +18,7 @@
 class FisheyeUndist {
 
     camodocal::CameraPtr cam;
-    int imgWidth = 0;
-    int sideImgHeight = 0;
+
     double fov = 0; //in degree
     std::vector<cv::Mat> undistMaps;
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
@@ -31,6 +32,8 @@ public:
     double f_side = 0;
     double f_center = 0;
     double cx_side = 0, cy_side = 0;
+    int imgWidth = 0;
+    int sideImgHeight = 0;
 
     FisheyeUndist(const std::string & camera_config_file, int _id, double _fov, bool _enable_cuda = true, int imgWidth = 600):
     imgWidth(imgWidth), fov(_fov), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda), cam_id(_id) {

@@ -616,30 +616,30 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
 
 DepthEstimator * dep_est = nullptr;
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
-        const Eigen::Vector3d & tic0, const Eigen::Matrix3d & ric0,
-        const Eigen::Vector3d & tic1, const Eigen::Matrix3d & ric1,
-        cv::Mat & depthmap) {
+        std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
+        std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
     TicToc t_r;
     cur_time = _cur_time;
 
-    auto fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
-    auto fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
+    fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
+    fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
 
     auto up_side_img = concat_side(fisheye_imgs_up);
     auto down_side_img = concat_side(fisheye_imgs_down);
     auto & up_top_img = fisheye_imgs_up[0];
     auto & down_top_img = fisheye_imgs_down[0];
-    cv::Mat cam_side;
 
-    //
-    Eigen::Matrix3d _cam_side;
-    _cam_side << fisheys_undists[0].f_side, 0, fisheys_undists[0].cx_side, 0, fisheys_undists[0].f_side, fisheys_undists[0].cy_side, 0, 0, 1;
-    cv::eigen2cv(_cam_side, cam_side);
-    if (dep_est == nullptr) {
-        dep_est = new DepthEstimator(tic0, ric0*t2, tic1, ric1*(t_down*t2), cam_side, SHOW_TRACK);
-    }
-    cv::Mat depth_img = dep_est->ComputeDepthImage(fisheye_imgs_up[2], fisheye_imgs_down[2]);
-    depthmap = depth_img.clone();
+    // cv::Mat cam_side;
+    // //
+    // Eigen::Matrix3d _cam_side;
+    // _cam_side << fisheys_undists[0].f_side, 0, fisheys_undists[0].cx_side, 0, fisheys_undists[0].f_side, fisheys_undists[0].cy_side, 0, 0, 1;
+    // cv::eigen2cv(_cam_side, cam_side);
+    // if (dep_est == nullptr) {
+    //     dep_est = new DepthEstimator(tic0, ric0*t2, tic1, ric1*(t_down*t2), cam_side, SHOW_TRACK);
+    // }
+    // cv::Mat depth_img = dep_est->ComputeDepthImage(fisheye_imgs_up[2], fisheye_imgs_down[2]);
+    // depthmap = depth_img.clone();
+
     top_size = up_top_img.size();
     side_size = up_side_img.size();
 
