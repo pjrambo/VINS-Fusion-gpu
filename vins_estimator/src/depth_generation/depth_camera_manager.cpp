@@ -63,6 +63,7 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
 
         pub_cloud_step = fsSettings["pub_cloud_step"];
         show_disparity = fsSettings["show_disparity"];
+        depth_cloud_radius = fsSettings["depth_cloud_radius"];
     }
     fclose(fh);
 
@@ -77,11 +78,7 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     cv::eigen2cv(cam_side, cam_side_cv);
     cv::eigen2cv(cam_side_transpose, cam_side_cv_transpose);
 
-    if (!sgm_params.use_vworks) {
-        t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
-    } else {
-        t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
-    }
+    t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
 
     deps.push_back(nullptr);
     deps.push_back(nullptr);
@@ -104,21 +101,20 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
 
     cv::cuda::GpuMat tmp;
     cv::Size size = up_front.size();
-    // if (!sgm_params.use_vworks) {
-        if (_up_front.channels() == 3) {
-            cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
-            cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
-        }
-        cv::cuda::transpose(up_front, tmp);
-        cv::cuda::flip(tmp, up_front, 0);
+    if (_up_front.channels() == 3) {
+        cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
+        cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
+    }
 
-        cv::cuda::transpose(down_front, tmp);
-        cv::cuda::flip(tmp, down_front, 0);
-    // }
+    cv::cuda::transpose(up_front, tmp);
+    cv::cuda::flip(tmp, up_front, 0);
+
+    cv::cuda::transpose(down_front, tmp);
+    cv::cuda::flip(tmp, down_front, 0);
 
     Eigen::Vector3d t01 = tic2 - tic1;
     t01 = ric1.transpose()*t01;
-    ROS_INFO("T01");
+    // ROS_INFO("T01");
     std::cout << t01;
 
     DepthEstimator * dep_est;
@@ -199,8 +195,9 @@ void DepthCamManager::publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R
             double x = vec[0];
             double y = vec[1];
             double z = vec[2];
-            if (fabs(z) > 0.2) {
-                Vector3d pts_i(x, y, z);
+            Vector3d pts_i(x, y, z);
+
+            if (z > 0.2 && pts_i.norm() < depth_cloud_radius) {
                 Vector3d w_pts_i = R * pts_i + P;
                 // Vector3d w_pts_i = pts_i;
 

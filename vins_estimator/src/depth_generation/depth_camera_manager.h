@@ -41,6 +41,7 @@ class DepthCamManager {
     std::vector<DepthEstimator *> deps;
 
     int show_disparity = 0;
+    double depth_cloud_radius = 5;
 
 public:
     FisheyeUndist * fisheye = nullptr;

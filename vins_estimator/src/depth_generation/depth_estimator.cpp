@@ -101,7 +101,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
 
             StereoMatching::ImplementationType implementationType = StereoMatching::HIGH_LEVEL_API;
             StereoMatching::StereoMatchingParams _params;
-            _params.min_disparity = params.min_disparity;
+            _params.min_disparity = 0;
             _params.max_disparity = params.num_disp;
             _params.P1 = params.p1;
             _params.P2 = params.p2;
@@ -125,10 +125,6 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
                 context, _params,
                 implementationType,
                 vx_img_l, vx_img_r, vx_disparity);
-            // stereo = StereoMatching::createStereoMatching(
-            //     context, _params,
-            //     implementationType,
-            //     vx_img_r, vx_img_l, vx_disparity);
             first_use_vworks = false;
             color = new ColorDisparityGraph(context, vx_disparity_for_color, vx_coloroutput, params.num_disp);
 
@@ -163,7 +159,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             double min_val=0, max_val=0;
             cv::Mat gray_disp;
             cv::minMaxLoc(cv_disp, &min_val, &max_val, NULL, NULL);
-            ROS_INFO("Min %f, max %f", min_val, max_val);
+            // ROS_INFO("Min %f, max %f", min_val, max_val);
             cv_disp.convertTo(gray_disp, CV_8U, 1., 0);
             cv::cvtColor(gray_disp, gray_disp, cv::COLOR_GRAY2BGR);
 
@@ -175,7 +171,9 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::cvtColor(_show, _show, cv::COLOR_GRAY2BGR);
             cv::hconcat(_show, gray_disp, _show);
             cv::hconcat(_show, color_disp, _show);
-            cv::imshow("RAW DISP", _show);
+            char win_name[50] = {0};
+            sprintf(win_name, "RAW_DISP %f %f %f", T.at<double>(0, 0), T.at<double>(1, 0), T.at<double>(2, 0));
+            cv::imshow(win_name, _show);
             cv::waitKey(2);
         }            
         return cv_disp;
@@ -228,9 +226,9 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
         // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
         // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
         dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
+        cv::threshold(imgDisparity32F, imgDisparity32F, min_val, 1000, cv::THRESH_TOZERO);
         // dispartitymap.convertTo(imgDisparity32F, CV_32F, 1.0);
         cv::minMaxLoc(imgDisparity32F, &min_val, &max_val, NULL, NULL);
-        ROS_INFO("Disp min %f max %f", min_val, max_val);
     } else {
         dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
     }
