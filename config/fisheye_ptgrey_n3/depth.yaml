@@ -20,7 +20,7 @@ mode: 1
 p1: 250 #Bigger gives smooth
 p2: 256
 
-bt_clip_value: 31
+bt_clip_value: 95
 ct_win_size: 0
 hc_win_size: 1
 scanlines_mask: 255
@@ -28,4 +28,4 @@ scanlines_mask: 255
 pub_cloud_step: 1
 show_disparity: 1
 flags: 2
-depth_cloud_radius: 5
+depth_cloud_radius: 30
