@@ -115,21 +115,21 @@ namespace hlsgm
         NVXIO_CHECK_REFERENCE(main_graph_);
 
         // convert images to grayscale
-        vx_image left_gray = vxCreateVirtualImage(main_graph_, width, height, VX_DF_IMAGE_U8);
-        NVXIO_CHECK_REFERENCE(left_gray);
+        // vx_image left_gray = vxCreateVirtualImage(main_graph_, width, height, VX_DF_IMAGE_U8);
+        // NVXIO_CHECK_REFERENCE(left_gray);
 
-        vx_image right_gray = vxCreateVirtualImage(main_graph_, width, height, VX_DF_IMAGE_U8);
-        NVXIO_CHECK_REFERENCE(right_gray);
+        // vx_image right_gray = vxCreateVirtualImage(main_graph_, width, height, VX_DF_IMAGE_U8);
+        // NVXIO_CHECK_REFERENCE(right_gray);
 
-        left_cvt_color_node_ = vxColorConvertNode(main_graph_, left, left_gray);
-        NVXIO_CHECK_REFERENCE(left_cvt_color_node_);
+        // left_cvt_color_node_ = vxColorConvertNode(main_graph_, left, left_gray);
+        // NVXIO_CHECK_REFERENCE(left_cvt_color_node_);
 
-        right_cvt_color_node_ = vxColorConvertNode(main_graph_, right, right_gray);
-        NVXIO_CHECK_REFERENCE(right_cvt_color_node_);
+        // right_cvt_color_node_ = vxColorConvertNode(main_graph_, right, right_gray);
+        // NVXIO_CHECK_REFERENCE(right_cvt_color_node_);
 
         // evaluate stereo
-        vx_image disparity_short = vxCreateVirtualImage(main_graph_, width, height, VX_DF_IMAGE_S16);
-        NVXIO_CHECK_REFERENCE(disparity_short);
+        // vx_image disparity_short = vxCreateVirtualImage(main_graph_, width, height, VX_DF_IMAGE_S16);
+        // NVXIO_CHECK_REFERENCE(disparity_short);
 
         //
         // The SGM algorithm is now added as a node to the graph via the
@@ -147,9 +147,9 @@ namespace hlsgm
 
         semi_global_matching_node_ = nvxSemiGlobalMatchingNode(
             main_graph_,
-            left_gray,
-            right_gray,
-            disparity_short,
+            left,
+            right,
+            disparity,
             params.min_disparity,
             params.max_disparity,
             params.P1,
@@ -165,21 +165,21 @@ namespace hlsgm
         NVXIO_CHECK_REFERENCE(semi_global_matching_node_);
 
         // convert disparity from fixed point to grayscale
-        vx_int32 shift = 4;
-        vx_scalar s_shift = vxCreateScalar(context, VX_TYPE_INT32, &shift);
-        NVXIO_CHECK_REFERENCE(s_shift);
-        convert_depth_node_ = vxConvertDepthNode(main_graph_, disparity_short, disparity, VX_CONVERT_POLICY_SATURATE, s_shift);
-        vxReleaseScalar(&s_shift);
-        NVXIO_CHECK_REFERENCE(convert_depth_node_);
+        // vx_int32 shift = 4;
+        // vx_scalar s_shift = vxCreateScalar(context, VX_TYPE_INT32, &shift);
+        // NVXIO_CHECK_REFERENCE(s_shift);
+        // convert_depth_node_ = vxConvertDepthNode(main_graph_, disparity_short, disparity, VX_CONVERT_POLICY_SATURATE, s_shift);
+        // vxReleaseScalar(&s_shift);
+        // NVXIO_CHECK_REFERENCE(convert_depth_node_);
 
         // verify the graph
         NVXIO_SAFE_CALL( vxVerifyGraph(main_graph_) );
 
         // clean up
-        vxReleaseImage(&left_gray);
-        vxReleaseImage(&right_gray);
+        // vxReleaseImage(&left_gray);
+        // vxReleaseImage(&right_gray);
 
-        vxReleaseImage(&disparity_short);
+        // vxReleaseImage(&disparity_short);
     }
 
     void SGBM::printPerfs() const

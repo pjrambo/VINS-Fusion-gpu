@@ -39,6 +39,7 @@ public:
 
     void process();
     void printPerfs();
+    vx_node convert_depth_node_;
 
 private:
     static void fillLUT(vx_lut r_lut, vx_lut g_lut, vx_lut b_lut, vx_int32 ndisp);

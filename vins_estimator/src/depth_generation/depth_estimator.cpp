@@ -116,8 +116,8 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             vx_img_l = nvx_cv::createVXImageFromCVGpuMat(context, leftRectify_fix);
             vx_img_r = nvx_cv::createVXImageFromCVGpuMat(context, rightRectify_fix);
             // vx_disparity = nvx_cv::createVXImageFromCVGpuMat(context, disparity_fix);
-            vx_disparity = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_U8);
-            vx_disparity_for_color = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_U8);
+            vx_disparity = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_S16);
+            vx_disparity_for_color = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_S16);
 
             vx_coloroutput = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_RGB);
 
@@ -143,6 +143,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             0u, 0u,
             leftRectify.size().width, leftRectify.size().height
         };
+
         if(show) {
             nvxuCopyImage(context, vx_disparity, vx_disparity_for_color);
         }
@@ -162,8 +163,8 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             double min_val=0, max_val=0;
             cv::Mat gray_disp;
             cv::minMaxLoc(cv_disp, &min_val, &max_val, NULL, NULL);
-            ROS_INFO("Max %f, min %f", min_val, max_val);
-            cv_disp.convertTo(gray_disp, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+            ROS_INFO("Min %f, max %f", min_val, max_val);
+            cv_disp.convertTo(gray_disp, CV_8U, 1., 0);
             cv::cvtColor(gray_disp, gray_disp, cv::COLOR_GRAY2BGR);
 
             cv::Mat _show, left_rect, right_rect;
@@ -171,8 +172,9 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             rightRectify.download(right_rect);
     
             cv::hconcat(left_rect, right_rect, _show);
-            cv::hconcat(_show, color_disp, _show);
+            cv::cvtColor(_show, _show, cv::COLOR_GRAY2BGR);
             cv::hconcat(_show, gray_disp, _show);
+            cv::hconcat(_show, color_disp, _show);
             cv::imshow("RAW DISP", _show);
             cv::waitKey(2);
         }            
@@ -225,9 +227,10 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
         double max_val = 0;
         // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
         // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
-        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1.0);
+        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
+        // dispartitymap.convertTo(imgDisparity32F, CV_32F, 1.0);
         cv::minMaxLoc(imgDisparity32F, &min_val, &max_val, NULL, NULL);
-        ROS_INFO("Disp max %f min %f", min_val, max_val);
+        ROS_INFO("Disp min %f max %f", min_val, max_val);
     } else {
         dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
     }

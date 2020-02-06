@@ -104,19 +104,17 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
 
     cv::cuda::GpuMat tmp;
     cv::Size size = up_front.size();
-    if (!sgm_params.use_vworks) {
-        //CPI Mode, gives gray image
+    // if (!sgm_params.use_vworks) {
         if (_up_front.channels() == 3) {
             cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
             cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
         }
-        cv::cuda::GpuMat tmp;
         cv::cuda::transpose(up_front, tmp);
         cv::cuda::flip(tmp, up_front, 0);
 
         cv::cuda::transpose(down_front, tmp);
         cv::cuda::flip(tmp, down_front, 0);
-    }
+    // }
 
     Eigen::Vector3d t01 = tic2 - tic1;
     t01 = ric1.transpose()*t01;

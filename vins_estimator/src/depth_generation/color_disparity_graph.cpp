@@ -35,6 +35,10 @@
 ColorDisparityGraph::ColorDisparityGraph(vx_context context, vx_image disparity, vx_image output, vx_int32 ndisp) :
     graph_(nullptr)
 {
+
+    // convert disparity from fixed point to grayscale
+    
+    
     NVXIO_ASSERT(ndisp <= 256);
 
     vx_lut r_lut = vxCreateLUT(context, VX_TYPE_UINT8, 256);
@@ -44,13 +48,29 @@ ColorDisparityGraph::ColorDisparityGraph(vx_context context, vx_image disparity,
 
     graph_ = vxCreateGraph(context);
 
+    vx_int32 shift = 4;
+    vx_scalar s_shift = vxCreateScalar(context, VX_TYPE_INT32, &shift);
+    NVXIO_CHECK_REFERENCE(s_shift);
+
+    vx_uint32 width = 0;
+    vx_uint32 height = 0;
+
+    NVXIO_SAFE_CALL( vxQueryImage(disparity, VX_IMAGE_ATTRIBUTE_WIDTH, &width, sizeof(width)) );
+    NVXIO_SAFE_CALL( vxQueryImage(disparity, VX_IMAGE_ATTRIBUTE_HEIGHT, &height, sizeof(height)) );
+    vx_image disparity_short = vxCreateVirtualImage(graph_, width, height, VX_DF_IMAGE_U8);
+
+    convert_depth_node_ = vxConvertDepthNode(graph_, disparity, disparity_short, VX_CONVERT_POLICY_SATURATE, s_shift);
+    vxReleaseScalar(&s_shift);
+    NVXIO_CHECK_REFERENCE(convert_depth_node_);
+
+
     vx_image r_img = vxCreateVirtualImage(graph_, 0, 0, VX_DF_IMAGE_U8);
     vx_image g_img = vxCreateVirtualImage(graph_, 0, 0, VX_DF_IMAGE_U8);
     vx_image b_img = vxCreateVirtualImage(graph_, 0, 0, VX_DF_IMAGE_U8);
 
-    lut_node_[0] = vxTableLookupNode(graph_, disparity, r_lut, r_img);
-    lut_node_[1] = vxTableLookupNode(graph_, disparity, g_lut, g_img);
-    lut_node_[2] = vxTableLookupNode(graph_, disparity, b_lut, b_img);
+    lut_node_[0] = vxTableLookupNode(graph_, disparity_short, r_lut, r_img);
+    lut_node_[1] = vxTableLookupNode(graph_, disparity_short, g_lut, g_img);
+    lut_node_[2] = vxTableLookupNode(graph_, disparity_short, b_lut, b_img);
 
     combine_node_ = vxChannelCombineNode(graph_, r_img, g_img, b_img, nullptr, output);
 
@@ -59,6 +79,7 @@ ColorDisparityGraph::ColorDisparityGraph(vx_context context, vx_image disparity,
     vxReleaseImage(&r_img);
     vxReleaseImage(&g_img);
     vxReleaseImage(&b_img);
+    vxReleaseImage(&disparity_short);
 
     vxReleaseLUT(&r_lut);
     vxReleaseLUT(&g_lut);
