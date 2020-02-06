@@ -7,6 +7,7 @@
 #include "opencv2/highgui.hpp"
 #include <opencv2/cudaimgproc.hpp>
 #include <camodocal/camera_models/CameraFactory.h>
+#include <camodocal/camera_models/PinholeCamera.h>
 #include "cv_bridge/cv_bridge.h"
 #include <experimental/filesystem>
 #include <opencv2/cudawarping.hpp>

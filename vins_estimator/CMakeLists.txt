@@ -85,12 +85,14 @@ add_library(vins_lib
     src/featureTracker/feature_tracker.cpp
     src/depth_generation/depth_estimator.cpp
     src/depth_generation/stereo_matching.cpp
-    )
+    src/depth_generation/depth_camera_manager.cpp
+)
 
 add_library(estimator_lib SHARED
     src/estimator/estimator.cpp
 )
-target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} ${VisionWorks_LIBRARIES} dw)
+
+target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
 
 
 cuda_add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})

@@ -1,3 +1,4 @@
+#define USE_VWORKS
 #include <opencv/cv.h>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/cudaimgproc.hpp>
@@ -6,22 +7,27 @@
 #include <sensor_msgs/PointCloud.h>
 #include <opencv2/cudastereo.hpp>
 
+#include <OVX/UtilityOVX.hpp>
+#include <NVX/nvx.h>
+#include <NVX/nvx_opencv_interop.hpp>
+#include "stereo_matching.hpp"
+
 class DepthEstimator {
     Eigen::Vector3d t01;
     Eigen::Matrix3d R01;
     cv::Mat cameraMatrix;
     bool show = false;
-    int num_disp = 64;
+    int num_disp = 16;
     bool use_sgbm_cpu = false;
     cv::Mat _map11, _map12, _map21, _map22;
     cv::cuda::GpuMat map11, map12, map21, map22;
     bool first_init = true;
     cv::Mat R, T, R1, R2, P1, P2, Q;
     double baseline = 0;
-    bool use_vworks = false;
+    bool use_vworks = true;
 
     int block_size = 9;
-    int min_disparity = 1;
+    int min_disparity = 0;
     int disp12Maxdiff = 28;
     int prefilterCap = 39;
     int prefilterSize = 5;
@@ -31,6 +37,15 @@ class DepthEstimator {
     int mode = cv::StereoSGBM::MODE_HH;
     int _p1 = 3000;
     int _p2 = 3600;
+    
+    bool first_use_vworks = true;
+
+    vx_image vx_img_l;
+    vx_image vx_img_r;
+    vx_image vx_disparity;
+    cv::cuda::GpuMat leftRectify_fix, rightRectify_fix;
+    StereoMatching * stereo;
+
 public:
     DepthEstimator(Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,
     bool _show):

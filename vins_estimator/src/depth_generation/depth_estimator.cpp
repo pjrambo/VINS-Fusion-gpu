@@ -8,12 +8,11 @@
 #include <opencv2/ximgproc/disparity_filter.hpp>
 #include "../estimator/parameters.h"
 #include <libsgm.h>
-#include <NVX/nvx.h>
-#include <NVX/nvx_opencv_interop.hpp>
-#include "stereo_matching.hpp"
-#include <OVX/UtilityOVX.hpp>
 
+
+// ovxio::ContextGuard context;
 ovxio::ContextGuard context;
+
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
@@ -88,9 +87,73 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         }
         return disparity;
     }
+
     if (use_vworks) {
-        vx_image vx_img_l = nvx_cv::createVXImageFromCVGpuMat(context, leftRectify);
-        vx_image vx_img_r = nvx_cv::createVXImageFromCVGpuMat(context, rightRectify);
+        leftRectify.copyTo(leftRectify_fix);
+        rightRectify.copyTo(rightRectify_fix);
+        if (first_use_vworks) {
+            vxDirective(context, VX_DIRECTIVE_ENABLE_PERFORMANCE);
+
+            vxRegisterLogCallback(context, &ovxio::stdoutLogCallback, vx_false_e);
+
+            //
+            // Create a NVXIO-based frame source
+            //
+
+            StereoMatching::ImplementationType implementationType = StereoMatching::LOW_LEVEL_API;
+            StereoMatching::StereoMatchingParams params;
+            params.min_disparity = min_disparity;
+            params.max_disparity = num_disp;
+            params.P1 = _p1;
+            params.P2 = _p2;
+            params.uniqueness_ratio = 0;
+            params.max_diff = disp12Maxdiff;
+            params.bt_clip_value = 31;
+            params.hc_win_size = 1;
+            params.flags = NVX_SGM_PYRAMIDAL_STEREO;
+
+            vx_img_l = nvx_cv::createVXImageFromCVGpuMat(context, leftRectify_fix);
+            vx_img_r = nvx_cv::createVXImageFromCVGpuMat(context, rightRectify_fix);
+            vx_disparity = vxCreateImage
+                (context, leftRectify.size().width, leftRectify.size().height, VX_DF_IMAGE_U8);
+            stereo = StereoMatching::createStereoMatching(
+                context, params,
+                implementationType,
+                vx_img_l, vx_img_r, vx_disparity);
+            first_use_vworks = false;
+        }
+
+
+        stereo->run();
+        cv::Mat cv_disp;
+
+        vx_uint32 plane_index = 0;
+        vx_rectangle_t rect = {
+            0u, 0u,
+            leftRectify.size().width, leftRectify.size().height
+        };
+        nvx_cv::VXImageToCVMatMapper map(vx_disparity, plane_index, &rect, VX_WRITE_ONLY, VX_MEMORY_TYPE_HOST);
+        cv_disp = map.getMat();
+
+        ROS_INFO("DISP %d %d!Time %fms", cv_disp.size().width, cv_disp.size().height, tic.toc());
+        if (show) {
+            cv::Mat _show, left_rect, right_rect;
+            leftRectify.download(left_rect);
+            rightRectify.download(right_rect);
+    
+            cv::Mat raw_disp_map = cv_disp.clone();
+            cv::Mat scaled_disp_map;
+            double min_val, max_val;
+            cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
+            raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+
+            cv::hconcat(left_rect, right_rect, _show);
+            cv::cvtColor(scaled_disp_map, scaled_disp_map, cv::COLOR_GRAY2BGR);
+            cv::hconcat(_show, scaled_disp_map, _show);
+            cv::imshow("RAW DISP", _show);
+        }            
+        return cv_disp;
+
     } else {
         cv::Mat _disp;
 
