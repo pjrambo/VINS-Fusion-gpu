@@ -28,6 +28,8 @@ message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
 
 find_package(Ceres REQUIRED)
 
+find_package(VisionWorks REQUIRED)
+
 include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -39,7 +41,12 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
+  ${VisionWorks_INCLUDE_DIRS}
+  /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
 )
+
+link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
+
 message(STATUS "OpenCV library status:")
 message(STATUS "    version: ${OpenCV_VERSION}")
 message(STATUS "    libraries: ${OpenCV_LIBS}")
@@ -77,17 +84,17 @@ add_library(vins_lib
     src/initial/initial_ex_rotation.cpp
     src/featureTracker/feature_tracker.cpp
     src/depth_generation/depth_estimator.cpp
-    # src/depth_generation/stereo_matching.cpp
+    src/depth_generation/stereo_matching.cpp
     )
 
 add_library(estimator_lib SHARED
     src/estimator/estimator.cpp
 )
-target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
+target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} ${VisionWorks_LIBRARIES} dw)
 
 
 cuda_add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})
-target_link_libraries(vins_node vins_lib estimator_lib sgm ${CUDA_LIBRARIES})
+target_link_libraries(vins_node vins_lib estimator_lib sgm ovx nvx ${CUDA_LIBRARIES})
 
 # add_library(vins_nodelet_lib src/rosNodelet.cpp)
 # target_link_libraries(vins_nodelet_lib vins_lib estimator_lib)

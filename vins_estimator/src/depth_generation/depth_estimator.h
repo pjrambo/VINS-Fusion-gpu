@@ -18,6 +18,7 @@ class DepthEstimator {
     bool first_init = true;
     cv::Mat R, T, R1, R2, P1, P2, Q;
     double baseline = 0;
+    bool use_vworks = false;
 
     int block_size = 9;
     int min_disparity = 1;

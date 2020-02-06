@@ -24,8 +24,8 @@ class DepthCamManager {
     bool publish_raw_image = false;
 
     bool estimate_front_depth = true;
-    bool estimate_left_depth = true;
-    bool estimate_right_depth = true;
+    bool estimate_left_depth = false;
+    bool estimate_right_depth = false;
     bool estimate_rear_depth = false;
 
     double downsample_ratio = 1.0;

@@ -8,6 +8,12 @@
 #include <opencv2/ximgproc/disparity_filter.hpp>
 #include "../estimator/parameters.h"
 #include <libsgm.h>
+#include <NVX/nvx.h>
+#include <NVX/nvx_opencv_interop.hpp>
+#include "stereo_matching.hpp"
+#include <OVX/UtilityOVX.hpp>
+
+ovxio::ContextGuard context;
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
@@ -81,13 +87,35 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::imshow("raw_disp_map", _show);
         }
         return disparity;
+    }
+    if (use_vworks) {
+        vx_image vx_img_l = nvx_cv::createVXImageFromCVGpuMat(context, leftRectify);
+        vx_image vx_img_r = nvx_cv::createVXImageFromCVGpuMat(context, rightRectify);
     } else {
         cv::Mat _disp;
 
     	sgm::LibSGMWrapper sgm(num_disp, _p1, _p2, uniquenessRatio, true, 
-            sgm::PathType::SCAN_8PATH, min_disparity, disp12Maxdiff);
+            sgm::PathType::SCAN_4PATH, min_disparity, disp12Maxdiff);
+        // sgm::LibSGMWrapper sgm;
 		sgm.execute(leftRectify, rightRectify, disparity);
 		disparity.download(_disp);
+
+        if (show) {
+            cv::Mat _show, left_rect, right_rect;
+            leftRectify.download(left_rect);
+            rightRectify.download(right_rect);
+    
+            cv::Mat raw_disp_map = _disp.clone();
+            cv::Mat scaled_disp_map;
+            double min_val, max_val;
+            cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
+            raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+
+            cv::hconcat(left_rect, right_rect, _show);
+            cv::hconcat(_show, scaled_disp_map, _show);
+            cv::imshow("RAW DISP", _show);
+        }            
+            
         ROS_INFO("SGBM time cost %fms", tic.toc());
 
         return _disp;
