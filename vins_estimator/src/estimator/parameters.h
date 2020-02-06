@@ -29,8 +29,6 @@ extern double triangulate_max_err;
 extern double INIT_DEPTH;
 extern double THRES_OUTLIER;
 extern double MIN_PARALLAX;
-extern double p1;
-extern double p2;
 extern int ESTIMATE_EXTRINSIC;
 
 extern double ACC_N, ACC_W;
@@ -48,6 +46,7 @@ extern std::string EX_CALIB_RESULT_PATH;
 extern std::string VINS_RESULT_PATH;
 extern std::string OUTPUT_FOLDER;
 extern std::string IMU_TOPIC;
+extern std::string depth_config;
 extern double TD;
 extern double depth_estimate_baseline;
 extern int ESTIMATE_TD;

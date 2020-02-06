@@ -49,14 +49,14 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
     cv::cuda::remap(left, leftRectify, map11, map12, cv::INTER_LINEAR);
     cv::cuda::remap(right, rightRectify, map21, map22, cv::INTER_LINEAR);
 
-    if (use_sgbm_cpu) {
+    if (!params.use_vworks) {
         cv::Mat left_rect, right_rect, disparity;
         leftRectify.download(left_rect);
         rightRectify.download(right_rect);
         
-        auto sgbm = cv::StereoSGBM::create(min_disparity, num_disp, block_size,
-            _p1, _p2, disp12Maxdiff, prefilterCap, uniquenessRatio, speckleWindowSize, 
-            speckleRange, mode);
+        auto sgbm = cv::StereoSGBM::create(params.min_disparity, params.num_disp, params.block_size,
+            params.p1, params.p2, params.disp12Maxdiff, params.prefilterCap, params.uniquenessRatio, params.speckleWindowSize, 
+            params.speckleRange, params.mode);
 
         // sgbm->setBlockSize(block_size);
         // sgbm->setNumDisparities(num_disp);
@@ -86,9 +86,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::imshow("raw_disp_map", _show);
         }
         return disparity;
-    }
-
-    if (use_vworks) {
+    } else {
         leftRectify.copyTo(leftRectify_fix);
         rightRectify.copyTo(rightRectify_fix);
         if (first_use_vworks) {
@@ -104,34 +102,37 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             //
 
             StereoMatching::ImplementationType implementationType = StereoMatching::LOW_LEVEL_API;
-            StereoMatching::StereoMatchingParams params;
-            params.min_disparity = min_disparity;
-            params.max_disparity = num_disp;
-            params.P1 = _p1;
-            params.P2 = _p2;
-            params.uniqueness_ratio = 0;
-            params.max_diff = disp12Maxdiff;
-            params.bt_clip_value = 31;
-            params.hc_win_size = 1;
-            params.flags = NVX_SGM_PYRAMIDAL_STEREO;
+            StereoMatching::StereoMatchingParams _params;
+            _params.min_disparity = params.min_disparity;
+            _params.max_disparity = params.num_disp;
+            _params.P1 = params.p1;
+            _params.P2 = params.p2;
+            _params.uniqueness_ratio = params.uniquenessRatio;
+            _params.max_diff = params.disp12Maxdiff;
+            _params.bt_clip_value = params.bt_clip_value;
+            _params.hc_win_size = params.hc_win_size;
+            _params.flags = params.flags;
+            _params.sad = params.block_size;
+            _params.scanlines_mask = params.scanlines_mask;
 
             vx_img_l = nvx_cv::createVXImageFromCVGpuMat(context, leftRectify_fix);
             vx_img_r = nvx_cv::createVXImageFromCVGpuMat(context, rightRectify_fix);
             // vx_disparity = nvx_cv::createVXImageFromCVGpuMat(context, disparity_fix);
             vx_disparity = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_U8);
+            vx_disparity_for_color = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_U8);
 
             vx_coloroutput = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_RGB);
 
-            // stereo = StereoMatching::createStereoMatching(
-            //     context, params,
-            //     implementationType,
-            //     vx_img_l, vx_img_r, vx_disparity);
             stereo = StereoMatching::createStereoMatching(
-                context, params,
+                context, _params,
                 implementationType,
-                vx_img_r, vx_img_l, vx_disparity);
+                vx_img_l, vx_img_r, vx_disparity);
+            // stereo = StereoMatching::createStereoMatching(
+            //     context, _params,
+            //     implementationType,
+            //     vx_img_r, vx_img_l, vx_disparity);
             first_use_vworks = false;
-            color = new ColorDisparityGraph(context, vx_disparity, vx_coloroutput, params.max_disparity);
+            color = new ColorDisparityGraph(context, vx_disparity_for_color, vx_coloroutput, params.num_disp);
 
         }
 
@@ -144,10 +145,13 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             0u, 0u,
             leftRectify.size().width, leftRectify.size().height
         };
+        if(show) {
+            nvxuCopyImage(context, vx_disparity, vx_disparity_for_color);
+        }
 
-        // nvx_cv::VXImageToCVMatMapper map(vx_disparity, plane_index, &rect, VX_WRITE_ONLY, NVX_MEMORY_TYPE_CUDA);
-        // auto cv_disp_cuda = map.getGpuMat();
-        // cv_disp_cuda.download(cv_disp);
+        nvx_cv::VXImageToCVMatMapper map(vx_disparity, plane_index, &rect, VX_WRITE_ONLY, NVX_MEMORY_TYPE_CUDA);
+        auto _cv_disp_cuda = map.getGpuMat();
+        _cv_disp_cuda.download(cv_disp);
 
         ROS_INFO("DISP %d %d!Time %fms", cv_disp.size().width, cv_disp.size().height, tic.toc());
         if (show) {
@@ -156,6 +160,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             nvx_cv::VXImageToCVMatMapper map(vx_coloroutput, plane_index, &rect, VX_WRITE_ONLY, NVX_MEMORY_TYPE_CUDA);
             auto cv_disp_cuda = map.getGpuMat();
             cv_disp_cuda.download(color_disp);
+            // cv::cvtColor(cv_disp, color_disp, cv::COLOR_GRAY2BGR);
 
             cv::Mat _show, left_rect, right_rect;
             leftRectify.download(left_rect);
@@ -167,35 +172,38 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         }            
         return cv_disp;
 
-    } else {
-        cv::Mat _disp;
-
-    	sgm::LibSGMWrapper sgm(num_disp, _p1, _p2, uniquenessRatio, true, 
-            sgm::PathType::SCAN_4PATH, min_disparity, disp12Maxdiff);
-        // sgm::LibSGMWrapper sgm;
-		sgm.execute(leftRectify, rightRectify, disparity);
-		disparity.download(_disp);
-
-        if (show) {
-            cv::Mat _show, left_rect, right_rect;
-            leftRectify.download(left_rect);
-            rightRectify.download(right_rect);
-    
-            cv::Mat raw_disp_map = _disp.clone();
-            cv::Mat scaled_disp_map;
-            double min_val, max_val;
-            cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
-            raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
-
-            cv::hconcat(left_rect, right_rect, _show);
-            cv::hconcat(_show, scaled_disp_map, _show);
-            cv::imshow("RAW DISP", _show);
-        }            
-            
-        ROS_INFO("SGBM time cost %fms", tic.toc());
-
-        return _disp;
     }
+
+    // if(false)
+    // {
+    //     cv::Mat _disp;
+
+    // 	sgm::LibSGMWrapper sgm(num_disp, _p1, _p2, uniquenessRatio, true, 
+    //         sgm::PathType::SCAN_4PATH, min_disparity, disp12Maxdiff);
+    //     // sgm::LibSGMWrapper sgm;
+	// 	sgm.execute(leftRectify, rightRectify, disparity);
+	// 	disparity.download(_disp);
+
+    //     if (show) {
+    //         cv::Mat _show, left_rect, right_rect;
+    //         leftRectify.download(left_rect);
+    //         rightRectify.download(right_rect);
+    
+    //         cv::Mat raw_disp_map = _disp.clone();
+    //         cv::Mat scaled_disp_map;
+    //         double min_val, max_val;
+    //         cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
+    //         raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+
+    //         cv::hconcat(left_rect, right_rect, _show);
+    //         cv::hconcat(_show, scaled_disp_map, _show);
+    //         cv::imshow("RAW DISP", _show);
+    //     }            
+            
+    //     ROS_INFO("SGBM time cost %fms", tic.toc());
+
+    //     return _disp;
+    // }
 
    
 }
@@ -206,7 +214,11 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
     int height = left.size().height;
 
     cv::Mat map3d, imgDisparity32F;
-    dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
+    if (params.use_vworks) {
+        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1.);
+    } else {
+        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
+    }
     cv::Mat XYZ = cv::Mat::zeros(imgDisparity32F.rows, imgDisparity32F.cols, CV_32FC3);   // Output point cloud
     cv::reprojectImageTo3D(imgDisparity32F, XYZ, Q);    // cv::project
 

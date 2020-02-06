@@ -45,8 +45,6 @@ int enable_up_side;
 int enable_down_side;
 int enable_rear_side;
 double depth_estimate_baseline;
-double p1;
-double p2;
 
 int USE_IMU;
 int MULTIPLE_THREAD;
@@ -60,6 +58,7 @@ map<int, Eigen::Vector3d> pts_gt;
 std::string IMAGE0_TOPIC, IMAGE1_TOPIC;
 std::string FISHEYE_MASK;
 std::vector<std::string> CAM_NAMES;
+std::string depth_config;
 int MAX_CNT;
 int TOP_PTS_CNT;
 int SIDE_PTS_CNT;
@@ -117,7 +116,6 @@ void readParameters(std::string config_file)
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
     THRES_OUTLIER = fsSettings["thres_outlier"];
     triangulate_max_err = fsSettings["tri_max_err"];
-
     USE_GPU = fsSettings["use_gpu"];
     FISHEYE = fsSettings["is_fisheye"];
     FISHEYE_FOV = fsSettings["fisheye_fov"];
@@ -127,8 +125,6 @@ void readParameters(std::string config_file)
     enable_down_top = fsSettings["enable_down_top"];
     enable_down_side = fsSettings["enable_down_side"];
     enable_rear_side = fsSettings["enable_rear_side"];
-    p1 = fsSettings["sgbm_p1"];
-    p2 = fsSettings["sgbm_p2"];
     depth_estimate_baseline = fsSettings["depth_estimate_baseline"];
 
     USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
@@ -195,7 +191,10 @@ void readParameters(std::string config_file)
 
     int pn = config_file.find_last_of('/');
     std::string configPath = config_file.substr(0, pn);
-    
+
+
+    depth_config = configPath + "/" + fsSettings["depth_config"];
+
     std::string cam0Calib;
     fsSettings["cam0_calib"] >> cam0Calib;
     std::string cam0Path = configPath + "/" + cam0Calib;
@@ -207,6 +206,7 @@ void readParameters(std::string config_file)
         std::string cam1Calib;
         fsSettings["cam1_calib"] >> cam1Calib;
         std::string cam1Path = configPath + "/" + cam1Calib; 
+        
         //printf("%s cam1 path\n", cam1Path.c_str() );
         CAM_NAMES.push_back(cam1Path);
         

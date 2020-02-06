@@ -28,7 +28,9 @@ class DepthCamManager {
     bool estimate_left_depth = false;
     bool estimate_right_depth = false;
     bool estimate_rear_depth = false;
-
+    
+    SGMParams sgm_params;
+    
     double downsample_ratio = 1.0;
     Eigen::Matrix3d cam_side;
     Eigen::Matrix3d cam_side_transpose;

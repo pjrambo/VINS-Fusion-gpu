@@ -24,6 +24,46 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
 
     t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
 
+    
+
+
+    ROS_INFO("Reading depth config from %s", depth_config.c_str());
+    FILE *fh = fopen(depth_config.c_str(),"r");
+    if(fh == NULL){
+        ROS_WARN("config_file dosen't exist; wrong config_file path");
+        return;          
+    } else {
+        cv::FileStorage fsSettings(depth_config, cv::FileStorage::READ);
+        estimate_front_depth = (int) fsSettings["enable_front"];
+        estimate_left_depth = (int) fsSettings["enable_left"];
+        estimate_right_depth = (int) fsSettings["enable_right"];
+        estimate_rear_depth = (int) fsSettings["enable_rear"];
+        downsample_ratio = fsSettings["downsample_ratio"];
+
+
+        sgm_params.use_vworks = (int) fsSettings["use_vworks"];
+        sgm_params.num_disp = fsSettings["num_disp"];
+        sgm_params.block_size = fsSettings["block_size"];
+        sgm_params.min_disparity = fsSettings["min_disparity"];
+        sgm_params.disp12Maxdiff = fsSettings["disp12Maxdiff"];
+        sgm_params.prefilterCap = fsSettings["prefilterCap"];
+        sgm_params.prefilterSize = fsSettings["prefilterSize"];
+        sgm_params.uniquenessRatio = fsSettings["uniquenessRatio"];
+        sgm_params.speckleWindowSize = fsSettings["speckleWindowSize"];
+        sgm_params.speckleRange = fsSettings["speckleRange"];
+        sgm_params.mode = fsSettings["mode"];
+        sgm_params.p1 = fsSettings["p1"];
+        sgm_params.p2 = fsSettings["p2"];
+
+        sgm_params.bt_clip_value = fsSettings["bt_clip_value"];
+        sgm_params.ct_win_size = fsSettings["ct_win_size"];
+        sgm_params.hc_win_size = fsSettings["hc_win_size"];
+        sgm_params.flags = fsSettings["flags"];
+        sgm_params.scanlines_mask = fsSettings["scanlines_mask"];
+    }
+    fclose(fh);
+
+
     f_side = fisheye->f_side;
     cx_side = fisheye->cx_side;
     cy_side = fisheye->cy_side;
@@ -64,10 +104,12 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
 
     Eigen::Vector3d t01 = tic2 - tic1;
     t01 = ric1.transpose()*t01;
+    ROS_INFO("T01");
+    std::cout << t01;
 
     DepthEstimator * dep_est;
     if (deps[direction] == nullptr) {
-        deps[direction] = new DepthEstimator(-t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
+        deps[direction] = new DepthEstimator(sgm_params, -t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
     }
     dep_est = deps[direction];
     
@@ -143,7 +185,7 @@ void DepthCamManager::publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R
             double x = vec[0];
             double y = vec[1];
             double z = vec[2];
-            if (z > 0.2) {
+            if (fabs(z) > 0.2) {
                 Vector3d pts_i(x, y, z);
                 Vector3d w_pts_i = R * pts_i + P;
                 // Vector3d w_pts_i = pts_i;
