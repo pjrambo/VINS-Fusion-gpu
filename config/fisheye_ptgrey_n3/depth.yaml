@@ -5,11 +5,11 @@ enable_front: 1
 enable_left: 1
 enable_right: 1
 enable_rear: 0
-downsample_ratio: 1.0
+downsample_ratio: 0.5
 use_vworks: 1
-block_size: 5
+block_size: 11 #Bigger gives better quality; but slow
 min_disparity: 2
-num_disp: 64
+num_disp: 32
 disp12Maxdiff: 32000
 prefilterCap: 39
 prefilterSize: 5
@@ -17,8 +17,8 @@ uniquenessRatio: 25
 speckleWindowSize: 300
 speckleRange: 5
 mode: 1
-p1: 200
-p2: 200
+p1: 250 #Bigger gives smooth
+p2: 256
 
 bt_clip_value: 31
 ct_win_size: 0
@@ -26,6 +26,6 @@ hc_win_size: 1
 scanlines_mask: 255
 
 pub_cloud_step: 1
-show_disparity: 0
+show_disparity: 1
 flags: 2
 depth_cloud_radius: 5
