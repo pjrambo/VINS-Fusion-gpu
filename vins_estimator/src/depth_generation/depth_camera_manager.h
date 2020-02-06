@@ -40,6 +40,8 @@ class DepthCamManager {
 
     std::vector<DepthEstimator *> deps;
 
+    int show_disparity = 0;
+
 public:
     FisheyeUndist * fisheye = nullptr;
 

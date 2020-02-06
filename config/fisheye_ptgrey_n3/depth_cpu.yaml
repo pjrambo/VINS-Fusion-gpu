@@ -5,26 +5,26 @@ enable_front: 1
 enable_left: 0
 enable_right: 0
 enable_rear: 0
-downsample_ratio: 1.0
+downsample_ratio: 0.5
 use_vworks: 0
 block_size: 9
-min_disparity: 0
-num_disp: 128
-disp12Maxdiff: 32000
+min_disparity: 1
+num_disp: 16
+disp12Maxdiff: 28
 prefilterCap: 39
 prefilterSize: 5
-uniquenessRatio: 0
+uniquenessRatio: 25
 speckleWindowSize: 300
 speckleRange: 5
 mode: 1
-p1: 9
-p2: 109
+p1: 3000
+p2: 3600
 
 bt_clip_value: 31
 ct_win_size: 0
 hc_win_size: 1
 scanlines_mask: 255
 
-pub_cloud_step: 3
+pub_cloud_step: 1
 show_disparity: 1
 flags: 2

@@ -60,6 +60,9 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
         sgm_params.hc_win_size = fsSettings["hc_win_size"];
         sgm_params.flags = fsSettings["flags"];
         sgm_params.scanlines_mask = fsSettings["scanlines_mask"];
+
+        pub_cloud_step = fsSettings["pub_cloud_step"];
+        show_disparity = fsSettings["show_disparity"];
     }
     fclose(fh);
 
@@ -74,6 +77,12 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     cv::eigen2cv(cam_side, cam_side_cv);
     cv::eigen2cv(cam_side_transpose, cam_side_cv_transpose);
 
+    if (!sgm_params.use_vworks) {
+        t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
+    } else {
+        t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
+    }
+
     deps.push_back(nullptr);
     deps.push_back(nullptr);
     deps.push_back(nullptr);
@@ -85,22 +94,29 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
     Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
     Eigen::Matrix3d R, Eigen::Vector3d P, int direction) {
     cv::cuda::GpuMat up_front, down_front;
-    // ric1 = ric1*t2*t_transpose;
-    // ric2 = ric2*t_down*t2*t_transpose;
+
     cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
     cv::cuda::resize(_down_front, down_front, cv::Size(), downsample_ratio, downsample_ratio);
+
     
-    // if (_up_front.channels() == 3) {
-    //     cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
-    //     cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
-    // }
 
     //After transpose, we need flip for rotation
 
     cv::cuda::GpuMat tmp;
     cv::Size size = up_front.size();
-    cv::cuda::rotate( up_front, up_front, cv::Size( size.height, size.width ), -90, size.height-1, 0, cv::INTER_LINEAR  );
-    cv::cuda::rotate( down_front, down_front, cv::Size( size.height, size.width ), -90, size.height-1, 0, cv::INTER_LINEAR  );
+    if (!sgm_params.use_vworks) {
+        //CPI Mode, gives gray image
+        if (_up_front.channels() == 3) {
+            cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
+            cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
+        }
+        cv::cuda::GpuMat tmp;
+        cv::cuda::transpose(up_front, tmp);
+        cv::cuda::flip(tmp, up_front, 0);
+
+        cv::cuda::transpose(down_front, tmp);
+        cv::cuda::flip(tmp, down_front, 0);
+    }
 
     Eigen::Vector3d t01 = tic2 - tic1;
     t01 = ric1.transpose()*t01;
@@ -109,7 +125,7 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
 
     DepthEstimator * dep_est;
     if (deps[direction] == nullptr) {
-        deps[direction] = new DepthEstimator(sgm_params, -t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);
+        deps[direction] = new DepthEstimator(sgm_params, -t01, ric1.transpose() * ric2, cam_side_cv_transpose, show_disparity);
     }
     dep_est = deps[direction];
     

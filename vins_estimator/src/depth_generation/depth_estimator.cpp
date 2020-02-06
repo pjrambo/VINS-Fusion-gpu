@@ -53,19 +53,15 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         cv::Mat left_rect, right_rect, disparity;
         leftRectify.download(left_rect);
         rightRectify.download(right_rect);
+
         
         auto sgbm = cv::StereoSGBM::create(params.min_disparity, params.num_disp, params.block_size,
             params.p1, params.p2, params.disp12Maxdiff, params.prefilterCap, params.uniquenessRatio, params.speckleWindowSize, 
             params.speckleRange, params.mode);
 
-        // sgbm->setBlockSize(block_size);
-        // sgbm->setNumDisparities(num_disp);
-        // sgbm->set
-        // sgbm->setP
+        // sgbm->compute(right_rect, left_rect, disparity);
         sgbm->compute(left_rect, right_rect, disparity);
-        // disparity.convertTo(disparity, CV_16S, 16);
 
-        // std::cout << "DIS size " << disparity.size() << disparity.type() << std::endl;
         ROS_INFO("SGBM time cost %fms", tic.toc());
         if (show) {
             cv::Mat _show;
@@ -74,6 +70,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             double min_val, max_val;
             cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
             raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+            // cv::cvtColor(raw_disp_map, raw_disp_map, cv::COLOR_GRAY2BGR);
             
             // cv::transpose(left_rect, left_rect);
             // cv::transpose(right_rect, right_rect);
@@ -84,6 +81,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             // cv::hconcat(left_rect, right_rect, _show);
             // cv::hconcat(_show, scaled_disp_map, _show);
             cv::imshow("raw_disp_map", _show);
+            cv::waitKey(2);
         }
         return disparity;
     } else {
@@ -101,7 +99,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             // Create a NVXIO-based frame source
             //
 
-            StereoMatching::ImplementationType implementationType = StereoMatching::LOW_LEVEL_API;
+            StereoMatching::ImplementationType implementationType = StereoMatching::HIGH_LEVEL_API;
             StereoMatching::StereoMatchingParams _params;
             _params.min_disparity = params.min_disparity;
             _params.max_disparity = params.num_disp;
@@ -160,7 +158,13 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             nvx_cv::VXImageToCVMatMapper map(vx_coloroutput, plane_index, &rect, VX_WRITE_ONLY, NVX_MEMORY_TYPE_CUDA);
             auto cv_disp_cuda = map.getGpuMat();
             cv_disp_cuda.download(color_disp);
-            // cv::cvtColor(cv_disp, color_disp, cv::COLOR_GRAY2BGR);
+
+            double min_val=0, max_val=0;
+            cv::Mat gray_disp;
+            cv::minMaxLoc(cv_disp, &min_val, &max_val, NULL, NULL);
+            ROS_INFO("Max %f, min %f", min_val, max_val);
+            cv_disp.convertTo(gray_disp, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+            cv::cvtColor(gray_disp, gray_disp, cv::COLOR_GRAY2BGR);
 
             cv::Mat _show, left_rect, right_rect;
             leftRectify.download(left_rect);
@@ -168,7 +172,9 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
     
             cv::hconcat(left_rect, right_rect, _show);
             cv::hconcat(_show, color_disp, _show);
+            cv::hconcat(_show, gray_disp, _show);
             cv::imshow("RAW DISP", _show);
+            cv::waitKey(2);
         }            
         return cv_disp;
 
@@ -215,7 +221,13 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
 
     cv::Mat map3d, imgDisparity32F;
     if (params.use_vworks) {
-        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1.);
+        double min_val = 0;
+        double max_val = 0;
+        // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
+        // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
+        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1.0);
+        cv::minMaxLoc(imgDisparity32F, &min_val, &max_val, NULL, NULL);
+        ROS_INFO("Disp max %f min %f", min_val, max_val);
     } else {
         dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
     }
