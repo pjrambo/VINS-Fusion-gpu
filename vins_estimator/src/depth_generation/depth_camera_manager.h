@@ -8,6 +8,7 @@
 #include "../featureTracker/fisheye_undist.hpp"
 #include <tf/transform_broadcaster.h>
 #include "depth_estimator.h"
+#include "color_disparity_graph.hpp"
 
 class DepthCamManager {
 

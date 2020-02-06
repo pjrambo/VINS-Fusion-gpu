@@ -62,23 +62,9 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
     cv::cuda::rotate( up_front, up_front, cv::Size( size.height, size.width ), -90, size.height-1, 0, cv::INTER_LINEAR  );
     cv::cuda::rotate( down_front, down_front, cv::Size( size.height, size.width ), -90, size.height-1, 0, cv::INTER_LINEAR  );
 
-    // cv::cuda::transpose(up_front, tmp);
-    // cv::cuda::flip(tmp, up_front, 0);
-
-    // cv::cuda::transpose(down_front, tmp);
-    // cv::cuda::flip(tmp, down_front, 0);
-
     Eigen::Vector3d t01 = tic2 - tic1;
-    // std::cout << "T01" << t01 << std::endl;
-    // t01.x() = t01.x()*fisheye->f_side*downsample_ratio;
-    // t01.y() = 0;
-    // t01.z() = 0;
     t01 = ric1.transpose()*t01;
-    // t01.y() = 0;
-    // t01.z() = 0;
 
-    // std::cout << tic <<std::endl;
-    // std::cout << "R" << ric1.transpose() * ric2 << "\nT" << t01 << std::endl;
     DepthEstimator * dep_est;
     if (deps[direction] == nullptr) {
         deps[direction] = new DepthEstimator(-t01, ric1.transpose() * ric2, cam_side_cv_transpose, SHOW_TRACK);

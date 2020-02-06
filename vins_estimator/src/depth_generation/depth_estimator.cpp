@@ -92,6 +92,9 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         leftRectify.copyTo(leftRectify_fix);
         rightRectify.copyTo(rightRectify_fix);
         if (first_use_vworks) {
+            auto lsize = leftRectify_fix.size();
+            // disparity_fix = cv::cuda::GpuMat(leftRectify_fix.size(), CV_8U);
+            // disparity_fix_cpu = cv::Mat(leftRectify_fix.size(), CV_8U);
             vxDirective(context, VX_DIRECTIVE_ENABLE_PERFORMANCE);
 
             vxRegisterLogCallback(context, &ovxio::stdoutLogCallback, vx_false_e);
@@ -114,42 +117,52 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
 
             vx_img_l = nvx_cv::createVXImageFromCVGpuMat(context, leftRectify_fix);
             vx_img_r = nvx_cv::createVXImageFromCVGpuMat(context, rightRectify_fix);
-            vx_disparity = vxCreateImage
-                (context, leftRectify.size().width, leftRectify.size().height, VX_DF_IMAGE_U8);
+            // vx_disparity = nvx_cv::createVXImageFromCVGpuMat(context, disparity_fix);
+            vx_disparity = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_U8);
+
+            vx_coloroutput = vxCreateImage(context, lsize.width, lsize.height, VX_DF_IMAGE_RGB);
+
+            // stereo = StereoMatching::createStereoMatching(
+            //     context, params,
+            //     implementationType,
+            //     vx_img_l, vx_img_r, vx_disparity);
             stereo = StereoMatching::createStereoMatching(
                 context, params,
                 implementationType,
-                vx_img_l, vx_img_r, vx_disparity);
+                vx_img_r, vx_img_l, vx_disparity);
             first_use_vworks = false;
+            color = new ColorDisparityGraph(context, vx_disparity, vx_coloroutput, params.max_disparity);
+
         }
 
 
         stereo->run();
-        cv::Mat cv_disp;
+        cv::Mat cv_disp(leftRectify.size(), CV_8U);
 
         vx_uint32 plane_index = 0;
         vx_rectangle_t rect = {
             0u, 0u,
             leftRectify.size().width, leftRectify.size().height
         };
-        nvx_cv::VXImageToCVMatMapper map(vx_disparity, plane_index, &rect, VX_WRITE_ONLY, VX_MEMORY_TYPE_HOST);
-        cv_disp = map.getMat();
+
+        // nvx_cv::VXImageToCVMatMapper map(vx_disparity, plane_index, &rect, VX_WRITE_ONLY, NVX_MEMORY_TYPE_CUDA);
+        // auto cv_disp_cuda = map.getGpuMat();
+        // cv_disp_cuda.download(cv_disp);
 
         ROS_INFO("DISP %d %d!Time %fms", cv_disp.size().width, cv_disp.size().height, tic.toc());
         if (show) {
+            cv::Mat color_disp;
+            color->process();
+            nvx_cv::VXImageToCVMatMapper map(vx_coloroutput, plane_index, &rect, VX_WRITE_ONLY, NVX_MEMORY_TYPE_CUDA);
+            auto cv_disp_cuda = map.getGpuMat();
+            cv_disp_cuda.download(color_disp);
+
             cv::Mat _show, left_rect, right_rect;
             leftRectify.download(left_rect);
             rightRectify.download(right_rect);
     
-            cv::Mat raw_disp_map = cv_disp.clone();
-            cv::Mat scaled_disp_map;
-            double min_val, max_val;
-            cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
-            raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
-
             cv::hconcat(left_rect, right_rect, _show);
-            cv::cvtColor(scaled_disp_map, scaled_disp_map, cv::COLOR_GRAY2BGR);
-            cv::hconcat(_show, scaled_disp_map, _show);
+            cv::hconcat(_show, color_disp, _show);
             cv::imshow("RAW DISP", _show);
         }            
         return cv_disp;

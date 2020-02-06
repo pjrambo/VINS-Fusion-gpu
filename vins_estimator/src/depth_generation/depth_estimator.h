@@ -11,6 +11,7 @@
 #include <NVX/nvx.h>
 #include <NVX/nvx_opencv_interop.hpp>
 #include "stereo_matching.hpp"
+#include "color_disparity_graph.hpp"
 
 class DepthEstimator {
     Eigen::Vector3d t01;
@@ -35,16 +36,19 @@ class DepthEstimator {
     int speckleWindowSize = 300;
     int speckleRange = 5;
     int mode = cv::StereoSGBM::MODE_HH;
-    int _p1 = 3000;
-    int _p2 = 3600;
+    int _p1 = 8;
+    int _p2 = 109;
     
     bool first_use_vworks = true;
 
     vx_image vx_img_l;
     vx_image vx_img_r;
     vx_image vx_disparity;
-    cv::cuda::GpuMat leftRectify_fix, rightRectify_fix;
+    vx_image vx_coloroutput;
+    cv::cuda::GpuMat leftRectify_fix, rightRectify_fix, disparity_fix;
+    cv::Mat disparity_fix_cpu;
     StereoMatching * stereo;
+    ColorDisparityGraph * color;
 
 public:
     DepthEstimator(Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,
