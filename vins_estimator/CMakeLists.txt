@@ -34,7 +34,6 @@ include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(Eigen3)
-find_package(CUDA REQUIRED)
 
 include_directories(
     include
@@ -96,7 +95,7 @@ add_library(estimator_lib SHARED
 target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
 
 
-cuda_add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})
+add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})
 target_link_libraries(vins_node vins_lib estimator_lib sgm ovx nvx ${CUDA_LIBRARIES})
 
 # add_library(vins_nodelet_lib src/rosNodelet.cpp)
