@@ -28,4 +28,4 @@ scanlines_mask: 255
 pub_cloud_step: 1
 show_disparity: 1
 flags: 2
-depth_cloud_radius: 30
+depth_cloud_radius: 10
