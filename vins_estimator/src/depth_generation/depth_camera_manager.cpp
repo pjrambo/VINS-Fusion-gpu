@@ -9,6 +9,11 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     pub_depth_clouds.push_back(nh.advertise<sensor_msgs::PointCloud>("depth_cloud_rear", 1));
     pub_depth_cloud = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_rear", 1);
 
+    pub_depth_maps.push_back(nh.advertise<sensor_msgs::Image>("depth_left", 1));
+    pub_depth_maps.push_back(nh.advertise<sensor_msgs::Image>("depth_front", 1));
+    pub_depth_maps.push_back(nh.advertise<sensor_msgs::Image>("depth_right", 1));
+    pub_depth_maps.push_back(nh.advertise<sensor_msgs::Image>("depth_rear", 1));
+
 
     pub_camera_up = nh.advertise<sensor_msgs::Image>("/front_stereo/left/image_raw", 1);
     pub_camera_down = nh.advertise<sensor_msgs::Image>("/front_stereo/right/image_raw", 1);
@@ -22,11 +27,7 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     t3 = t2 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
     t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
     t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
-
     t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
-
-    
-
 
     ROS_INFO("Reading depth config from %s", depth_config.c_str());
     FILE *fh = fopen(depth_config.c_str(),"r");
@@ -66,6 +67,7 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
         show_disparity = fsSettings["show_disparity"];
         depth_cloud_radius = fsSettings["depth_cloud_radius"];
 
+        pub_depth_map = (int)fsSettings["pub_depth_map"];;
         pub_cloud_all =  (int)fsSettings["pub_cloud_all"];
         pub_cloud_per_direction = (int)fsSettings["pub_cloud_per_direction"];
     }
@@ -82,6 +84,10 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     cv::eigen2cv(cam_side, cam_side_cv);
     cv::eigen2cv(cam_side_transpose, cam_side_cv_transpose);
 
+    depth_cam = camodocal::PinholeCameraPtr(new camodocal::PinholeCamera("depth",
+                  fisheye->imgWidth*downsample_ratio, fisheye->sideImgHeight*downsample_ratio,0, 0, 0, 0,
+                  f_side*downsample_ratio, f_side*downsample_ratio, cx_side*downsample_ratio, cy_side*downsample_ratio));
+
     t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
 
     deps.push_back(nullptr);
@@ -93,7 +99,7 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
 void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
     Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
     Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
-    Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl) {
+    Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl, Eigen::Matrix3d ric_depth) {
     cv::cuda::GpuMat up_front, down_front;
 
     cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
@@ -146,6 +152,11 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
         add_pts_point_cloud(pointcloud_up, R*ric1, P+R*tic1, stamp, pcl, pub_cloud_step, up_front_cpu);
     }
 
+    if(pub_depth_map) {
+        cv::Mat depthmap = generate_depthmap(pointcloud_up, ric1.transpose()*ric_depth);
+        sensor_msgs::ImagePtr depth_img_msg = cv_bridge::CvImage(std_msgs::Header(), "32FC1", depthmap).toImageMsg();
+        pub_depth_maps[direction].publish(depth_img_msg);
+    }
 }
 
 
@@ -168,22 +179,22 @@ void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::cuda::GpuMa
 
     if (estimate_front_depth) {
         update_depth_image(stamp, up_cams[2], down_cams[2], ric1*t2*t_transpose, 
-            tic1, ric2*t_down*t2*t_transpose, tic2, R, P, 1, point_cloud);
+            tic1, ric2*t_down*t2*t_transpose, tic2, R, P, 1, point_cloud, ric1*t2);
     }
 
     if (estimate_left_depth) {
         update_depth_image(stamp, up_cams[1], down_cams[1], ric1*t1*t_transpose, 
-            tic1, ric2*t_down*t1*t_transpose, tic2, R, P, 0, point_cloud);
+            tic1, ric2*t_down*t1*t_transpose, tic2, R, P, 0, point_cloud, ric1*t1);
     }
 
     if (estimate_right_depth) {
         update_depth_image(stamp, up_cams[3], down_cams[3], ric1*t3*t_transpose, 
-            tic1, ric2*t_down*t3*t_transpose, tic2, R, P, 2, point_cloud);
+            tic1, ric2*t_down*t3*t_transpose, tic2, R, P, 2, point_cloud, ric1*t3);
     }
 
     if (estimate_rear_depth) {
         update_depth_image(stamp, up_cams[4], down_cams[4], ric1*t4*t_transpose, 
-            tic1, ric2*t_down*t4*t_transpose, tic2, R, P, 3, point_cloud);
+            tic1, ric2*t_down*t4*t_transpose, tic2, R, P, 3, point_cloud, ric1*t4);
     }
 
     if (publish_raw_image) {
@@ -281,6 +292,37 @@ void DepthCamManager::publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R
 
     pub_depth_clouds[dir].publish(point_cloud);
 }
+
+
+cv::Mat DepthCamManager::generate_depthmap(cv::Mat pts3d, Eigen::Matrix3d rel_ric_depth) const {
+    cv::Mat depthmap(depth_cam->imageHeight(), depth_cam->imageWidth(), CV_32F);
+    depthmap.setTo(0);
+    Eigen::Matrix3d cam_mat;
+    for(int v = 0; v < pts3d.rows; v += 1) {
+        for(int u = 0; u < pts3d.cols; u += 1)  
+        {
+            cv::Vec3f vec = pts3d.at<cv::Vec3f>(v, u);
+            double z = vec[2];
+
+            Eigen::Vector3d vec3d(vec[0], vec[1], vec[2]);
+            vec3d = rel_ric_depth.transpose()*vec3d;
+            Eigen::Vector2d p_sphere;
+            depth_cam->spaceToPlane(vec3d, p_sphere);
+            //Than here is the undist points
+            int px = p_sphere.x();
+            int py = p_sphere.y();
+
+            // printf("Py %d Px %d\n", py, px);
+            if (py < depth_cam->imageHeight() && px < depth_cam->imageWidth() && px > 0 && py > 0) {
+                depthmap.at<float>(py, px) = z;
+            }
+        }
+    }
+
+    return depthmap;
+}
+
+
 
 void DepthCamManager::publish_front_images_for_external_sbgm(ros::Time stamp, const cv::cuda::GpuMat front_up, const cv::cuda::GpuMat front_down,
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1,

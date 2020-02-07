@@ -27,6 +27,7 @@ class DepthCamManager {
     bool estimate_rear_depth = false;
     bool pub_cloud_all = false;
     bool pub_cloud_per_direction = false;
+    bool pub_depth_map = false;
     
     SGMParams sgm_params;
     
@@ -41,6 +42,7 @@ class DepthCamManager {
 
     int show_disparity = 0;
     double depth_cloud_radius = 5;
+    camodocal::CameraPtr depth_cam;
 
 public:
     FisheyeUndist * fisheye = nullptr;
@@ -53,7 +55,7 @@ public:
     void update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
         Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
-        Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl);
+        Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl, Eigen::Matrix3d ric_depth);
 
     void update_images(ros::Time stamp, std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams,
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
@@ -71,4 +73,6 @@ public:
             Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
             Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
             Eigen::Matrix3d R, Eigen::Vector3d P);
+    
+    cv::Mat generate_depthmap(cv::Mat pts3d, Eigen::Matrix3d rel_ric_depth) const;
 };
