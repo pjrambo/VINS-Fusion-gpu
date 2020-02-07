@@ -115,7 +115,7 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
     Eigen::Vector3d t01 = tic2 - tic1;
     t01 = ric1.transpose()*t01;
     // ROS_INFO("T01");
-    std::cout << t01;
+    // std::cout << t01;
 
     DepthEstimator * dep_est;
     if (deps[direction] == nullptr) {
