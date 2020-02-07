@@ -653,9 +653,9 @@ pair<vector<cv::Point2f>, vector<int>> vxarray2cv_pts(vx_array fVx, bool output=
                     << ":: status: " << trackingStatus
                     << ":: x:   " << x
                     << ":: y:   " << y << std::endl;
-            fPts.push_back(cv::Point2f(x, y));
-            status.push_back((int)trackingStatus);
         }
+        fPts.push_back(cv::Point2f(x, y));
+        status.push_back((int)trackingStatus);
     }
     return pair<vector<cv::Point2f>, vector<int>>(fPts, status);
 }
@@ -715,14 +715,16 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             
             nvx::FeatureTracker::Params params;
             params.array_capacity = TOP_PTS_CNT;
-            // params.harris_thresh = 2000;
-            // params.detector_cell_size = up_top_img.cols / 6;
+            params.harris_thresh = 2000;
+            params.lk_win_size = 21;
+            params.detector_cell_size = up_top_img.rows / 3;
             tracker_up_top = nvx::FeatureTracker::create(context, params);
             tracker_up_top->init(vx_up_top_image, nullptr);
 
             tracker_down_top = nvx::FeatureTracker::create(context, params);
             tracker_down_top->init(vx_down_top_image, nullptr);
 
+            params.detector_cell_size = up_side_img.rows / 3;
             params.array_capacity = SIDE_PTS_CNT;
             tracker_up_side = nvx::FeatureTracker::create(context, params);
             tracker_up_side->init(vx_up_side_image, nullptr);
