@@ -81,11 +81,12 @@ use_gpu_acc_flow: 1
 use_vxworks: 1
 
 depth_estimate_baseline: 0.05
-top_cnt: 100
-side_cnt: 100
+top_cnt: 50
+side_cnt: 50
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 
-min_dist: 20            # min distance between two features 
+# min_dist: 20            # min distance between two features, this is for GFTT
+min_dist: 100            # for vworks
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
 show_track: 0           # publish tracking image as topic

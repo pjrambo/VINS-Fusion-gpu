@@ -714,17 +714,19 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
             
             nvx::FeatureTracker::Params params;
+            params.use_harris_detector = false;
             params.array_capacity = TOP_PTS_CNT;
-            params.harris_thresh = 2000;
+
             params.lk_win_size = 21;
-            params.detector_cell_size = up_top_img.rows / 3;
+            params.detector_cell_size = MIN_DIST;
+
             tracker_up_top = nvx::FeatureTracker::create(context, params);
             tracker_up_top->init(vx_up_top_image, nullptr);
 
             tracker_down_top = nvx::FeatureTracker::create(context, params);
             tracker_down_top->init(vx_down_top_image, nullptr);
 
-            params.detector_cell_size = up_side_img.rows / 3;
+            params.detector_cell_size = MIN_DIST;
             params.array_capacity = SIDE_PTS_CNT;
             tracker_up_side = nvx::FeatureTracker::create(context, params);
             tracker_up_side->init(vx_up_side_image, nullptr);
