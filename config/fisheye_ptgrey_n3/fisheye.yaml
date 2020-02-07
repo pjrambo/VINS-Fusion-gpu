@@ -17,7 +17,7 @@ cam0_calib: "up.yaml"
 cam1_calib: "down.yaml"
 image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
 image_height: 400
-show_width: 1920
+show_width: 1080
 
 fisheye_fov: 235
 
@@ -91,8 +91,6 @@ F_threshold: 1.0        # ransac threshold (pixel)
 show_track: 0           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
-sgbm_p1: 3000
-sgbm_p2: 3600
 #optimization parameters
 max_solver_time: 0.04 # max solver itration time (ms), to guarantee real time
 max_num_iterations: 8   # max solver itrations, to guarantee real time

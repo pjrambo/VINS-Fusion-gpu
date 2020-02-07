@@ -301,7 +301,7 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     cv::resize(imTrack, imTrack, cv::Size(), fx, fx);
     cv::imshow("tracking", imTrack);
     // cv::imshow("tracking_top", top_cam);
-    cv::waitKey(10);
+    cv::waitKey(2);
 }
 
 
