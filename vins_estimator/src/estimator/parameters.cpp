@@ -44,6 +44,8 @@ int enable_down_top;
 int enable_up_side;
 int enable_down_side;
 int enable_rear_side;
+
+int USE_VXWORKS;
 double depth_estimate_baseline;
 
 int USE_IMU;
@@ -119,7 +121,7 @@ void readParameters(std::string config_file)
     USE_GPU = fsSettings["use_gpu"];
     FISHEYE = fsSettings["is_fisheye"];
     FISHEYE_FOV = fsSettings["fisheye_fov"];
-
+    USE_VXWORKS = fsSettings["use_vxworks"];
     enable_up_top = fsSettings["enable_up_top"];
     enable_up_side = fsSettings["enable_up_side"];
     enable_down_top = fsSettings["enable_down_top"];

@@ -78,11 +78,11 @@ multiple_thread: 1
 #Gpu accleration support
 use_gpu: 1
 use_gpu_acc_flow: 1
-
+use_vxworks: 1
 
 depth_estimate_baseline: 0.05
-top_cnt: 30
-side_cnt: 30
+top_cnt: 100
+side_cnt: 100
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 
 min_dist: 20            # min distance between two features 

@@ -29,6 +29,11 @@
 #include "../utility/tic_toc.h"
 #include "fisheye_undist.hpp"
 
+#include <OVX/UtilityOVX.hpp>
+#include <NVX/nvx.h>
+#include <NVX/nvx_opencv_interop.hpp>
+#include "vworks_feature_tracker.hpp"
+
 using namespace std;
 using namespace camodocal;
 using namespace Eigen;
@@ -183,4 +188,21 @@ public:
     bool stereo_cam;
     int n_id;
     bool hasPrediction;
+
+    vx_image vx_up_top_image;
+    vx_image vx_down_top_image;
+    vx_image vx_up_side_image;
+    vx_image vx_down_side_image;
+
+    cv::cuda::GpuMat up_side_img_fix;
+    cv::cuda::GpuMat down_side_img_fix;
+    cv::cuda::GpuMat up_top_img_fix;
+    cv::cuda::GpuMat down_top_img_fix;
+
+    nvx::FeatureTracker* tracker_up_top = nullptr;
+    nvx::FeatureTracker* tracker_down_top = nullptr;
+    nvx::FeatureTracker* tracker_up_side = nullptr;
+    nvx::FeatureTracker* tracker_down_side = nullptr;
+
+    bool first_frame = true;
 };

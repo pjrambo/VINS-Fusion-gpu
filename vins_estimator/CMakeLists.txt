@@ -86,6 +86,7 @@ add_library(vins_lib
     src/depth_generation/stereo_matching.cpp
     src/depth_generation/depth_camera_manager.cpp
     src/depth_generation/color_disparity_graph.cpp
+    src/featureTracker/vworks_feature_tracker.cpp
 )
 
 add_library(estimator_lib SHARED

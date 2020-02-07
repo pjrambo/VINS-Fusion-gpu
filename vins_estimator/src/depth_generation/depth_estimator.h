@@ -12,6 +12,9 @@
 #include <NVX/nvx_opencv_interop.hpp>
 #include "stereo_matching.hpp"
 #include "color_disparity_graph.hpp"
+#include <OVX/UtilityOVX.hpp>
+#include <NVX/nvx.h>
+#include <NVX/nvx_opencv_interop.hpp>
 
 struct SGMParams {
     bool use_vworks = true;

@@ -13,6 +13,8 @@
 #include "../estimator/estimator.h"
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>
+#include "vworks_feature_tracker.hpp"
+
 // #define PERF_OUTPUT
 Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
 Eigen::Quaterniond t2 = t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
@@ -24,6 +26,10 @@ namespace backward
 {
     backward::SignalHandling sh;
 }
+
+
+extern ovxio::ContextGuard context;
+
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt, cv::Size shape)
 {
@@ -325,7 +331,7 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
         for (int i = 1; i < 5; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
         }
-        if(NewImg.channels() == 3) {
+        if(NewImg.channels() == 3 && !USE_VXWORKS) {
             cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
         }
         return NewImg;
@@ -334,7 +340,7 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
         for (int i = 1; i < 4; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
         }
-        if(NewImg.channels() == 3) {
+        if(NewImg.channels() == 3 && !USE_VXWORKS) {
             cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
         }
         return NewImg;
@@ -612,6 +618,49 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
 }
 
 
+pair<vector<cv::Point2f>, vector<int>> vxarray2cv_pts(vx_array fVx, bool output=false) {
+    std::vector<cv::Point2f> fPts;
+    vector<int> status;
+    vx_size numItems = 0;
+    vxQueryArray(fVx, VX_ARRAY_ATTRIBUTE_NUMITEMS, &numItems, sizeof(numItems));
+    vx_size stride = sizeof(vx_size);
+    void *base = NULL;
+    vxAccessArrayRange(fVx, 0, numItems, &stride, &base, VX_READ_ONLY);
+
+    //For tracker status
+    // Holds tracking status. Zero indicates a lost point. Initialized to 1 by corner detectors.
+
+    //The primitive uses tracking_status information for input points (VX_TYPE_KEYPOINT, NVX_TYPE_KEYPOINTF) and updates only points with non-zero tracking_status. 
+    // The points with tracking_status == 0 gets copied to the output array as is.
+    // The VisionWorks corner detectors (FastCorners, HarrisCorners, FAST Track, Harris Track) 
+    // initialize the tracking_status field of detected points to 1.
+    for (vx_size i = 0; i < numItems; i++)
+    {
+        nvx_keypointf_t* points = (nvx_keypointf_t*)base;
+        vx_float32 error = points[i].error;
+        vx_float32 orientation = points[i].orientation;
+        vx_float32 scale = points[i].scale;
+        vx_float32 strength = points[i].strength;
+        vx_int32 trackingStatus = points[i].tracking_status;
+        vx_float32 x = points[i].x;
+        vx_float32 y = points[i].y;
+        if (output) {
+            std::cout << "index: " << i
+                    // << ":: error:          " << error << std::endl
+                    // << ":: orientation:    " << orientation << std::endl
+                    // << ":: scale:          " << scale << std::endl
+                    // << ":: strength:       " << strength << std::endl
+                    << ":: status: " << trackingStatus
+                    << ":: x:   " << x
+                    << ":: y:   " << y << std::endl;
+            fPts.push_back(cv::Point2f(x, y));
+            status.push_back((int)trackingStatus);
+        }
+    }
+    return pair<vector<cv::Point2f>, vector<int>>(fPts, status);
+}
+
+
 map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     map<int, cv::Point2f> prevMap;
     for (unsigned int i = 0; i < ids.size(); i ++) {
@@ -636,25 +685,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cv::cuda::GpuMat up_top_img = fisheye_imgs_up[0];
     cv::cuda::GpuMat down_top_img = fisheye_imgs_down[0];
 
-    if (up_top_img.channels() == 3) {
-        cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
-        cv::cuda::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
-    }
-
-    // cv::Mat cam_side;
-    // //
-    // Eigen::Matrix3d _cam_side;
-    // _cam_side << fisheys_undists[0].f_side, 0, fisheys_undists[0].cx_side, 0, fisheys_undists[0].f_side, fisheys_undists[0].cy_side, 0, 0, 1;
-    // cv::eigen2cv(_cam_side, cam_side);
-    // if (dep_est == nullptr) {
-    //     dep_est = new DepthEstimator(tic0, ric0*t2, tic1, ric1*(t_down*t2), cam_side, SHOW_TRACK);
-    // }
-    // cv::Mat depth_img = dep_est->ComputeDepthImage(fisheye_imgs_up[2], fisheye_imgs_down[2]);
-    // depthmap = depth_img.clone();
-
     top_size = up_top_img.size();
     side_size = up_side_img.size();
-
 
     //Clear All current pts
     cur_up_top_pts.clear();
@@ -666,6 +698,78 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_up_side_un_pts.clear();
     cur_down_top_un_pts.clear();
     cur_down_side_un_pts.clear();
+
+    if(USE_VXWORKS) {
+        TicToc tic;
+        //TODO: simpified this to make no copy
+        up_top_img.copyTo(up_top_img_fix);
+        down_top_img.copyTo(down_top_img_fix);
+        up_side_img.copyTo(up_side_img_fix);
+        down_side_img.copyTo(down_side_img_fix);
+        ROS_INFO("Copy Image cost %fms", tic.toc());
+        if(first_frame) {
+            vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
+            vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
+            vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
+            vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
+            
+            nvx::FeatureTracker::Params params;
+            params.array_capacity = TOP_PTS_CNT;
+            // params.harris_thresh = 2000;
+            // params.detector_cell_size = up_top_img.cols / 6;
+            tracker_up_top = nvx::FeatureTracker::create(context, params);
+            tracker_up_top->init(vx_up_top_image, nullptr);
+
+            tracker_down_top = nvx::FeatureTracker::create(context, params);
+            tracker_down_top->init(vx_down_top_image, nullptr);
+
+            params.array_capacity = SIDE_PTS_CNT;
+            tracker_up_side = nvx::FeatureTracker::create(context, params);
+            tracker_up_side->init(vx_up_side_image, nullptr);
+            first_frame = false;
+        } else {
+            tracker_up_top->track(vx_up_top_image);
+            tracker_down_top->track(vx_down_top_image);
+            tracker_up_side->track(vx_up_side_image);
+            tracker_up_top->printPerfs();
+            auto prev_pts = tracker_up_side->getPrevFeatures();
+            auto cur_pts = tracker_up_side->getCurrFeatures();
+            
+            //In cur pts 255 is keep tracking point
+            //0 is the new pts
+            ROS_INFO("PREV PTS");
+            auto cv_prev_pts = vxarray2cv_pts(prev_pts);
+            ROS_INFO("CUR PTS");
+            auto cv_cur_pts = vxarray2cv_pts(cur_pts);
+            ROS_INFO("VWorks track cost %fms cv pts %ld", tic.toc(), cv_cur_pts.first.size());
+            cv::cuda::GpuMat up_top_img_Debug;
+            cv::Mat uptop_debug;
+            up_side_img.copyTo(up_top_img_Debug);
+            up_top_img_Debug.download(uptop_debug);
+
+            for (int i = 0; i < cv_cur_pts.first.size(); i ++) {
+
+                if (cv_cur_pts.second[i] == 0) {
+                    //Status 0: Red
+                    cv::circle(uptop_debug, cv_cur_pts.first[i], 2, cv::Scalar(0, 0, 255), 2);            
+                } else {
+                    //Status 255 Blue
+                    cv::circle(uptop_debug, cv_cur_pts.first[i], 2, cv::Scalar(255, 0, 0), 2);  
+                    cv::arrowedLine(uptop_debug, cv_prev_pts.first[i], cv_cur_pts.first[i], cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+
+                }
+            }
+            cv::imshow("UpsideDebug", uptop_debug);
+            cv::waitKey(2);
+        }
+    }
+
+    if (up_top_img.channels() == 3) {
+        cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
+        cv::cuda::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
+        cv::cuda::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
+        cv::cuda::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
+    }
 
     //If has predict;
     if (enable_up_top) {

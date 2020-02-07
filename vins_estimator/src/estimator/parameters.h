@@ -30,6 +30,7 @@ extern double INIT_DEPTH;
 extern double THRES_OUTLIER;
 extern double MIN_PARALLAX;
 extern int ESTIMATE_EXTRINSIC;
+extern int USE_VXWORKS;
 
 extern double ACC_N, ACC_W;
 extern double GYR_N, GYR_W;
