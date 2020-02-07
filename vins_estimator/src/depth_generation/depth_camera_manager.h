@@ -13,6 +13,7 @@
 class DepthCamManager {
     std::vector<ros::Publisher> pub_depth_clouds;
     std::vector<ros::Publisher> pub_depth_maps;
+    std::vector<ros::Publisher> pub_depthcam_poses;
 
     ros::Publisher pub_depth_cloud;
     ros::Publisher up_cam_info_pub, down_cam_info_pub;

@@ -1,5 +1,7 @@
 #include "depth_camera_manager.h" 
 #include "../estimator/parameters.h"
+#include <geometry_msgs/PoseStamped.h>
+
 using namespace Eigen;
 
 DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye): nh(_nh), fisheye(_fisheye) {
@@ -13,6 +15,12 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     pub_depth_maps.push_back(nh.advertise<sensor_msgs::Image>("depth_front", 1));
     pub_depth_maps.push_back(nh.advertise<sensor_msgs::Image>("depth_right", 1));
     pub_depth_maps.push_back(nh.advertise<sensor_msgs::Image>("depth_rear", 1));
+
+    pub_depthcam_poses.push_back(nh.advertise<geometry_msgs::PoseStamped>("pose_left", 1));
+    pub_depthcam_poses.push_back(nh.advertise<geometry_msgs::PoseStamped>("pose_front", 1));
+    pub_depthcam_poses.push_back(nh.advertise<geometry_msgs::PoseStamped>("pose_right", 1));
+    pub_depthcam_poses.push_back(nh.advertise<geometry_msgs::PoseStamped>("pose_rear", 1));
+
 
 
     pub_camera_up = nh.advertise<sensor_msgs::Image>("/front_stereo/left/image_raw", 1);
@@ -105,8 +113,6 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
     cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
     cv::cuda::resize(_down_front, down_front, cv::Size(), downsample_ratio, downsample_ratio);
 
-    
-
     //After transpose, we need flip for rotation
 
     cv::cuda::GpuMat tmp;
@@ -155,7 +161,22 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
     if(pub_depth_map) {
         cv::Mat depthmap = generate_depthmap(pointcloud_up, ric1.transpose()*ric_depth);
         sensor_msgs::ImagePtr depth_img_msg = cv_bridge::CvImage(std_msgs::Header(), "32FC1", depthmap).toImageMsg();
+        depth_img_msg->header.stamp = stamp;
         pub_depth_maps[direction].publish(depth_img_msg);
+
+        geometry_msgs::PoseStamped pose_stamped;
+        pose_stamped.header.stamp = stamp;
+        pose_stamped.header.frame_id = "world";
+        Eigen::Vector3d t_dep = P + R*tic1;
+        Eigen::Quaterniond q_dep = Eigen::Quaterniond(R*ric_depth);
+        pose_stamped.pose.position.x = t_dep.x();
+        pose_stamped.pose.position.y = t_dep.y();
+        pose_stamped.pose.position.z = t_dep.z();
+        pose_stamped.pose.orientation.w = q_dep.w();
+        pose_stamped.pose.orientation.x = q_dep.x();
+        pose_stamped.pose.orientation.y = q_dep.y();
+        pose_stamped.pose.orientation.z = q_dep.z();
+        pub_depthcam_poses[direction].publish(pose_stamped);
     }
 }
 
