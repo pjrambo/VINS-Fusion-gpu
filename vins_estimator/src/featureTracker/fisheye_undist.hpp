@@ -1,3 +1,5 @@
+#pragma once
+
 #include "ros/ros.h"
 #include "sensor_msgs/Image.h"
 #include "opencv2/core/core.hpp"
@@ -5,6 +7,7 @@
 #include "opencv2/highgui.hpp"
 #include <opencv2/cudaimgproc.hpp>
 #include <camodocal/camera_models/CameraFactory.h>
+#include <camodocal/camera_models/PinholeCamera.h>
 #include "cv_bridge/cv_bridge.h"
 #include <experimental/filesystem>
 #include <opencv2/cudawarping.hpp>
@@ -16,18 +19,23 @@
 class FisheyeUndist {
 
     camodocal::CameraPtr cam;
-    int imgWidth = 0;
-    int sideImgHeight = 0;
-    double fov = 0; //in degree
+
     std::vector<cv::Mat> undistMaps;
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
-    Eigen::Vector3d cameraRotation;
-    bool enable_cuda = false;
-    int cam_id = 0;
 public:
     camodocal::CameraPtr cam_top;
     camodocal::CameraPtr cam_side;
+    double f_side = 0;
+    double f_center = 0;
+    double cx_side = 0, cy_side = 0;
+    int imgWidth = 0;
+    double fov = 0; //in degree
+    Eigen::Vector3d cameraRotation;
+    bool enable_cuda = false;
+    int cam_id = 0;
+
+    int sideImgHeight = 0;
 
     FisheyeUndist(const std::string & camera_config_file, int _id, double _fov, bool _enable_cuda = true, int imgWidth = 600):
     imgWidth(imgWidth), fov(_fov), cameraRotation(0, 0, 0), enable_cuda(_enable_cuda), cam_id(_id) {
@@ -101,15 +109,16 @@ public:
         
         auto t = Eigen::Quaterniond::Identity();
         // calculate focal length of fake pinhole cameras (pixel size = 1 unit)
-        double f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
-        double f_side = (double)imgWidth / 2;
+        f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
+        f_side = (double)imgWidth / 2;
         // ROS_INFO("Pinhole cameras focal length: center %f side %f", f_center, f_side);
 
         cam_top = camodocal::PinholeCameraPtr( new camodocal::PinholeCamera("top",
                   imgWidth, imgWidth,0, 0, 0, 0,
                   f_center, f_center, imgWidth/2, imgWidth/2));
          
-
+        cx_side = imgWidth/2;
+        cy_side = sideImgHeight/2;
         cam_side = camodocal::PinholeCameraPtr(new camodocal::PinholeCamera("side",
                   imgWidth, sideImgHeight,0, 0, 0, 0,
                   f_side, f_side, imgWidth/2, sideImgHeight/2));

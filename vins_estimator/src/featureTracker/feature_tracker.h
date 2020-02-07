@@ -41,13 +41,17 @@ typedef Eigen::Matrix<double, 8, 1> TrackFeatureNoId;
 typedef pair<int, TrackFeatureNoId> TrackFeature;
 typedef vector<TrackFeature> FeatureFramenoId;
 typedef map<int, FeatureFramenoId> FeatureFrame;
-
+class Estimator;
 class FeatureTracker
 {
 public:
+    Estimator * estimator = nullptr;
     FeatureTracker();
     FeatureFrame trackImage(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
-    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,        
+        std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
+        std::vector<cv::cuda::GpuMat> & fisheye_imgs_down
+    );
 
     vector<cv::Point2f> opticalflow_track(cv::cuda::GpuMat & cur_img, 
                         cv::cuda::GpuMat & prev_img, vector<cv::Point2f> & prev_pts, 
@@ -85,10 +89,10 @@ public:
     FeatureFrame setup_feature_frame();
     
     void drawTrackFisheye(const cv::Mat & img_up, const cv::Mat & img_down, 
-                            cv::cuda::GpuMat & imUpTop,
-                            cv::cuda::GpuMat & imDownTop,
-                            cv::cuda::GpuMat & imUpSide, 
-                            cv::cuda::GpuMat & imDownSide);
+                            cv::cuda::GpuMat imUpTop,
+                            cv::cuda::GpuMat imDownTop,
+                            cv::cuda::GpuMat imUpSide, 
+                            cv::cuda::GpuMat imDownSide);
     
     void drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, vector<int> track_cnt, map<int, cv::Point2f> prev_pts);
 

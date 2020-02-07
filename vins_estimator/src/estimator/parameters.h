@@ -46,6 +46,7 @@ extern std::string EX_CALIB_RESULT_PATH;
 extern std::string VINS_RESULT_PATH;
 extern std::string OUTPUT_FOLDER;
 extern std::string IMU_TOPIC;
+extern std::string depth_config;
 extern double TD;
 extern double depth_estimate_baseline;
 extern int ESTIMATE_TD;

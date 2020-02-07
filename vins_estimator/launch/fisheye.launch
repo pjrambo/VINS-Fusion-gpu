@@ -1,0 +1,43 @@
+<launch>
+    <arg name="manager" default="/front_stereo"/> <!-- Must be globally qualified -->
+    <arg name="respawn" default="false" />
+    <arg name="left" default="/front_stereo/left/camera_raw" />
+    <arg name="right" default="/front_stereo/right/camera_rawt" />
+    <arg name="approximate_sync" default="false" />
+
+    <arg     if="$(arg respawn)" name="bond" value="" />
+    <arg unless="$(arg respawn)" name="bond" value="--no-bond" />
+
+
+    <node pkg="vins" name="vins_estimator" type="vins_node" 
+        args="/home/xuhao/swarm_ws/src/VINS-Fusion-gpu/config/fisheye_ptgrey_n3/fisheye.yaml"
+        output="screen" >
+    </node>
+      <node pkg="tf"
+        type="static_transform_publisher"
+        name="link1_broadcaster"
+        args="0 0 0 0 -1.57 0 world camera_up_front 100" />
+    <!-- <include file="$(find image_proc)/launch/image_proc.launch"
+        ns="$(arg left)">
+        <arg name="manager" value="$(arg manager)" />
+        <arg name="respawn" value="$(arg respawn)" />
+    </include>
+
+    <include file="$(find image_proc)/launch/image_proc.launch"
+        ns="$(arg right)">
+        <arg name="manager" value="$(arg manager)" />
+        <arg name="respawn" value="$(arg respawn)" />
+    </include>
+
+    <node pkg="nodelet" type="nodelet" name="disparity"
+            args="load stereo_image_proc/disparity $(arg manager) $(arg bond)"
+        respawn="$(arg respawn)" >
+        <param name="approximate_sync" value="$(arg approximate_sync)" />
+    </node>
+
+    <node pkg="nodelet" type="nodelet" name="point_cloud2"
+            args="load stereo_image_proc/point_cloud2 $(arg manager) $(arg bond)"
+        respawn="$(arg respawn)" >
+        <param name="approximate_sync" value="$(arg approximate_sync)" />
+  </node> -->
+</launch>

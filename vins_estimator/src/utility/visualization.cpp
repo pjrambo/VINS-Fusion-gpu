@@ -9,6 +9,7 @@
 
 #include "visualization.h"
 #include <vins/VIOKeyframe.h>
+#include <sensor_msgs/PointCloud.h>
 
 using namespace ros;
 using namespace Eigen;
@@ -75,6 +76,8 @@ void pubLatestOdometry(const Eigen::Vector3d &P, const Eigen::Quaterniond &Q, co
     odometry.twist.twist.linear.y = V.y();
     odometry.twist.twist.linear.z = V.z();
     pub_latest_odometry.publish(odometry);
+
+
 }
 
 void printStatistics(const Estimator &estimator, double t)
@@ -122,6 +125,8 @@ void printStatistics(const Estimator &estimator, double t)
 
 void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
 {
+
+    
     if (estimator.solver_flag == Estimator::SolverFlag::NON_LINEAR)
     {
         nav_msgs::Odometry odometry;
@@ -242,6 +247,8 @@ void pubOdometry(const Estimator &estimator, const std_msgs::Header &header)
         }
         pub_viononkeyframe.publish(vkf);
     }
+    
+   
 }
 
 void pubKeyPoses(const Estimator &estimator, const std_msgs::Header &header)

@@ -4,7 +4,7 @@ project(vins)
 set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS "-std=c++11")
 #-DEIGEN_USE_MKL_ALL")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g ")
 
 find_package(catkin REQUIRED COMPONENTS
     message_generation
@@ -28,16 +28,24 @@ message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
 
 find_package(Ceres REQUIRED)
 
+find_package(VisionWorks REQUIRED)
+
 include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS})
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 find_package(Eigen3)
+
 include_directories(
     include
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
+  ${VisionWorks_INCLUDE_DIRS}
+  /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
 )
+
+link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
+
 message(STATUS "OpenCV library status:")
 message(STATUS "    version: ${OpenCV_VERSION}")
 message(STATUS "    libraries: ${OpenCV_LIBS}")
@@ -73,22 +81,28 @@ add_library(vins_lib
     src/initial/initial_aligment.cpp
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
-    src/featureTracker/feature_tracker.cpp)
+    src/featureTracker/feature_tracker.cpp
+    src/depth_generation/depth_estimator.cpp
+    src/depth_generation/stereo_matching.cpp
+    src/depth_generation/depth_camera_manager.cpp
+    src/depth_generation/color_disparity_graph.cpp
+)
 
-add_library(estimator_lib
+add_library(estimator_lib SHARED
     src/estimator/estimator.cpp
 )
-target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
+
+target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
 
 
-add_executable(vins_node src/rosNodeTest.cpp)
-target_link_libraries(vins_node vins_lib estimator_lib)
+add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})
+target_link_libraries(vins_node vins_lib estimator_lib sgm ovx nvx ${CUDA_LIBRARIES})
 
-add_library(vins_nodelet_lib src/rosNodelet.cpp)
-target_link_libraries(vins_nodelet_lib vins_lib estimator_lib)
+# add_library(vins_nodelet_lib src/rosNodelet.cpp)
+# target_link_libraries(vins_nodelet_lib vins_lib estimator_lib)
 
-add_executable(kitti_odom_test src/KITTIOdomTest.cpp)
-target_link_libraries(kitti_odom_test vins_lib estimator_lib)
+# add_executable(kitti_odom_test src/KITTIOdomTest.cpp)
+# target_link_libraries(kitti_odom_test vins_lib estimator_lib)
 
 # add_executable(kitti_gps_test src/KITTIGPSTest.cpp)
 # target_link_libraries(kitti_gps_test vins_lib estimator_lib)
