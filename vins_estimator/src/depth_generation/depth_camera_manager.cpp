@@ -3,10 +3,11 @@
 using namespace Eigen;
 
 DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye): nh(_nh), fisheye(_fisheye) {
-    pub_depth_cloud_front = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_front", 1);
-    pub_depth_cloud_left = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_left", 1);
-    pub_depth_cloud_right = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_right", 1);
-    pub_depth_cloud_rear = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_rear", 1);
+    pub_depth_clouds.push_back(nh.advertise<sensor_msgs::PointCloud>("depth_cloud_left", 1));
+    pub_depth_clouds.push_back(nh.advertise<sensor_msgs::PointCloud>("depth_cloud_front", 1));
+    pub_depth_clouds.push_back(nh.advertise<sensor_msgs::PointCloud>("depth_cloud_right", 1));
+    pub_depth_clouds.push_back(nh.advertise<sensor_msgs::PointCloud>("depth_cloud_rear", 1));
+    pub_depth_cloud = nh.advertise<sensor_msgs::PointCloud>("depth_cloud_rear", 1);
 
 
     pub_camera_up = nh.advertise<sensor_msgs::Image>("/front_stereo/left/image_raw", 1);
@@ -64,6 +65,9 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
         pub_cloud_step = fsSettings["pub_cloud_step"];
         show_disparity = fsSettings["show_disparity"];
         depth_cloud_radius = fsSettings["depth_cloud_radius"];
+
+        pub_cloud_all =  (int)fsSettings["pub_cloud_all"];
+        pub_cloud_per_direction = (int)fsSettings["pub_cloud_per_direction"];
     }
     fclose(fh);
 
@@ -89,7 +93,7 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
 void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
     Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
     Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
-    Eigen::Matrix3d R, Eigen::Vector3d P, int direction) {
+    Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl) {
     cv::cuda::GpuMat up_front, down_front;
 
     cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
@@ -132,10 +136,16 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
     cv::transpose(up_front_cpu, tmp2);
     cv::flip(tmp2, up_front_cpu, 0);
     cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
-    if (pub_cloud_step > 0) { 
+
+    if (pub_cloud_step > 0 && pub_cloud_per_direction) { 
         // publish_world_point_cloud(pointcloud_up, R*ric1, P+tic1, stamp, 3, up_front_cpu);
         publish_world_point_cloud(pointcloud_up, R*ric1, P+R*tic1, stamp, direction, pub_cloud_step, up_front_cpu);
     }
+
+    if (pub_cloud_step > 0 && pub_cloud_all) { 
+        add_pts_point_cloud(pointcloud_up, R*ric1, P+R*tic1, stamp, pcl, pub_cloud_step, up_front_cpu);
+    }
+
 }
 
 
@@ -145,33 +155,82 @@ void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::cuda::GpuMa
         Eigen::Matrix3d R, Eigen::Vector3d P
     ) {
     
+    sensor_msgs::PointCloud point_cloud;
+    point_cloud.header.stamp = stamp;
+    point_cloud.header.frame_id = "world";
+    point_cloud.channels.resize(3);
+    point_cloud.channels[0].name = "rgb";
+    point_cloud.channels[0].values.resize(0);
+    point_cloud.channels[1].name = "u";
+    point_cloud.channels[1].values.resize(0);
+    point_cloud.channels[2].name = "v";
+    point_cloud.channels[2].values.resize(0);
+
     if (estimate_front_depth) {
         update_depth_image(stamp, up_cams[2], down_cams[2], ric1*t2*t_transpose, 
-            tic1, ric2*t_down*t2*t_transpose, tic2, R, P, 1);
+            tic1, ric2*t_down*t2*t_transpose, tic2, R, P, 1, point_cloud);
     }
 
     if (estimate_left_depth) {
         update_depth_image(stamp, up_cams[1], down_cams[1], ric1*t1*t_transpose, 
-            tic1, ric2*t_down*t1*t_transpose, tic2, R, P, 0);
+            tic1, ric2*t_down*t1*t_transpose, tic2, R, P, 0, point_cloud);
     }
 
     if (estimate_right_depth) {
         update_depth_image(stamp, up_cams[3], down_cams[3], ric1*t3*t_transpose, 
-            tic1, ric2*t_down*t3*t_transpose, tic2, R, P, 2);
+            tic1, ric2*t_down*t3*t_transpose, tic2, R, P, 2, point_cloud);
     }
 
     if (estimate_rear_depth) {
         update_depth_image(stamp, up_cams[4], down_cams[4], ric1*t4*t_transpose, 
-            tic1, ric2*t_down*t4*t_transpose, tic2, R, P, 3);
+            tic1, ric2*t_down*t4*t_transpose, tic2, R, P, 3, point_cloud);
     }
-
 
     if (publish_raw_image) {
         publish_front_images_for_external_sbgm(stamp, up_cams[2], down_cams[2], ric1, tic1, ric2, tic2, R, P);
     }
 
+    if (pub_cloud_all) {
+        pub_depth_cloud.publish(point_cloud);
+    }
+
 }
 
+
+void DepthCamManager::add_pts_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp,
+    sensor_msgs::PointCloud & pcl, int step, cv::Mat color) {
+    for(int v = 0; v < pts3d.rows; v += step){
+        for(int u = 0; u < pts3d.cols; u += step)  
+        {
+            cv::Vec3f vec = pts3d.at<cv::Vec3f>(v, u);
+            double x = vec[0];
+            double y = vec[1];
+            double z = vec[2];
+            Vector3d pts_i(x, y, z);
+
+            if (z > 0.2 && pts_i.norm() < depth_cloud_radius) {
+                Vector3d w_pts_i = R * pts_i + P;
+                // Vector3d w_pts_i = pts_i;
+
+                geometry_msgs::Point32 p;
+                p.x = w_pts_i(0);
+                p.y = w_pts_i(1);
+                p.z = w_pts_i(2);
+                
+                pcl.points.push_back(p);
+
+                if (!color.empty()) {
+                    const cv::Vec3b& bgr = color.at<cv::Vec3b>(v, u);
+                    int32_t rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
+                    pcl.channels[0].values.push_back(*(float*)(&rgb_packed));
+
+                    pcl.channels[1].values.push_back(u);
+                    pcl.channels[2].values.push_back(v);
+                }
+            }
+        }
+    }
+}
 
 void DepthCamManager::publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp,
     int dir, int step, cv::Mat color) {
@@ -220,18 +279,10 @@ void DepthCamManager::publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R
         }
     }
 
-    if (dir == 1) {
-        pub_depth_cloud_front.publish(point_cloud);
-    } else if(dir == 0) {
-        pub_depth_cloud_left.publish(point_cloud);
-    } else if(dir == 2) {
-        pub_depth_cloud_right.publish(point_cloud);
-    } else if(dir == 3) {
-        pub_depth_cloud_rear.publish(point_cloud);
-    }
+    pub_depth_clouds[dir].publish(point_cloud);
 }
 
-void  DepthCamManager::publish_front_images_for_external_sbgm(ros::Time stamp, const cv::cuda::GpuMat front_up, const cv::cuda::GpuMat front_down,
+void DepthCamManager::publish_front_images_for_external_sbgm(ros::Time stamp, const cv::cuda::GpuMat front_up, const cv::cuda::GpuMat front_down,
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
         Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
         Eigen::Matrix3d R, Eigen::Vector3d P) {
