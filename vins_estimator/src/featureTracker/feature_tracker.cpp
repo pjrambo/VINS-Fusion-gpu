@@ -669,6 +669,31 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     return prevMap;
 }
 
+void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img) {
+    vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
+    vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
+    vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
+    vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
+    
+    nvx::FeatureTracker::Params params;
+    params.use_harris_detector = false;
+    params.array_capacity = TOP_PTS_CNT;
+
+    params.lk_win_size = 21;
+    params.detector_cell_size = MIN_DIST;
+
+    tracker_up_top = nvx::FeatureTracker::create(context, params);
+    tracker_up_top->init(vx_up_top_image, nullptr);
+
+    tracker_down_top = nvx::FeatureTracker::create(context, params);
+    tracker_down_top->init(vx_down_top_image, nullptr);
+
+    params.detector_cell_size = MIN_DIST;
+    params.array_capacity = SIDE_PTS_CNT;
+    tracker_up_side = nvx::FeatureTracker::create(context, params);
+    tracker_up_side->init(vx_up_side_image, nullptr);
+}
+
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
@@ -708,63 +733,42 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         down_side_img.copyTo(down_side_img_fix);
         ROS_INFO("Copy Image cost %fms", tic.toc());
         if(first_frame) {
-            vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
-            vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
-            vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
-            vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
-            
-            nvx::FeatureTracker::Params params;
-            params.use_harris_detector = false;
-            params.array_capacity = TOP_PTS_CNT;
-
-            params.lk_win_size = 21;
-            params.detector_cell_size = MIN_DIST;
-
-            tracker_up_top = nvx::FeatureTracker::create(context, params);
-            tracker_up_top->init(vx_up_top_image, nullptr);
-
-            tracker_down_top = nvx::FeatureTracker::create(context, params);
-            tracker_down_top->init(vx_down_top_image, nullptr);
-
-            params.detector_cell_size = MIN_DIST;
-            params.array_capacity = SIDE_PTS_CNT;
-            tracker_up_side = nvx::FeatureTracker::create(context, params);
-            tracker_up_side->init(vx_up_side_image, nullptr);
+            init_vworks_tracker(up_top_img_fix, down_top_img_fix, up_side_img_fix, down_side_img_fix);
             first_frame = false;
         } else {
             tracker_up_top->track(vx_up_top_image);
             tracker_down_top->track(vx_down_top_image);
             tracker_up_side->track(vx_up_side_image);
-            tracker_up_top->printPerfs();
-            auto prev_pts = tracker_up_side->getPrevFeatures();
-            auto cur_pts = tracker_up_side->getCurrFeatures();
+            // tracker_up_top->printPerfs();
+            // auto prev_pts = tracker_up_side->getPrevFeatures();
+            // auto cur_pts = tracker_up_side->getCurrFeatures();
             
-            //In cur pts 255 is keep tracking point
-            //0 is the new pts
-            ROS_INFO("PREV PTS");
-            auto cv_prev_pts = vxarray2cv_pts(prev_pts);
-            ROS_INFO("CUR PTS");
-            auto cv_cur_pts = vxarray2cv_pts(cur_pts);
-            ROS_INFO("VWorks track cost %fms cv pts %ld", tic.toc(), cv_cur_pts.first.size());
-            cv::cuda::GpuMat up_top_img_Debug;
-            cv::Mat uptop_debug;
-            up_side_img.copyTo(up_top_img_Debug);
-            up_top_img_Debug.download(uptop_debug);
+            // //In cur pts 255 is keep tracking point
+            // //0 is the new pts
+            // ROS_INFO("PREV PTS");
+            // auto cv_prev_pts = vxarray2cv_pts(prev_pts);
+            // ROS_INFO("CUR PTS");
+            // auto cv_cur_pts = vxarray2cv_pts(cur_pts);
+            // ROS_INFO("VWorks track cost %fms cv pts %ld", tic.toc(), cv_cur_pts.first.size());
+            // cv::cuda::GpuMat up_top_img_Debug;
+            // cv::Mat uptop_debug;
+            // up_side_img.copyTo(up_top_img_Debug);
+            // up_top_img_Debug.download(uptop_debug);
 
-            for (int i = 0; i < cv_cur_pts.first.size(); i ++) {
+            // for (int i = 0; i < cv_cur_pts.first.size(); i ++) {
 
-                if (cv_cur_pts.second[i] == 0) {
-                    //Status 0: Red
-                    cv::circle(uptop_debug, cv_cur_pts.first[i], 2, cv::Scalar(0, 0, 255), 2);            
-                } else {
-                    //Status 255 Blue
-                    cv::circle(uptop_debug, cv_cur_pts.first[i], 2, cv::Scalar(255, 0, 0), 2);  
-                    cv::arrowedLine(uptop_debug, cv_prev_pts.first[i], cv_cur_pts.first[i], cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+            //     if (cv_cur_pts.second[i] == 0) {
+            //         //Status 0: Red
+            //         cv::circle(uptop_debug, cv_cur_pts.first[i], 2, cv::Scalar(0, 0, 255), 2);            
+            //     } else {
+            //         //Status 255 Blue
+            //         cv::circle(uptop_debug, cv_cur_pts.first[i], 2, cv::Scalar(255, 0, 0), 2);  
+            //         cv::arrowedLine(uptop_debug, cv_prev_pts.first[i], cv_cur_pts.first[i], cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
 
-                }
-            }
-            cv::imshow("UpsideDebug", uptop_debug);
-            cv::waitKey(2);
+            //     }
+            // }
+            // cv::imshow("UpsideDebug", uptop_debug);
+            // cv::waitKey(2);
         }
     }
 

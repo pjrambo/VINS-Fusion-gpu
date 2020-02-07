@@ -204,5 +204,7 @@ public:
     nvx::FeatureTracker* tracker_up_side = nullptr;
     nvx::FeatureTracker* tracker_down_side = nullptr;
 
+    void init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img);
+
     bool first_frame = true;
 };
