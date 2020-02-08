@@ -773,6 +773,7 @@ void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda
     vx_up_side_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_side_fix); 
     
     nvx::FeatureTracker::Params params;
+    params.use_rgb = RGB_DEPTH_CLOUD;
     params.use_harris_detector = false;
     params.array_capacity = TOP_PTS_CNT;
 
@@ -805,8 +806,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // ROS_INFO("CVT cost %fms", t_cvt.toc());
 
     TicToc t_r;
-    fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
-    fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
+    fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img, RGB_DEPTH_CLOUD);
+    fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1, RGB_DEPTH_CLOUD);
     static double undist_sum = 0;
     static double undist_count = 0;
     undist_sum = t_r.toc() + undist_sum;

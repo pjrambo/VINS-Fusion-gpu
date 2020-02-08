@@ -79,7 +79,7 @@ multiple_thread: 1
 use_gpu: 1
 use_gpu_acc_flow: 1
 use_vxworks: 1
-
+rgb_depth_cloud: 0
 depth_estimate_baseline: 0.05
 top_cnt: 30
 side_cnt: 30

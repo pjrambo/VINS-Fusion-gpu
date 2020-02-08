@@ -57,6 +57,7 @@ extern int SHOW_WIDTH;
 extern int NUM_OF_CAM;
 extern int STEREO;
 extern int FISHEYE;
+extern int RGB_DEPTH_CLOUD;
 extern double FISHEYE_FOV;
 
 extern int enable_up_top;
