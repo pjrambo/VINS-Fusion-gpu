@@ -81,8 +81,8 @@ use_gpu_acc_flow: 1
 use_vxworks: 1
 
 depth_estimate_baseline: 0.05
-top_cnt: 50
-side_cnt: 50
+top_cnt: 30
+side_cnt: 30
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 
 # min_dist: 20            # min distance between two features, this is for GFTT

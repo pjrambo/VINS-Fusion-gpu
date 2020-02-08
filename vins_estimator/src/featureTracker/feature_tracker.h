@@ -66,6 +66,8 @@ public:
     void setMask();
     void setMaskFisheye();
     cv::Mat setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur_pts, vector<int> & track_cnt, vector<int> & ids);
+    void setMaskFisheye(cv::cuda::GpuMat & mask, cv::Size shape, vector<cv::Point2f> & cur_pts, 
+        vector<int> & track_cnt, vector<int> & ids);
     void addPoints();
     void addPointsFisheye();
     void readIntrinsicParameter(const vector<string> &calib_file);
@@ -198,6 +200,11 @@ public:
     cv::cuda::GpuMat down_side_img_fix;
     cv::cuda::GpuMat up_top_img_fix;
     cv::cuda::GpuMat down_top_img_fix;
+
+    cv::cuda::GpuMat mask_up_top_fix, mask_down_top_fix, mask_up_side_fix;
+    vx_image vx_up_top_mask;
+    vx_image vx_down_top_mask;
+    vx_image vx_up_side_mask;
 
     nvx::FeatureTracker* tracker_up_top = nullptr;
     nvx::FeatureTracker* tracker_down_top = nullptr;

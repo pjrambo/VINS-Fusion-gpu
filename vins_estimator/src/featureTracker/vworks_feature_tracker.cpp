@@ -97,6 +97,8 @@ namespace
         vx_node pyr_node_;
         vx_node opt_flow_node_;
         vx_node feature_track_node_;
+
+        bool use_rgb;
     };
 
     FeatureTrackerImpl::FeatureTrackerImpl(vx_context context, const Params& params) :
@@ -136,7 +138,11 @@ namespace
         NVXIO_SAFE_CALL( vxQueryImage(firstFrame, VX_IMAGE_ATTRIBUTE_WIDTH, &width, sizeof(width)) );
         NVXIO_SAFE_CALL( vxQueryImage(firstFrame, VX_IMAGE_ATTRIBUTE_HEIGHT, &height, sizeof(height)) );
 
-        NVXIO_ASSERT(format == VX_DF_IMAGE_RGB);
+        if(params_.use_rgb) {
+            NVXIO_ASSERT(format == VX_DF_IMAGE_RGB);
+        } else {
+            NVXIO_ASSERT(format == VX_DF_IMAGE_U8);
+        }
 
         if (mask)
         {
@@ -213,7 +219,11 @@ namespace
         }
 
         // Update input parameters for next graph execution
-        NVXIO_SAFE_CALL( vxSetParameterByIndex(cvt_color_node_, 0, (vx_reference)newFrame) );
+        if (params_.use_rgb) {
+            NVXIO_SAFE_CALL( vxSetParameterByIndex(cvt_color_node_, 0, (vx_reference)newFrame) );
+        } else {
+            NVXIO_SAFE_CALL( vxSetParameterByIndex(pyr_node_, 0, (vx_reference)newFrame) );
+        }
         NVXIO_SAFE_CALL( vxSetParameterByIndex(feature_track_node_, 2, (vx_reference)mask) );
 
         // Age the delay objects (pyramid, points to track) before graph execution
@@ -246,7 +256,10 @@ namespace
 #endif
 
         ovxio::printPerf(main_graph_, "Feature Tracker");
-        ovxio::printPerf(cvt_color_node_, "Color Convert");
+        if (params_.use_rgb) {
+            ovxio::printPerf(cvt_color_node_, "Color Convert");
+        }
+
         ovxio::printPerf(pyr_node_, "Pyramid");
         ovxio::printPerf(feature_track_node_, "Feature Track");
         ovxio::printPerf(opt_flow_node_, "Optical Flow");
@@ -319,27 +332,51 @@ namespace
     {
         vx_image frameGray = vxCreateImage(context_, width_, height_, VX_DF_IMAGE_U8);
         NVXIO_CHECK_REFERENCE(frameGray);
+        
+        if(params_.use_rgb) {
+            NVXIO_SAFE_CALL( vxuColorConvert(context_, frame, frameGray) );
+            NVXIO_SAFE_CALL( vxuGaussianPyramid(context_, frameGray, (vx_pyramid)vxGetReferenceFromDelay(pyr_delay_, 0)) );
 
-        NVXIO_SAFE_CALL( vxuColorConvert(context_, frame, frameGray) );
-        NVXIO_SAFE_CALL( vxuGaussianPyramid(context_, frameGray, (vx_pyramid)vxGetReferenceFromDelay(pyr_delay_, 0)) );
-        if (params_.use_harris_detector)
-        {
-            NVXIO_SAFE_CALL( nvxuHarrisTrack(context_, frameGray,
-                                             (vx_array)vxGetReferenceFromDelay(pts_delay_, 0),
-                                             mask, nullptr,
-                                             params_.harris_k, params_.harris_thresh,
-                                             params_.detector_cell_size, nullptr) );
-        }
-        else
-        {
-            NVXIO_SAFE_CALL( nvxuFastTrack(context_, frameGray,
-                                           (vx_array)vxGetReferenceFromDelay(pts_delay_, 0),
-                                           mask, nullptr,
-                                           params_.fast_type, params_.fast_thresh,
-                                           params_.detector_cell_size, nullptr) );
+            if (params_.use_harris_detector)
+            {
+                NVXIO_SAFE_CALL( nvxuHarrisTrack(context_, frameGray,
+                                                (vx_array)vxGetReferenceFromDelay(pts_delay_, 0),
+                                                mask, nullptr,
+                                                params_.harris_k, params_.harris_thresh,
+                                                params_.detector_cell_size, nullptr) );
+            }
+            else
+            {
+                NVXIO_SAFE_CALL( nvxuFastTrack(context_, frameGray,
+                                            (vx_array)vxGetReferenceFromDelay(pts_delay_, 0),
+                                            mask, nullptr,
+                                            params_.fast_type, params_.fast_thresh,
+                                            params_.detector_cell_size, nullptr) );
+            }
+
+            vxReleaseImage(&frameGray);
+        } else {
+            NVXIO_SAFE_CALL( vxuGaussianPyramid(context_, frame, (vx_pyramid)vxGetReferenceFromDelay(pyr_delay_, 0)) );
+
+            if (params_.use_harris_detector)
+            {
+                NVXIO_SAFE_CALL( nvxuHarrisTrack(context_, frame,
+                                                (vx_array)vxGetReferenceFromDelay(pts_delay_, 0),
+                                                mask, nullptr,
+                                                params_.harris_k, params_.harris_thresh,
+                                                params_.detector_cell_size, nullptr) );
+            }
+            else
+            {
+                NVXIO_SAFE_CALL( nvxuFastTrack(context_, frame,
+                                            (vx_array)vxGetReferenceFromDelay(pts_delay_, 0),
+                                            mask, nullptr,
+                                            params_.fast_type, params_.fast_thresh,
+                                            params_.detector_cell_size, nullptr) );
+            }
         }
 
-        vxReleaseImage(&frameGray);
+        
     }
 
     //
@@ -384,16 +421,20 @@ namespace
         // RGB to Y conversion nodes
         //
 
-        cvt_color_node_ = vxColorConvertNode(main_graph_, frame, frameGray);
-        NVXIO_CHECK_REFERENCE(cvt_color_node_);
+        if (params_.use_rgb) {
+            cvt_color_node_ = vxColorConvertNode(main_graph_, frame, frameGray);
+            NVXIO_CHECK_REFERENCE(cvt_color_node_);
 
-        //
-        // Pyramid image node
-        //
+            //
+            // Pyramid image node
+            //
 
-        pyr_node_ = vxGaussianPyramidNode(main_graph_, frameGray, pyrGray);
-        NVXIO_CHECK_REFERENCE(pyr_node_);
-
+            pyr_node_ = vxGaussianPyramidNode(main_graph_, frameGray, pyrGray);
+            NVXIO_CHECK_REFERENCE(pyr_node_);
+        } else {
+            pyr_node_ = vxGaussianPyramidNode(main_graph_, frame, pyrGray);
+            NVXIO_CHECK_REFERENCE(pyr_node_);
+        }
         //
         // vxOpticalFlowPyrLKNode accepts input arguements as current pyramid,
         // previous pyramid and points tracked in the previous frame. The output
@@ -469,6 +510,8 @@ nvx::FeatureTracker::Params::Params()
     // Parameters for fast_track node
     fast_type = 9;
     fast_thresh = 25;
+
+    use_rgb = false;
 }
 
 nvx::FeatureTracker* nvx::FeatureTracker::create(vx_context context, const Params& params)

@@ -296,13 +296,6 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     
     cv::vconcat(top_cam, imTrack, imTrack);
     
-    // cv::resize(up_camera, up_camera, cv::Size(side_height, side_height));
-    // cv::resize(down_camera, down_camera, cv::Size(side_height, side_height));
-
-    // cv::hconcat(up_camera, imUpSide, up_camera);
-    // cv::hconcat(down_camera, imDownSide, down_camera);
-
-    // cv::hconcat(up_camera, down_camera, imTrack);
     double fx = ((double)SHOW_WIDTH) / ((double) imUpSide.size().width);
     cv::resize(imTrack, imTrack, cv::Size(), fx, fx);
     cv::imshow("tracking", imTrack);
@@ -331,17 +324,11 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
         for (int i = 1; i < 5; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
         }
-        if(NewImg.channels() == 3 && !USE_VXWORKS) {
-            cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
-        }
         return NewImg;
     } else {
         cv::cuda::GpuMat NewImg(rows, cols*3, arr[1].type()); 
         for (int i = 1; i < 4; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
-        }
-        if(NewImg.channels() == 3 && !USE_VXWORKS) {
-            cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
         }
         return NewImg;
     }
@@ -780,6 +767,10 @@ void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda
     vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
     vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
     vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
+
+    vx_up_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_top_fix); 
+    vx_down_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_down_top_fix); 
+    vx_up_side_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_side_fix); 
     
     nvx::FeatureTracker::Params params;
     params.use_harris_detector = false;
@@ -789,32 +780,45 @@ void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda
     params.detector_cell_size = MIN_DIST;
 
     tracker_up_top = nvx::FeatureTracker::create(context, params);
-    tracker_up_top->init(vx_up_top_image, nullptr);
+    tracker_up_top->init(vx_up_top_image, vx_up_top_mask);
 
     tracker_down_top = nvx::FeatureTracker::create(context, params);
-    tracker_down_top->init(vx_down_top_image, nullptr);
+    tracker_down_top->init(vx_down_top_image, vx_down_top_mask);
 
     params.detector_cell_size = MIN_DIST;
     params.array_capacity = SIDE_PTS_CNT;
     tracker_up_side = nvx::FeatureTracker::create(context, params);
-    tracker_up_side->init(vx_up_side_image, nullptr);
+    tracker_up_side->init(vx_up_side_image, vx_up_side_mask);
 }
 
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
-    TicToc t_r;
     cur_time = _cur_time;
 
+    TicToc t_cvt;
+
+    // cv::Mat __img = _img;
+    // cv::Mat __img1 = _img1;
+    // cv::cvtColor(_img1, __img1, cv::COLOR_BGR2GRAY);
+    // cv::cvtColor(_img, __img, cv::COLOR_BGR2GRAY);
+    // ROS_INFO("CVT cost %fms", t_cvt.toc());
+
+    TicToc t_r;
     fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
     fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
+    static double undist_sum = 0;
+    static double undist_count = 0;
+    undist_sum = t_r.toc() + undist_sum;
+    undist_count = undist_count + 1;
+    ROS_INFO("Undist AVG cost %fms", undist_sum/undist_count);
 
-
-
+    double remap_cost = t_r.toc();
     cv::cuda::GpuMat up_side_img = concat_side(fisheye_imgs_up);
     cv::cuda::GpuMat down_side_img = concat_side(fisheye_imgs_down);
     cv::cuda::GpuMat up_top_img = fisheye_imgs_up[0];
     cv::cuda::GpuMat down_top_img = fisheye_imgs_down[0];
+    double concat_cost = t_r.toc() - remap_cost;
 
     top_size = up_top_img.size();
     side_size = up_side_img.size();
@@ -837,16 +841,24 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         down_top_img.copyTo(down_top_img_fix);
         up_side_img.copyTo(up_side_img_fix);
         down_side_img.copyTo(down_side_img_fix);
+
         ROS_INFO("Copy Image cost %fms", tic.toc());
-        
         if(first_frame) {
+            setMaskFisheye();
+            mask_up_top_fix.upload(mask_up_top);
+            mask_down_top_fix.upload(mask_down_top);
+            mask_up_side_fix.upload(mask_up_side);
+            ROS_INFO("setFisheyeMask Image cost %fms", tic.toc());
+
             init_vworks_tracker(up_top_img_fix, down_top_img_fix, up_side_img_fix, down_side_img_fix);
             first_frame = false;
         } else {
-            tracker_up_top->track(vx_up_top_image);
-            tracker_down_top->track(vx_down_top_image);
-            tracker_up_side->track(vx_up_side_image);
+            tracker_up_top->track(vx_up_top_image, vx_up_top_mask);
+            tracker_down_top->track(vx_down_top_image, vx_down_top_mask);
+            tracker_up_side->track(vx_up_side_image, vx_up_side_mask);
         }
+        
+        ROS_INFO("Track only cost %fms", tic.toc());
 
         process_vworks_tracking(tracker_up_top,  ids_up_top, prev_up_top_pts, cur_up_top_pts, 
             track_up_top_cnt, n_pts_up_top, up_top_id_by_index);
@@ -856,7 +868,15 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         
         process_vworks_tracking(tracker_up_side,  ids_up_side, prev_up_side_pts, cur_up_side_pts, 
             track_up_side_cnt, n_pts_up_side, up_side_id_by_index);
-    
+        ROS_INFO("Visionworks cost %fms", tic.toc());
+
+        if (enable_down_side) {
+            ids_down_side = ids_up_side;
+            auto down_side_init_pts = cur_up_side_pts;
+            cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
+            // ROS_INFO("Down side try to track %ld pts; gives %ld:%ld", cur_up_side_pts.size(), cur_down_side_pts.size(), ids_down_side.size());
+        }
+
     } else {
         if (up_top_img.channels() == 3) {
             cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
@@ -864,6 +884,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             cv::cuda::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
             cv::cuda::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
         }
+
+        ROS_INFO("CVT Color %fms", t_r.toc());
         
         //If has predict;
         if (enable_up_top) {
@@ -878,8 +900,12 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, FLOW_BACK);
         }
         
+        ROS_INFO("FT %fms", t_r.toc());
 
         setMaskFisheye();
+
+        ROS_INFO("SetMaskFisheye %fms", t_r.toc());
+
         if (enable_up_top) {
             // ROS_INFO("Detecting top");
             detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
@@ -892,6 +918,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
         }
 
+        ROS_INFO("DetectPoints %fms", t_r.toc());
+
         addPointsFisheye();
 
         if (enable_down_side) {
@@ -902,10 +930,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         }
     }
 
-
-
     //Undist points
-
     cur_up_top_un_pts = undistortedPtsTop(cur_up_top_pts, fisheys_undists[0]);
     cur_down_top_un_pts = undistortedPtsTop(cur_down_top_pts, fisheys_undists[1]);
 
@@ -920,6 +945,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     down_side_vel = ptsVelocity3D(ids_down_side, cur_down_side_un_pts, cur_down_side_un_pts_map, prev_down_side_un_pts_map);
 
     // ROS_INFO("Up top VEL %ld", up_top_vel.size());
+    double tcost_all = t_r.toc();
     if (SHOW_TRACK) {
         drawTrackFisheye(_img, _img1, up_top_img, down_top_img, up_side_img, down_side_img);
     }
@@ -952,7 +978,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // hasPrediction = false;
     auto ff = setup_feature_frame();
 
-    printf("feature track whole time %f PTS %ld\n", t_r.toc(), ff.size());
+    printf("FT Whole %fms; MainProcess %fms Remap %fms Concat %fms PTS %ld T\n", t_r.toc(), tcost_all, remap_cost, concat_cost, ff.size());
     return ff;
 }
 

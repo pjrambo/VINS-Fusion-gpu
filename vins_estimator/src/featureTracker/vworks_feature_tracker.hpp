@@ -56,6 +56,8 @@ namespace nvx
             vx_uint32 fast_type;
             vx_uint32 fast_thresh;
 
+            bool use_rgb;
+
             Params();
         };
 
