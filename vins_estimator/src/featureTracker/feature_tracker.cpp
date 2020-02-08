@@ -679,6 +679,10 @@ pair<vector<cv::Point2f>, vector<int>> vxarray2cv_pts(vx_array fVx, bool output=
 // up_side_img.copyTo(up_top_img_Debug);
 // up_top_img_Debug.download(uptop_debug);
 
+int to_pt_pos_id(const cv::Point2f & pt) {
+    return floor(pt.x * 10000) + floor(pt.y*100);
+}
+
 void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vector<int> & _ids, vector<cv::Point2f> & prev_pts, vector<cv::Point2f> & cur_pts, 
         vector<int> &track, vector<cv::Point2f> & n_pts, map<int, int> & _id_by_index) {
     auto prev_ids = _ids;
@@ -690,34 +694,53 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
 
     _ids.clear();
     prev_ids.clear();
+    prev_pts.clear();
+    cur_pts.clear();
+
     auto vx_prev_pts_ = _tracker->getPrevFeatures();
     auto vx_cur_pts_ = _tracker->getCurrFeatures();
 
-    auto cv_cur_pts_flag = vxarray2cv_pts(vx_cur_pts_, true);
-    auto cv_prev_pts_flag = vxarray2cv_pts(vx_prev_pts_);
+    auto cv_cur_pts_flag = vxarray2cv_pts(vx_cur_pts_, false);
+    auto cv_prev_pts_flag = vxarray2cv_pts(vx_prev_pts_, false);
     auto cv_cur_pts = cv_cur_pts_flag.first;
     auto cv_cur_flags = cv_cur_pts_flag.second;
     bool first_frame = _id_by_index.empty();
 
-    for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
-        if(cv_cur_flags[i] == 255 && !first_frame) {
-            //This is keep tracking point
-            _ids.push_back(_id_by_index[i]);
-            prev_pts.push_back(cv_prev_pts_flag.first[i]);
-            cur_pts.push_back(cv_cur_pts[i]);
-            // _track[i] ++;
-            _track[_id_by_index[i]] ++;
+    if (!first_frame) {
+        for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
+            if(cv_cur_flags[i] == 255) {
+                //This is keep tracking point
+                int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
+                int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
+                int _id = _id_by_index[prev_pos_id];
+                _id_by_index.erase(prev_pos_id);
+                _id_by_index[cur_pos_id] = _id;
+
+                _ids.push_back(_id);
+                prev_pts.push_back(cv_prev_pts_flag.first[i]);
+                cur_pts.push_back(cv_cur_pts[i]);
+                ROS_INFO("Index %d ID %d PrevID %d PT %f %f ->  %f %f",
+                    i,
+                    _ids.back(),
+                    prev_pos_id,
+                    prev_pts.back().x, prev_pts.back().y,
+                    cur_pts.back().x, cur_pts.back().y
+                );
+                // _track[i] ++;
+                _track[_id] ++;
+            }
         }
     }
 
     for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
-        if(cv_cur_flags[i] == 0) {
+        if(cv_cur_flags[i] == 0 || first_frame) {
             //This is new create points
-            // n_pts.push_back(cv_cur_pts[i]);
+            int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
             cur_pts.push_back(cv_cur_pts[i]);
             _ids.push_back(n_id++);
-            _id_by_index[i] = _ids.back();
+            _id_by_index[cur_pos_id] = _ids.back();
             _track[_ids.back()] = 1;
+            ROS_INFO("New ID %d pos_id %d PT %f %f", _ids.back(), cur_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y);
         }
     }
 
@@ -725,6 +748,9 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
     for (unsigned int i = 0; i < _ids.size(); i ++) {
         track.push_back(_track[_id_by_index[i]]);
     }
+
+    // assert(prev_pts.size() == cur_pts.size() && "Previous and Current point size must be equal");
+    // assert(prev_pts.size() == _ids.size() && "Previous and Current point size must be equal");
 }
 
 
