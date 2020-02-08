@@ -187,7 +187,7 @@ namespace
     // vxSetParameterByIndex. Finally vxProcessGraph() is called to execute the graph
     //
 
-    void FeatureTrackerImpl::track(vx_image newFrame, vx_image mask)
+    void FeatureTrackerImpl::track(vx_image newFrame, vx_image mask, bool lr_mode)
     {
         // Check input format
 

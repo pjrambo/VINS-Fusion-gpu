@@ -66,7 +66,7 @@ namespace nvx
         virtual ~FeatureTracker() {}
 
         virtual void init(vx_image firstFrame, vx_image mask = 0) = 0;
-        virtual void track(vx_image newFrame, vx_image mask = 0) = 0;
+        virtual void track(vx_image newFrame, vx_image mask = 0, bool lr_mode = false) = 0;
 
         // get list of tracked features on previous frame
         virtual vx_array getPrevFeatures() const = 0;
