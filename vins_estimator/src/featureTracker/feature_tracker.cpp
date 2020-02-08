@@ -680,13 +680,13 @@ pair<vector<cv::Point2f>, vector<int>> vxarray2cv_pts(vx_array fVx, bool output=
 // up_top_img_Debug.download(uptop_debug);
 
 int to_pt_pos_id(const cv::Point2f & pt) {
-    return floor(pt.x * 10000) + floor(pt.y*100);
+    return floor(pt.x * 100000) + floor(pt.y*100);
 }
 
 void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vector<int> & _ids, vector<cv::Point2f> & prev_pts, vector<cv::Point2f> & cur_pts, 
-        vector<int> &track, vector<cv::Point2f> & n_pts, map<int, int> & _id_by_index) {
+        vector<int> &track, vector<cv::Point2f> & n_pts, map<int, int> & _id_by_index, bool debug_output) {
     auto prev_ids = _ids;
-
+    map<int, int> new_id_by_index;
     map<int, int> _track;
     for (unsigned int i = 0; i < track.size(); i ++) {
         _track[_ids[i]] = track[i];
@@ -708,51 +708,62 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
 
     if (!first_frame) {
         for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
-            if(cv_cur_flags[i] == 255) {
+            int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
+            int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
+            if (_id_by_index.find(prev_pos_id) != _id_by_index.end()) {
                 //This is keep tracking point
-                int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
-                int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
                 int _id = _id_by_index[prev_pos_id];
-                _id_by_index.erase(prev_pos_id);
-                _id_by_index[cur_pos_id] = _id;
+                new_id_by_index[cur_pos_id] = _id;
 
                 _ids.push_back(_id);
                 prev_pts.push_back(cv_prev_pts_flag.first[i]);
                 cur_pts.push_back(cv_cur_pts[i]);
-                ROS_INFO("Index %d ID %d PrevID %d PT %f %f ->  %f %f",
-                    i,
-                    _ids.back(),
-                    prev_pos_id,
-                    prev_pts.back().x, prev_pts.back().y,
-                    cur_pts.back().x, cur_pts.back().y
-                );
-                // _track[i] ++;
+                if (debug_output) {
+                    ROS_INFO("Index %d ID %d POSID %d PrevID %d PT %f %f ->  %f %f",
+                        i,
+                        _ids.back(),
+                        cur_pos_id,
+                        prev_pos_id,
+                        prev_pts.back().x, prev_pts.back().y,
+                        cur_pts.back().x, cur_pts.back().y
+                    );
+                }
                 _track[_id] ++;
             }
         }
     }
 
     for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
-        if(cv_cur_flags[i] == 255 || first_frame) {
+        // if(cv_cur_flags[i] == 0 || first_frame) {
+        int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
+        if (_id_by_index.find(prev_pos_id) == _id_by_index.end()) {
             //This is new create points
             int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
             int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
             cur_pts.push_back(cv_cur_pts[i]);
             _ids.push_back(n_id++);
-            _id_by_index[cur_pos_id] = _ids.back();
+            new_id_by_index[cur_pos_id] = _ids.back();
             _track[_ids.back()] = 1;
-            ROS_INFO("New ID %d pos_id %d  prev_id %d PT %f %f", _ids.back(), 
-                cur_pos_id, prev_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y);
+            if (debug_output) {
+                ROS_INFO("New ID %d pos_id %d  prev_id %d PT %f %f", _ids.back(), 
+                    cur_pos_id, prev_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y);
+            }
         }
     }
 
     track.clear();
     for (unsigned int i = 0; i < _ids.size(); i ++) {
         int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
-        int _id = _id_by_index[cur_pos_id] = _ids.back();
+        int _id = new_id_by_index[cur_pos_id];
         track.push_back(_track[_id]);
-    }
 
+        if (debug_output) {
+            ROS_INFO("ID %d POSID %d Pos %f %f",
+                _id, cur_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y);
+        }
+    }
+    
+    _id_by_index = new_id_by_index;
 }
 
 
@@ -827,6 +838,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         up_side_img.copyTo(up_side_img_fix);
         down_side_img.copyTo(down_side_img_fix);
         ROS_INFO("Copy Image cost %fms", tic.toc());
+        
         if(first_frame) {
             init_vworks_tracker(up_top_img_fix, down_top_img_fix, up_side_img_fix, down_side_img_fix);
             first_frame = false;
@@ -835,8 +847,16 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             tracker_down_top->track(vx_down_top_image);
             tracker_up_side->track(vx_up_side_image);
         }
+
         process_vworks_tracking(tracker_up_top,  ids_up_top, prev_up_top_pts, cur_up_top_pts, 
             track_up_top_cnt, n_pts_up_top, up_top_id_by_index);
+
+        process_vworks_tracking(tracker_down_top,  ids_down_top, prev_down_top_pts, cur_down_top_pts, 
+            track_down_top_cnt, n_pts_down_top, down_top_id_by_index);
+        
+        process_vworks_tracking(tracker_up_side,  ids_up_side, prev_up_side_pts, cur_up_side_pts, 
+            track_up_side_cnt, n_pts_up_side, up_side_id_by_index);
+    
     } else {
         if (up_top_img.channels() == 3) {
             cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
