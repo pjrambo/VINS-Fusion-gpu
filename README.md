@@ -2,19 +2,43 @@
 This repository is a version of VINS-Fusion with Dual Fisheye and GPU and Visionworks acceleration. It can run on Nvidia TX2 in real-time. 
 ## 1. Prerequisites  
 The essential software environment is same as VINS-Fusion. Besides, it requires OpenCV cuda version.(Only test it on OpenCV 3.4.1).
+Visionworks: Optional
+
 ## 2. Usage
 ### 2.1 Change the opencv path in the CMakeLists
 Compile and install opencv 3.4 with CUDA to /usr/local/
+
+If you don't have visionworks, please 
+>set(ENABLE_VWORKS false)
+
+If you are using visionworks, please config the visionworks sample path
+
+```cmake
+    include_directories(
+        /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
+    )
+    link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
+```
+
+in file vins_estimator/CMakeLists.txt
+
 ### Fisheye usage
+Term 0
+>roscore
+
 Term 1
 >rosrun vins vins_node ~/your_ws/src/VINS-Fusion-Fisheye/config/fisheye_ptgrey_n3/fisheye.yaml
 
 Term 2
 >rosbag play fishey_vins_2020-01-30-10-38-14.bag --clock -s 12
 
+Term 3(for visuallization only)
+>roslaunch vins vins_rviz.launch
+
 For rosbag, you can download from https://www.dropbox.com/s/oukwohva7ba381d/fishey_vins_2020-01-30-10-38-14.bag?dl=0
 ### Parameters for fisheye
 ```yaml
+depth_config: "depth_cpu.yaml" # config path for depth estimation, depth_cpu.yaml uses opencv SGBM, depth.yaml uses visionworks SGM, you must install visionworks before use visionworks sgm
 image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
 fisheye_fov: 235 # Your fisheye fov
 enable_up_top: 1 #Choose direction you use
@@ -30,6 +54,36 @@ top_cnt: 30 #number of track point for top view
 side_cnt: 30 #number of track point for side view
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 show_track: 0 # if display track
+use_vxworks: 0 #use vision works for front-end; not as stable as CUDA now
+rgb_depth_cloud: 0 # -1: not estimate depth, 0 depth cloud will be gray, 1 depth cloud will be colored;
+#Note that colored depth cloud will slow down whole system, only for visualization
+```
+Parameter for depth estimation
+
+```yaml;
+#choose the depth you want estimate
+enable_front: 1
+enable_left: 1
+enable_right: 1
+enable_rear: 0
+#downsample ration
+downsample_ratio: 0.5
+#choose use cpu or visionworks
+use_vworks: 0
+
+#Publish cloud jump step
+pub_cloud_step: 1
+#If show dispartity
+show_disparity: 0
+#If publish depth map image
+pub_depth_map: 1
+#Publish cloud in radius
+depth_cloud_radius: 10
+#If publish all depth cloud in a topic
+pub_cloud_all: 1
+#If publish all depth cloud in every direction
+pub_cloud_per_direction: 0
+
 ```
 # VINS-Fusion
 ## An optimization-based multi-sensor state estimator
