@@ -78,10 +78,13 @@ multiple_thread: 1
 #Gpu accleration support
 
 use_vxworks: 0
-rgb_depth_cloud: 0
+
+rgb_depth_cloud: 0 # -1: not estimate depth, 0 depth cloud will be gray, 1 depth cloud will be colored;
+#Note that colored depth cloud will slow down whole system
+
 depth_estimate_baseline: 0.05
-top_cnt: 30
-side_cnt: 30
+top_cnt: 50
+side_cnt: 50
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 
 # min_dist: 20            # min distance between two features, this is for GFTT
