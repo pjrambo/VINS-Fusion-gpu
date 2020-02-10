@@ -1,23 +1,33 @@
-# VINS-Fusion-gpu
-This repository is a version of VINS-Fusion with GPU acceleration. It can run on Nvidia TX2 in real-time. 
+# VINS-Fusion-fisheye
+This repository is a version of VINS-Fusion with Dual Fisheye and GPU and Visionworks acceleration. It can run on Nvidia TX2 in real-time. 
 ## 1. Prerequisites  
 The essential software environment is same as VINS-Fusion. Besides, it requires OpenCV cuda version.(Only test it on OpenCV 3.4.1).
 ## 2. Usage
 ### 2.1 Change the opencv path in the CMakeLists
-In /vins_estimator/CMakeLists.txt, change Line 20 to your path.  
-In /loop_fusion/CmakeLists.txt, change Line 19 to your path.
-### 2.2 Change the acceleration parameters as you need.
-In the config file, there are two parameters for gpu acceleration.  
-use_gpu: 0 for off, 1 for on  
-use_gpu_acc_flow:  0 for off, 1 for on  
-If your GPU resources is limitted or you want to use GPU for other computaion. You can set  
-use_gpu: 1  
-use_gpu_acc_flow: 0  
-If your other application do not require much GPU resources, I recommanded you to set  
-use_gpu: 1  
-use_gpu_acc_flow: 1  
-According to my test, on TX2 if you set this two parameters to 1 at the same time, the GPU usage is about 20%.
+Compile and install opencv 3.4 with CUDA to /usr/local/
+### Fisheye usage
+Term 1
+>rosrun vins vins_node ~/your_ws/src/VINS-Fusion-Fisheye/config/fisheye_ptgrey_n3/fisheye.yaml
+Term 2
+>rosbag play fishey_vins_2020-01-30-10-38-14.bag --clock -s 12
+### Parameters for fisheye
+```yaml
+image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
+fisheye_fov: 235 # Your fisheye fov
+enable_up_top: 1 #Choose direction you use
+enable_down_top: 1
+enable_up_side: 1
+enable_down_side: 1
+enable_rear_side: 1
+thres_outlier : 5.0 # outlier thres for backend
+tri_max_err: 3.0 #outlier thres for triangulate
 
+depth_estimate_baseline: 0.05 # mini baseline for pts initialization
+top_cnt: 30 #number of track point for top view
+side_cnt: 30 #number of track point for side view
+max_solve_cnt: 30 # Max Point for solve; highly influence performace
+show_track: 0 # if display track
+```
 # VINS-Fusion
 ## An optimization-based multi-sensor state estimator
 
