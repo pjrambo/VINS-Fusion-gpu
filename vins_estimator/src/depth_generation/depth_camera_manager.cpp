@@ -231,6 +231,7 @@ void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::cuda::GpuMa
 
 void DepthCamManager::add_pts_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp,
     sensor_msgs::PointCloud & pcl, int step, cv::Mat color) {
+    bool rgb_color = color.channels() == 3;
     for(int v = 0; v < pts3d.rows; v += step){
         for(int u = 0; u < pts3d.cols; u += step)  
         {
@@ -252,10 +253,16 @@ void DepthCamManager::add_pts_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eige
                 pcl.points.push_back(p);
 
                 if (!color.empty()) {
-                    const cv::Vec3b& bgr = color.at<cv::Vec3b>(v, u);
-                    int32_t rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
-                    pcl.channels[0].values.push_back(*(float*)(&rgb_packed));
+                    int32_t rgb_packed;
+                    if(rgb_color) {
+                        const cv::Vec3b& bgr = color.at<cv::Vec3b>(v, u);
+                        rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
+                    } else {
+                        const uchar& bgr = color.at<uchar>(v, u);
+                        rgb_packed = (bgr << 16) | (bgr << 8) | bgr;
+                    }
 
+                    pcl.channels[0].values.push_back(*(float*)(&rgb_packed));
                     pcl.channels[1].values.push_back(u);
                     pcl.channels[2].values.push_back(v);
                 }

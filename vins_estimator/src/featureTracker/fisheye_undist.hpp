@@ -63,8 +63,16 @@ public:
         return output;
     }
 
-    std::vector<cv::cuda::GpuMat> undist_all_cuda(cv::Mat image) {
-        cv::cuda::GpuMat img_cuda(image);
+    std::vector<cv::cuda::GpuMat> undist_all_cuda(const cv::Mat & image, bool use_rgb = false) {
+        cv::cuda::GpuMat img_cuda;
+        if (use_rgb) {
+            img_cuda.upload(image);
+        } else {
+            cv::Mat _tmp;
+            cv::cvtColor(image, _tmp, cv::COLOR_BGR2GRAY);
+            img_cuda.upload(_tmp);
+        }
+
         std::vector<cv::cuda::GpuMat> ret;
         for (unsigned int i = 0; i < undistMaps.size(); i++) {
             cv::cuda::GpuMat output;

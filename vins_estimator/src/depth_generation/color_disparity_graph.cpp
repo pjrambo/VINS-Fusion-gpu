@@ -25,6 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef WITHOUT_VWORKS
 
 #include <algorithm>
 
@@ -177,3 +178,5 @@ void ColorDisparityGraph::printPerfs()
     ovxio::printPerf(lut_node_[2], "Blue Channel Table Lookup");
     ovxio::printPerf(combine_node_, "Channel Combine");
 }
+
+#endif

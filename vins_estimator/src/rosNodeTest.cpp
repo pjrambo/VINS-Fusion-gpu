@@ -22,6 +22,15 @@
 #include "utility/visualization.h"
 #include "depth_generation/depth_camera_manager.h"
 
+#ifdef USE_BACKWARD
+#define BACKWARD_HAS_DW 1
+#include <backward.hpp>
+namespace backward
+{
+    backward::SignalHandling sh;
+}
+#endif
+
 Estimator estimator;
 
 queue<sensor_msgs::ImuConstPtr> imu_buf;

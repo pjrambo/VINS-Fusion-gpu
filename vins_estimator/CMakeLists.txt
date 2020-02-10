@@ -6,6 +6,9 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g ")
 
+set(ENABLE_BACKWARD false)
+set(ENABLE_VWORKS true)
+
 find_package(catkin REQUIRED COMPONENTS
     message_generation
     message_runtime
@@ -21,6 +24,22 @@ find_package(catkin REQUIRED COMPONENTS
     message_filters
 )
 
+
+
+if(ENABLE_VWORKS)
+    find_package(VisionWorks REQUIRED)
+    #Set path to visionworks sample here
+    include_directories(
+        /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
+    )
+else()
+    add_definitions(-DWITHOUT_VWORKS)
+endif(ENABLE_VWORKS)
+
+if(ENABLE_BACKWARD)
+    add_definitions(-D USE_BACKWARD)
+endif()
+
 SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 find_package(OpenCV 3.4 REQUIRED)
 
@@ -28,7 +47,6 @@ message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
 
 find_package(Ceres REQUIRED)
 
-find_package(VisionWorks REQUIRED)
 
 include_directories(${catkin_INCLUDE_DIRS} ${CERES_INCLUDE_DIRS})
 
@@ -41,7 +59,6 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${OpenCV_INCLUDE_DIRS}
   ${VisionWorks_INCLUDE_DIRS}
-  /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
 )
 
 link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
@@ -86,6 +103,7 @@ add_library(vins_lib
     src/depth_generation/stereo_matching.cpp
     src/depth_generation/depth_camera_manager.cpp
     src/depth_generation/color_disparity_graph.cpp
+    src/featureTracker/vworks_feature_tracker.cpp
 )
 
 add_library(estimator_lib SHARED

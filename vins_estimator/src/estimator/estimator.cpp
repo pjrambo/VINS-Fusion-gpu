@@ -558,10 +558,12 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         last_R0 = Rs[0];
         last_P0 = Ps[0];
         updateLatestStates();
+        if (RGB_DEPTH_CLOUD >= 0) {
+            depth_cam_manager->update_images(ros::Time(header), fisheye_imgs_up, fisheye_imgs_down,
+                ric[0], tic[0], ric[1], tic[1], latest_Q.toRotationMatrix(), latest_P
+            );
+        }
 
-        depth_cam_manager->update_images(ros::Time(header), fisheye_imgs_up, fisheye_imgs_down,
-            ric[0], tic[0], ric[1], tic[1], latest_Q.toRotationMatrix(), latest_P
-        );
     }  
 }
 
@@ -1172,7 +1174,7 @@ void Estimator::optimization()
     sum_solve_time = sum_solve_time + summary.total_time_in_seconds;
     solve_count += 1;
     ROS_INFO("AVG Iter %f time %fms Iterations : %d solver costs: %f \n", 
-        sum_iterations/solve_count, sum_solve_time/solve_count,
+        sum_iterations/solve_count, sum_solve_time*1000/solve_count,
         static_cast<int>(summary.iterations.size()),  t_solver.toc());
 
     double2vector();

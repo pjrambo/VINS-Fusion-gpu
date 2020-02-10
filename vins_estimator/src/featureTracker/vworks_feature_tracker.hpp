@@ -1,5 +1,5 @@
 /*
-# Copyright (c) 2015, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2014, NVIDIA CORPORATION. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,65 +27,58 @@
 */
 #ifndef WITHOUT_VWORKS
 
-#ifndef __NVX_STEREO_HPP__
-#define __NVX_STEREO_HPP__
+#ifndef __NVX_FEATURE_TRACKER_HPP__
+#define __NVX_FEATURE_TRACKER_HPP__
 
 #include <VX/vx.h>
 
-class StereoMatching
+namespace nvx
 {
-public:
-
-    enum ImplementationType
+    class FeatureTracker
     {
-        HIGH_LEVEL_API,
-        LOW_LEVEL_API,
-        LOW_LEVEL_API_PYRAMIDAL
+    public:
+        struct Params
+        {
+            // parameters for optical flow node
+            vx_uint32 pyr_levels;
+            vx_uint32 lk_num_iters;
+            vx_uint32 lk_win_size;
+
+            // common parameters for corner detector node
+            vx_uint32 array_capacity;
+            vx_uint32 detector_cell_size;
+            bool use_harris_detector;
+
+            // parameters for harris_track node
+            vx_float32 harris_k;
+            vx_float32 harris_thresh;
+
+            // parameters for fast_track node
+            vx_uint32 fast_type;
+            vx_uint32 fast_thresh;
+
+            bool use_rgb;
+
+            Params();
+        };
+
+        static FeatureTracker* create(vx_context context, const Params& params = Params());
+
+        virtual ~FeatureTracker() {}
+
+        virtual void init(vx_image firstFrame, vx_image mask = 0) = 0;
+        virtual void track(vx_image newFrame, vx_image mask = 0, bool lr_mode = false) = 0;
+
+        // get list of tracked features on previous frame
+        virtual vx_array getPrevFeatures() const = 0;
+
+        // get list of tracked features on current frame
+        virtual vx_array getCurrFeatures() const = 0;
+
+        virtual void printPerfs() const = 0;
     };
-
-    struct StereoMatchingParams
-    {
-        // disparity range
-        vx_int32 min_disparity;
-        vx_int32 max_disparity;
-
-        // discontinuity penalties
-        vx_int32 P1;
-        vx_int32 P2;
-
-        // SAD window size
-        vx_int32 sad;
-
-        // Census Transform window size
-        vx_int32 ct_win_size;
-
-        // Hamming cost window size
-        vx_int32 hc_win_size;
-
-        // BT-cost clip value
-        vx_int32 bt_clip_value;
-
-        // validation threshold
-        vx_int32 max_diff; // cross-check
-        vx_int32 uniqueness_ratio;
-
-        vx_enum scanlines_mask;
-
-        vx_enum flags;
-
-        StereoMatchingParams();
-    };
-
-    static StereoMatching* createStereoMatching(vx_context context, const StereoMatchingParams& params,
-                                                ImplementationType impl,
-                                                vx_image left, vx_image right, vx_image disparity);
-
-    virtual ~StereoMatching() {}
-
-    virtual void run() = 0;
-
-    virtual void printPerfs() const = 0;
-};
+}
 
 #endif
+
 #endif
