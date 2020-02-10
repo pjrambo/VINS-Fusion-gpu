@@ -7,6 +7,7 @@
 #include <sensor_msgs/PointCloud.h>
 #include <opencv2/cudastereo.hpp>
 
+#ifndef WITHOUT_VWORKS
 #include <OVX/UtilityOVX.hpp>
 #include <NVX/nvx.h>
 #include <NVX/nvx_opencv_interop.hpp>
@@ -15,6 +16,7 @@
 #include <OVX/UtilityOVX.hpp>
 #include <NVX/nvx.h>
 #include <NVX/nvx_opencv_interop.hpp>
+#endif
 
 struct SGMParams {
     bool use_vworks = true;
@@ -52,6 +54,7 @@ class DepthEstimator {
 
     bool first_use_vworks = true;
 
+#ifndef WITHOUT_VWORKS
     vx_image vx_img_l;
     vx_image vx_img_r;
     vx_image vx_disparity;
@@ -61,6 +64,7 @@ class DepthEstimator {
     cv::Mat disparity_fix_cpu;
     StereoMatching * stereo;
     ColorDisparityGraph * color;
+#endif
 
 public:
     DepthEstimator(SGMParams _params, Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,

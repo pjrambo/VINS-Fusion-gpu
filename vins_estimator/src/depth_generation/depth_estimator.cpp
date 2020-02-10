@@ -5,12 +5,12 @@
 #include <opencv2/cudastereo.hpp>
 #include <opencv2/opencv.hpp>
 #include "../utility/tic_toc.h"
-#include <opencv2/ximgproc/disparity_filter.hpp>
 #include "../estimator/parameters.h"
 
 // ovxio::ContextGuard context;
+#ifndef WITHOUT_VWORKS
 ovxio::ContextGuard context;
-
+#endif
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
@@ -78,6 +78,10 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         }
         return disparity;
     } else {
+#ifdef WITHOUT_VWORKS
+        ROS_ERROR("You must set enable_vworks to true or disable vworks in depth config file");
+        exit(-1);
+#else
         leftRectify.copyTo(leftRectify_fix);
         rightRectify.copyTo(rightRectify_fix);
         if (first_use_vworks) {
@@ -170,11 +174,8 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::waitKey(2);
         }            
         return cv_disp;
-
+#endif  
     }
-
-
-   
 }
 
 cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {

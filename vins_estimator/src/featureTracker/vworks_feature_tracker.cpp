@@ -25,6 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef WITHOUT_VWORKS
 
 #include "vworks_feature_tracker.hpp"
 
@@ -518,3 +519,4 @@ nvx::FeatureTracker* nvx::FeatureTracker::create(vx_context context, const Param
 {
     return new FeatureTrackerImpl(context, params);
 }
+#endif

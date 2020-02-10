@@ -11,25 +11,17 @@
 
 #include "feature_tracker.h"
 #include "../estimator/estimator.h"
-#define BACKWARD_HAS_DW 1
-#include <backward.hpp>
-#include "vworks_feature_tracker.hpp"
 
+#ifndef WITHOUT_VWORKS
+#include "vworks_feature_tracker.hpp"
+extern ovxio::ContextGuard context;
+#endif
 // #define PERF_OUTPUT
 Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
 Eigen::Quaterniond t2 = t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
 Eigen::Quaterniond t3 = t2 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
 Eigen::Quaterniond t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
 Eigen::Quaterniond t_down(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
-
-namespace backward
-{
-    backward::SignalHandling sh;
-}
-
-
-extern ovxio::ContextGuard context;
-
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt, cv::Size shape)
 {
@@ -607,6 +599,7 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     return cur_pts;
 }
 
+#ifndef WITHOUT_VWORKS
 
 pair<vector<cv::Point2f>, vector<int>> vxarray2cv_pts(vx_array fVx, bool output=false) {
     std::vector<cv::Point2f> fPts;
@@ -753,15 +746,6 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
     _id_by_index = new_id_by_index;
 }
 
-
-map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
-    map<int, cv::Point2f> prevMap;
-    for (unsigned int i = 0; i < ids.size(); i ++) {
-        prevMap[ids[i]] = cur_pts[i];
-    }
-    return prevMap;
-}
-
 void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img) {
     vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
     vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
@@ -790,6 +774,17 @@ void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda
     params.array_capacity = SIDE_PTS_CNT;
     tracker_up_side = nvx::FeatureTracker::create(context, params);
     tracker_up_side->init(vx_up_side_image, vx_up_side_mask);
+}
+
+#endif
+
+
+map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
+    map<int, cv::Point2f> prevMap;
+    for (unsigned int i = 0; i < ids.size(); i ++) {
+        prevMap[ids[i]] = cur_pts[i];
+    }
+    return prevMap;
 }
 
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
@@ -836,6 +831,10 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_down_side_un_pts.clear();
 
     if(USE_VXWORKS) {
+#ifdef WITHOUT_VWORKS
+        ROS_ERROR("You must set enable_vworks to true or disable vworks in VINS config file");
+        exit(-1);
+#else
         TicToc tic;
         //TODO: simpified this to make no copy
         up_top_img.copyTo(up_top_img_fix);
@@ -877,7 +876,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
             // ROS_INFO("Down side try to track %ld pts; gives %ld:%ld", cur_up_side_pts.size(), cur_down_side_pts.size(), ids_down_side.size());
         }
-
+#endif
     } else {
         if (up_top_img.channels() == 3) {
             cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);

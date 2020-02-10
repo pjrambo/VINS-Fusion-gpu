@@ -26,6 +26,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef WITHOUT_VWORKS
+
 #ifndef COLOR_DISPARITY_GRAPH_HPP
 #define COLOR_DISPARITY_GRAPH_HPP
 
@@ -48,5 +50,7 @@ private:
     vx_node lut_node_[3];
     vx_node combine_node_;
 };
+
+#endif
 
 #endif

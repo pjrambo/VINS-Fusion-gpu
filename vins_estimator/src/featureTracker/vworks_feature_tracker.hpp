@@ -25,6 +25,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+#ifndef WITHOUT_VWORKS
 
 #ifndef __NVX_FEATURE_TRACKER_HPP__
 #define __NVX_FEATURE_TRACKER_HPP__
@@ -77,5 +78,7 @@ namespace nvx
         virtual void printPerfs() const = 0;
     };
 }
+
+#endif
 
 #endif

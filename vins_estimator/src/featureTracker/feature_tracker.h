@@ -29,10 +29,12 @@
 #include "../utility/tic_toc.h"
 #include "fisheye_undist.hpp"
 
+#ifndef WITHOUT_VWORKS
 #include <OVX/UtilityOVX.hpp>
 #include <NVX/nvx.h>
 #include <NVX/nvx_opencv_interop.hpp>
 #include "vworks_feature_tracker.hpp"
+#endif
 
 using namespace std;
 using namespace camodocal;
@@ -191,17 +193,19 @@ public:
     int n_id;
     bool hasPrediction;
 
-    vx_image vx_up_top_image;
-    vx_image vx_down_top_image;
-    vx_image vx_up_side_image;
-    vx_image vx_down_side_image;
-
+#ifndef WITHOUT_VWORKS
     cv::cuda::GpuMat up_side_img_fix;
     cv::cuda::GpuMat down_side_img_fix;
     cv::cuda::GpuMat up_top_img_fix;
     cv::cuda::GpuMat down_top_img_fix;
 
     cv::cuda::GpuMat mask_up_top_fix, mask_down_top_fix, mask_up_side_fix;
+
+    vx_image vx_up_top_image;
+    vx_image vx_down_top_image;
+    vx_image vx_up_side_image;
+    vx_image vx_down_side_image;
+
     vx_image vx_up_top_mask;
     vx_image vx_down_top_mask;
     vx_image vx_up_side_mask;
@@ -212,7 +216,7 @@ public:
     nvx::FeatureTracker* tracker_down_side = nullptr;
 
     void init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img);
-    
+
     void process_vworks_tracking(nvx::FeatureTracker* _tracker, vector<int> & _ids, vector<cv::Point2f> & prev_pts, vector<cv::Point2f> & cur_pts, 
         vector<int> & _track, vector<cv::Point2f> & n_pts, map<int, int> &_id_by_index, bool debug_output=false);
     bool first_frame = true;
@@ -220,4 +224,6 @@ public:
     map<int, int> up_top_id_by_index;
     map<int, int> down_top_id_by_index;
     map<int, int> up_side_id_by_index;
+#endif
+
 };

@@ -26,6 +26,8 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifndef WITHOUT_VWORKS
+
 #include "stereo_matching.hpp"
 
 #include <climits>
@@ -689,3 +691,4 @@ StereoMatching::StereoMatchingParams::StereoMatchingParams()
     hc_win_size = 1;
     flags = NVX_SGM_PYRAMIDAL_STEREO;
 }
+#endif
