@@ -12,7 +12,7 @@ image0_topic: "/stereo/left/image_raw"
 image1_topic: "/stereo/right/image_raw"
 output_path: "/home/xuhao/output"
 
-depth_config: "depth.yaml"
+depth_config: "depth_cpu.yaml"
 cam0_calib: "up.yaml"
 cam1_calib: "down.yaml"
 image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
@@ -80,7 +80,7 @@ use_gpu: 1
 use_gpu_acc_flow: 1
 
 use_vxworks: 0
-rgb_depth_cloud: 0
+rgb_depth_cloud: 1
 depth_estimate_baseline: 0.05
 top_cnt: 30
 side_cnt: 30

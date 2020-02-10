@@ -11,7 +11,7 @@ Panels:
         - /VIOGroup1
         - /GlobalGroup1/CarModel1
         - /Odometry1/Shape1
-        - /DepthCloudAll1/Status1
+        - /DepthCloudAll1
       Splitter Ratio: 0.5429141521453857
     Tree Height: 350
   - Class: rviz/Selection
@@ -32,7 +32,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: DepthCloudAll
+    SyncSource: ""
   - Class: rviz/Displays
     Help Height: 138
     Name: Displays
@@ -69,12 +69,12 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 3
       Name: Axes
       Radius: 0.05000000074505806
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Class: rviz/Group
       Displays:
         - Class: rviz/MarkerArray
@@ -220,7 +220,7 @@ Visualization Manager:
           Marker Topic: /vins_estimator/camera_pose_visual
           Name: CameraMarker
           Namespaces:
-            CameraPoseVisualization: true
+            {}
           Queue Size: 100
           Value: true
         - Alpha: 1
@@ -235,7 +235,7 @@ Visualization Manager:
           Color: 255; 255; 255
           Color Transformer: Intensity
           Decay Time: 0
-          Enabled: false
+          Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -252,7 +252,7 @@ Visualization Manager:
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: false
+          Value: true
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
@@ -265,7 +265,7 @@ Visualization Manager:
           Color: 0; 255; 0
           Color Transformer: FlatColor
           Decay Time: 100
-          Enabled: false
+          Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
           Max Intensity: 4096
@@ -282,7 +282,7 @@ Visualization Manager:
           Unreliable: false
           Use Fixed Frame: true
           Use rainbow: true
-          Value: false
+          Value: true
       Enabled: true
       Name: VIOGroup
     - Class: rviz/Group
@@ -364,7 +364,7 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz/PointCloud
       Color: 255; 255; 255
-      Color Transformer: RGB8
+      Color Transformer: ""
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -373,7 +373,7 @@ Visualization Manager:
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: DepthCloudAll
-      Position Transformer: XYZ
+      Position Transformer: ""
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
@@ -425,25 +425,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 5.122714996337891
+      Distance: 8.958962440490723
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.043933868408203125
-        Y: 1.829258918762207
-        Z: 0.04465595260262489
+        X: -0.17593491077423096
+        Y: -0.6896145343780518
+        Z: 0.04465612396597862
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.3397906422615051
+      Pitch: 0.26979032158851624
       Target Frame: world
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.710219621658325
+      Yaw: 3.560215950012207
     Saved: ~
 Window Geometry:
   Displays:
@@ -461,7 +461,7 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 810
-  X: 66
-  Y: 82
+  X: 270
+  Y: 108
   loop_match_Image:
     collapsed: false

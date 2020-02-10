@@ -56,7 +56,7 @@ namespace
         ~FeatureTrackerImpl();
 
         void init(vx_image firstFrame, vx_image mask);
-        void track(vx_image newFrame, vx_image mask);
+        void track(vx_image newFrame, vx_image mask, bool lr_mode = false);
 
         vx_array getPrevFeatures() const;
         vx_array getCurrFeatures() const;

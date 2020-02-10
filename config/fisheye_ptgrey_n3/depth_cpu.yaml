@@ -2,12 +2,12 @@
 ---
 
 enable_front: 1
-enable_left: 0
-enable_right: 0
+enable_left: 1
+enable_right: 1
 enable_rear: 0
 downsample_ratio: 0.5
 use_vworks: 0
-block_size: 9
+block_size: 11
 min_disparity: 1
 num_disp: 16
 disp12Maxdiff: 28
@@ -28,3 +28,6 @@ scanlines_mask: 255
 pub_cloud_step: 1
 show_disparity: 1
 flags: 2
+depth_cloud_radius: 10
+pub_cloud_all: 1
+
