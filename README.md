@@ -8,8 +8,11 @@ Compile and install opencv 3.4 with CUDA to /usr/local/
 ### Fisheye usage
 Term 1
 >rosrun vins vins_node ~/your_ws/src/VINS-Fusion-Fisheye/config/fisheye_ptgrey_n3/fisheye.yaml
+
 Term 2
 >rosbag play fishey_vins_2020-01-30-10-38-14.bag --clock -s 12
+
+For rosbag, you can download from https://www.dropbox.com/s/oukwohva7ba381d/fishey_vins_2020-01-30-10-38-14.bag?dl=0
 ### Parameters for fisheye
 ```yaml
 image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
