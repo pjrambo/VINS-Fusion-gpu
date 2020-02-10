@@ -29,6 +29,11 @@
 #include "../utility/tic_toc.h"
 #include "fisheye_undist.hpp"
 
+#include <OVX/UtilityOVX.hpp>
+#include <NVX/nvx.h>
+#include <NVX/nvx_opencv_interop.hpp>
+#include "vworks_feature_tracker.hpp"
+
 using namespace std;
 using namespace camodocal;
 using namespace Eigen;
@@ -61,6 +66,8 @@ public:
     void setMask();
     void setMaskFisheye();
     cv::Mat setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur_pts, vector<int> & track_cnt, vector<int> & ids);
+    void setMaskFisheye(cv::cuda::GpuMat & mask, cv::Size shape, vector<cv::Point2f> & cur_pts, 
+        vector<int> & track_cnt, vector<int> & ids);
     void addPoints();
     void addPointsFisheye();
     void readIntrinsicParameter(const vector<string> &calib_file);
@@ -183,4 +190,34 @@ public:
     bool stereo_cam;
     int n_id;
     bool hasPrediction;
+
+    vx_image vx_up_top_image;
+    vx_image vx_down_top_image;
+    vx_image vx_up_side_image;
+    vx_image vx_down_side_image;
+
+    cv::cuda::GpuMat up_side_img_fix;
+    cv::cuda::GpuMat down_side_img_fix;
+    cv::cuda::GpuMat up_top_img_fix;
+    cv::cuda::GpuMat down_top_img_fix;
+
+    cv::cuda::GpuMat mask_up_top_fix, mask_down_top_fix, mask_up_side_fix;
+    vx_image vx_up_top_mask;
+    vx_image vx_down_top_mask;
+    vx_image vx_up_side_mask;
+
+    nvx::FeatureTracker* tracker_up_top = nullptr;
+    nvx::FeatureTracker* tracker_down_top = nullptr;
+    nvx::FeatureTracker* tracker_up_side = nullptr;
+    nvx::FeatureTracker* tracker_down_side = nullptr;
+
+    void init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img);
+    
+    void process_vworks_tracking(nvx::FeatureTracker* _tracker, vector<int> & _ids, vector<cv::Point2f> & prev_pts, vector<cv::Point2f> & cur_pts, 
+        vector<int> & _track, vector<cv::Point2f> & n_pts, map<int, int> &_id_by_index, bool debug_output=false);
+    bool first_frame = true;
+
+    map<int, int> up_top_id_by_index;
+    map<int, int> down_top_id_by_index;
+    map<int, int> up_side_id_by_index;
 };

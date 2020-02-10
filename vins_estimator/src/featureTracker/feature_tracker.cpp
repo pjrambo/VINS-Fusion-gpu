@@ -13,6 +13,8 @@
 #include "../estimator/estimator.h"
 #define BACKWARD_HAS_DW 1
 #include <backward.hpp>
+#include "vworks_feature_tracker.hpp"
+
 // #define PERF_OUTPUT
 Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
 Eigen::Quaterniond t2 = t1 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
@@ -24,6 +26,10 @@ namespace backward
 {
     backward::SignalHandling sh;
 }
+
+
+extern ovxio::ContextGuard context;
+
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt, cv::Size shape)
 {
@@ -290,18 +296,11 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     
     cv::vconcat(top_cam, imTrack, imTrack);
     
-    // cv::resize(up_camera, up_camera, cv::Size(side_height, side_height));
-    // cv::resize(down_camera, down_camera, cv::Size(side_height, side_height));
-
-    // cv::hconcat(up_camera, imUpSide, up_camera);
-    // cv::hconcat(down_camera, imDownSide, down_camera);
-
-    // cv::hconcat(up_camera, down_camera, imTrack);
     double fx = ((double)SHOW_WIDTH) / ((double) imUpSide.size().width);
     cv::resize(imTrack, imTrack, cv::Size(), fx, fx);
     cv::imshow("tracking", imTrack);
     // cv::imshow("tracking_top", top_cam);
-    cv::waitKey(10);
+    cv::waitKey(2);
 }
 
 
@@ -325,17 +324,11 @@ cv::cuda::GpuMat concat_side(const std::vector<cv::cuda::GpuMat> & arr) {
         for (int i = 1; i < 5; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
         }
-        if(NewImg.channels() == 3) {
-            cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
-        }
         return NewImg;
     } else {
         cv::cuda::GpuMat NewImg(rows, cols*3, arr[1].type()); 
         for (int i = 1; i < 4; i ++) {
             arr[i].copyTo(NewImg(cv::Rect(cols * (i-1), 0, cols, rows)));
-        }
-        if(NewImg.channels() == 3) {
-            cv::cuda::cvtColor(NewImg, NewImg, cv::COLOR_BGR2GRAY);
         }
         return NewImg;
     }
@@ -522,6 +515,9 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
     return un_pts;
 }
 
+
+    
+
 vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img, 
                         cv::cuda::GpuMat & prev_img, vector<cv::Point2f> & prev_pts, 
                         vector<int> & ids, vector<int> & track_cnt,
@@ -612,6 +608,152 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
 }
 
 
+pair<vector<cv::Point2f>, vector<int>> vxarray2cv_pts(vx_array fVx, bool output=false) {
+    std::vector<cv::Point2f> fPts;
+    vector<int> status;
+    vx_size numItems = 0;
+    vxQueryArray(fVx, VX_ARRAY_ATTRIBUTE_NUMITEMS, &numItems, sizeof(numItems));
+    vx_size stride = sizeof(vx_size);
+    void *base = NULL;
+    vxAccessArrayRange(fVx, 0, numItems, &stride, &base, VX_READ_ONLY);
+
+    //For tracker status
+    // Holds tracking status. Zero indicates a lost point. Initialized to 1 by corner detectors.
+
+    //The primitive uses tracking_status information for input points (VX_TYPE_KEYPOINT, NVX_TYPE_KEYPOINTF) and updates only points with non-zero tracking_status. 
+    // The points with tracking_status == 0 gets copied to the output array as is.
+    // The VisionWorks corner detectors (FastCorners, HarrisCorners, FAST Track, Harris Track) 
+    // initialize the tracking_status field of detected points to 1.
+    for (vx_size i = 0; i < numItems; i++)
+    {
+        nvx_keypointf_t* points = (nvx_keypointf_t*)base;
+        vx_float32 error = points[i].error;
+        vx_float32 orientation = points[i].orientation;
+        vx_float32 scale = points[i].scale;
+        vx_float32 strength = points[i].strength;
+        vx_int32 trackingStatus = points[i].tracking_status;
+        vx_float32 x = points[i].x;
+        vx_float32 y = points[i].y;
+        if (output) {
+            std::cout << "index: " << i
+                    // << ":: error:          " << error << std::endl
+                    // << ":: orientation:    " << orientation << std::endl
+                    // << ":: scale:          " << scale << std::endl
+                    // << ":: strength:       " << strength << std::endl
+                    << ":: status: " << trackingStatus
+                    << ":: x:   " << x
+                    << ":: y:   " << y << std::endl;
+        }
+        fPts.push_back(cv::Point2f(x, y));
+        status.push_back((int)trackingStatus);
+    }
+    return pair<vector<cv::Point2f>, vector<int>>(fPts, status);
+}
+
+
+// tracker_up_top->printPerfs();
+
+
+// //In cur pts 255 is keep tracking point
+// //0 is the new pts
+// ROS_INFO("PREV PTS");
+// auto cv_prev_pts = vxarray2cv_pts(prev_pts);
+// ROS_INFO("CUR PTS");
+// auto cv_cur_pts = vxarray2cv_pts(cur_pts);
+// ROS_INFO("VWorks track cost %fms cv pts %ld", tic.toc(), cv_cur_pts.first.size());
+// cv::cuda::GpuMat up_top_img_Debug;
+// cv::Mat uptop_debug;
+// up_side_img.copyTo(up_top_img_Debug);
+// up_top_img_Debug.download(uptop_debug);
+
+int to_pt_pos_id(const cv::Point2f & pt) {
+    return floor(pt.x * 100000) + floor(pt.y*100);
+}
+
+void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vector<int> & _ids, vector<cv::Point2f> & prev_pts, vector<cv::Point2f> & cur_pts, 
+        vector<int> &track, vector<cv::Point2f> & n_pts, map<int, int> & _id_by_index, bool debug_output) {
+    auto prev_ids = _ids;
+    map<int, int> new_id_by_index;
+    map<int, int> _track;
+    for (unsigned int i = 0; i < track.size(); i ++) {
+        _track[_ids[i]] = track[i];
+    }
+
+    _ids.clear();
+    prev_ids.clear();
+    prev_pts.clear();
+    cur_pts.clear();
+
+    auto vx_prev_pts_ = _tracker->getPrevFeatures();
+    auto vx_cur_pts_ = _tracker->getCurrFeatures();
+
+    auto cv_cur_pts_flag = vxarray2cv_pts(vx_cur_pts_, false);
+    auto cv_prev_pts_flag = vxarray2cv_pts(vx_prev_pts_, false);
+    auto cv_cur_pts = cv_cur_pts_flag.first;
+    auto cv_cur_flags = cv_cur_pts_flag.second;
+    bool first_frame = _id_by_index.empty();
+
+    if (!first_frame) {
+        for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
+            int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
+            int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
+            if (_id_by_index.find(prev_pos_id) != _id_by_index.end()) {
+                //This is keep tracking point
+                int _id = _id_by_index[prev_pos_id];
+                new_id_by_index[cur_pos_id] = _id;
+
+                _ids.push_back(_id);
+                prev_pts.push_back(cv_prev_pts_flag.first[i]);
+                cur_pts.push_back(cv_cur_pts[i]);
+                if (debug_output) {
+                    ROS_INFO("Index %d ID %d POSID %d PrevID %d PT %f %f ->  %f %f",
+                        i,
+                        _ids.back(),
+                        cur_pos_id,
+                        prev_pos_id,
+                        prev_pts.back().x, prev_pts.back().y,
+                        cur_pts.back().x, cur_pts.back().y
+                    );
+                }
+                _track[_id] ++;
+            }
+        }
+    }
+
+    for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
+        // if(cv_cur_flags[i] == 0 || first_frame) {
+        int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
+        if (_id_by_index.find(prev_pos_id) == _id_by_index.end()) {
+            //This is new create points
+            int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
+            int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
+            cur_pts.push_back(cv_cur_pts[i]);
+            _ids.push_back(n_id++);
+            new_id_by_index[cur_pos_id] = _ids.back();
+            _track[_ids.back()] = 1;
+            if (debug_output) {
+                ROS_INFO("New ID %d pos_id %d  prev_id %d PT %f %f", _ids.back(), 
+                    cur_pos_id, prev_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y);
+            }
+        }
+    }
+
+    track.clear();
+    for (unsigned int i = 0; i < _ids.size(); i ++) {
+        int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
+        int _id = new_id_by_index[cur_pos_id];
+        track.push_back(_track[_id]);
+
+        if (debug_output) {
+            ROS_INFO("ID %d POSID %d Pos %f %f",
+                _id, cur_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y);
+        }
+    }
+    
+    _id_by_index = new_id_by_index;
+}
+
+
 map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     map<int, cv::Point2f> prevMap;
     for (unsigned int i = 0; i < ids.size(); i ++) {
@@ -620,41 +762,67 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     return prevMap;
 }
 
+void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img) {
+    vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
+    vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
+    vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
+    vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
+
+    vx_up_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_top_fix); 
+    vx_down_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_down_top_fix); 
+    vx_up_side_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_side_fix); 
+    
+    nvx::FeatureTracker::Params params;
+    params.use_rgb = RGB_DEPTH_CLOUD;
+    params.use_harris_detector = false;
+    params.array_capacity = TOP_PTS_CNT;
+
+    params.lk_win_size = 21;
+    params.detector_cell_size = MIN_DIST;
+
+    tracker_up_top = nvx::FeatureTracker::create(context, params);
+    tracker_up_top->init(vx_up_top_image, vx_up_top_mask);
+
+    tracker_down_top = nvx::FeatureTracker::create(context, params);
+    tracker_down_top->init(vx_down_top_image, vx_down_top_mask);
+
+    params.detector_cell_size = MIN_DIST;
+    params.array_capacity = SIDE_PTS_CNT;
+    tracker_up_side = nvx::FeatureTracker::create(context, params);
+    tracker_up_side->init(vx_up_side_image, vx_up_side_mask);
+}
+
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
-    TicToc t_r;
     cur_time = _cur_time;
 
-    fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img);
-    fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1);
+    TicToc t_cvt;
 
+    // cv::Mat __img = _img;
+    // cv::Mat __img1 = _img1;
+    // cv::cvtColor(_img1, __img1, cv::COLOR_BGR2GRAY);
+    // cv::cvtColor(_img, __img, cv::COLOR_BGR2GRAY);
+    // ROS_INFO("CVT cost %fms", t_cvt.toc());
 
+    TicToc t_r;
+    fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img, RGB_DEPTH_CLOUD);
+    fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1, RGB_DEPTH_CLOUD);
+    static double undist_sum = 0;
+    static double undist_count = 0;
+    undist_sum = t_r.toc() + undist_sum;
+    undist_count = undist_count + 1;
+    ROS_INFO("Undist AVG cost %fms", undist_sum/undist_count);
 
+    double remap_cost = t_r.toc();
     cv::cuda::GpuMat up_side_img = concat_side(fisheye_imgs_up);
     cv::cuda::GpuMat down_side_img = concat_side(fisheye_imgs_down);
     cv::cuda::GpuMat up_top_img = fisheye_imgs_up[0];
     cv::cuda::GpuMat down_top_img = fisheye_imgs_down[0];
-
-    if (up_top_img.channels() == 3) {
-        cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
-        cv::cuda::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
-    }
-
-    // cv::Mat cam_side;
-    // //
-    // Eigen::Matrix3d _cam_side;
-    // _cam_side << fisheys_undists[0].f_side, 0, fisheys_undists[0].cx_side, 0, fisheys_undists[0].f_side, fisheys_undists[0].cy_side, 0, 0, 1;
-    // cv::eigen2cv(_cam_side, cam_side);
-    // if (dep_est == nullptr) {
-    //     dep_est = new DepthEstimator(tic0, ric0*t2, tic1, ric1*(t_down*t2), cam_side, SHOW_TRACK);
-    // }
-    // cv::Mat depth_img = dep_est->ComputeDepthImage(fisheye_imgs_up[2], fisheye_imgs_down[2]);
-    // depthmap = depth_img.clone();
+    double concat_cost = t_r.toc() - remap_cost;
 
     top_size = up_top_img.size();
     side_size = up_side_img.size();
-
 
     //Clear All current pts
     cur_up_top_pts.clear();
@@ -667,49 +835,103 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_down_top_un_pts.clear();
     cur_down_side_un_pts.clear();
 
-    //If has predict;
-    if (enable_up_top) {
-        // ROS_INFO("Tracking top");
-        cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img, prev_up_top_pts, ids_up_top, track_up_top_cnt, FLOW_BACK);
+    if(USE_VXWORKS) {
+        TicToc tic;
+        //TODO: simpified this to make no copy
+        up_top_img.copyTo(up_top_img_fix);
+        down_top_img.copyTo(down_top_img_fix);
+        up_side_img.copyTo(up_side_img_fix);
+        down_side_img.copyTo(down_side_img_fix);
+
+        ROS_INFO("Copy Image cost %fms", tic.toc());
+        if(first_frame) {
+            setMaskFisheye();
+            mask_up_top_fix.upload(mask_up_top);
+            mask_down_top_fix.upload(mask_down_top);
+            mask_up_side_fix.upload(mask_up_side);
+            ROS_INFO("setFisheyeMask Image cost %fms", tic.toc());
+
+            init_vworks_tracker(up_top_img_fix, down_top_img_fix, up_side_img_fix, down_side_img_fix);
+            first_frame = false;
+        } else {
+            tracker_up_top->track(vx_up_top_image, vx_up_top_mask);
+            tracker_down_top->track(vx_down_top_image, vx_down_top_mask);
+            tracker_up_side->track(vx_up_side_image, vx_up_side_mask);
+        }
+        
+        ROS_INFO("Track only cost %fms", tic.toc());
+
+        process_vworks_tracking(tracker_up_top,  ids_up_top, prev_up_top_pts, cur_up_top_pts, 
+            track_up_top_cnt, n_pts_up_top, up_top_id_by_index);
+
+        process_vworks_tracking(tracker_down_top,  ids_down_top, prev_down_top_pts, cur_down_top_pts, 
+            track_down_top_cnt, n_pts_down_top, down_top_id_by_index);
+        
+        process_vworks_tracking(tracker_up_side,  ids_up_side, prev_up_side_pts, cur_up_side_pts, 
+            track_up_side_cnt, n_pts_up_side, up_side_id_by_index);
+        ROS_INFO("Visionworks cost %fms", tic.toc());
+
+        if (enable_down_side) {
+            ids_down_side = ids_up_side;
+            auto down_side_init_pts = cur_up_side_pts;
+            cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
+            // ROS_INFO("Down side try to track %ld pts; gives %ld:%ld", cur_up_side_pts.size(), cur_down_side_pts.size(), ids_down_side.size());
+        }
+
+    } else {
+        if (up_top_img.channels() == 3) {
+            cv::cuda::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
+            cv::cuda::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
+            cv::cuda::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
+            cv::cuda::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
+        }
+
+        ROS_INFO("CVT Color %fms", t_r.toc());
+        
+        //If has predict;
+        if (enable_up_top) {
+            // ROS_INFO("Tracking top");
+            cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img, prev_up_top_pts, ids_up_top, track_up_top_cnt, FLOW_BACK);
+        }
+        if (enable_up_side) {
+            cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img, prev_up_side_pts, ids_up_side, track_up_side_cnt, FLOW_BACK);
+        }
+
+        if (enable_down_top) {
+            cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, FLOW_BACK);
+        }
+        
+        ROS_INFO("FT %fms", t_r.toc());
+
+        setMaskFisheye();
+
+        ROS_INFO("SetMaskFisheye %fms", t_r.toc());
+
+        if (enable_up_top) {
+            // ROS_INFO("Detecting top");
+            detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
+        }
+        if (enable_down_top) {
+            detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
+        }
+
+        if (enable_up_side) {
+            detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
+        }
+
+        ROS_INFO("DetectPoints %fms", t_r.toc());
+
+        addPointsFisheye();
+
+        if (enable_down_side) {
+            ids_down_side = ids_up_side;
+            auto down_side_init_pts = cur_up_side_pts;
+            cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
+            // ROS_INFO("Down side try to track %ld pts; gives %ld:%ld", cur_up_side_pts.size(), cur_down_side_pts.size(), ids_down_side.size());
+        }
     }
-    if (enable_up_side) {
-        cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img, prev_up_side_pts, ids_up_side, track_up_side_cnt, FLOW_BACK);
-    }
-
-    if (enable_down_top) {
-        cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, FLOW_BACK);
-    }
-    
-
-    setMaskFisheye();
-    if (enable_up_top) {
-        // ROS_INFO("Detecting top");
-        detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
-    }
-    if (enable_down_top) {
-        detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
-    }
-
-    if (enable_up_side) {
-        detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
-    }
-
-    addPointsFisheye();
-
-
-    if (enable_down_side) {
-        ids_down_side = ids_up_side;
-        auto down_side_init_pts = cur_up_side_pts;
-        cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
-        // ROS_INFO("Down side try to track %ld pts; gives %ld:%ld", cur_up_side_pts.size(), cur_down_side_pts.size(), ids_down_side.size());
-    }
-
-
-
-
 
     //Undist points
-
     cur_up_top_un_pts = undistortedPtsTop(cur_up_top_pts, fisheys_undists[0]);
     cur_down_top_un_pts = undistortedPtsTop(cur_down_top_pts, fisheys_undists[1]);
 
@@ -724,6 +946,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     down_side_vel = ptsVelocity3D(ids_down_side, cur_down_side_un_pts, cur_down_side_un_pts_map, prev_down_side_un_pts_map);
 
     // ROS_INFO("Up top VEL %ld", up_top_vel.size());
+    double tcost_all = t_r.toc();
     if (SHOW_TRACK) {
         drawTrackFisheye(_img, _img1, up_top_img, down_top_img, up_side_img, down_side_img);
     }
@@ -756,7 +979,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // hasPrediction = false;
     auto ff = setup_feature_frame();
 
-    printf("feature track whole time %f PTS %ld\n", t_r.toc(), ff.size());
+    printf("FT Whole %fms; MainProcess %fms Remap %fms Concat %fms PTS %ld T\n", t_r.toc(), tcost_all, remap_cost, concat_cost, ff.size());
     return ff;
 }
 

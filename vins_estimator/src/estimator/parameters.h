@@ -30,6 +30,7 @@ extern double INIT_DEPTH;
 extern double THRES_OUTLIER;
 extern double MIN_PARALLAX;
 extern int ESTIMATE_EXTRINSIC;
+extern int USE_VXWORKS;
 
 extern double ACC_N, ACC_W;
 extern double GYR_N, GYR_W;
@@ -56,6 +57,7 @@ extern int SHOW_WIDTH;
 extern int NUM_OF_CAM;
 extern int STEREO;
 extern int FISHEYE;
+extern int RGB_DEPTH_CLOUD;
 extern double FISHEYE_FOV;
 
 extern int enable_up_top;

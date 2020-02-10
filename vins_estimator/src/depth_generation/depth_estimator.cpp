@@ -68,11 +68,6 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             double min_val, max_val;
             cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
             raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
-            // cv::cvtColor(raw_disp_map, raw_disp_map, cv::COLOR_GRAY2BGR);
-            
-            // cv::transpose(left_rect, left_rect);
-            // cv::transpose(right_rect, right_rect);
-            // cv::transpose(scaled_disp_map, scaled_disp_map);
 
             cv::hconcat(left_rect, right_rect, _show);
             cv::hconcat(_show, scaled_disp_map, _show);
