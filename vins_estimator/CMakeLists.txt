@@ -32,6 +32,7 @@ if(ENABLE_VWORKS)
     include_directories(
         /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
     )
+    link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
 else()
     add_definitions(-DWITHOUT_VWORKS)
 endif(ENABLE_VWORKS)
@@ -60,8 +61,6 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
   ${VisionWorks_INCLUDE_DIRS}
 )
-
-link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
 
 message(STATUS "OpenCV library status:")
 message(STATUS "    version: ${OpenCV_VERSION}")

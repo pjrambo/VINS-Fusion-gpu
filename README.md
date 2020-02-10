@@ -1,5 +1,13 @@
 # VINS-Fusion-fisheye
-This repository is a version of VINS-Fusion with Dual Fisheye and GPU and Visionworks acceleration. It can run on Nvidia TX2 in real-time. 
+This repository is a version of VINS-Fusion with Dual Fisheye and GPU and Visionworks acceleration. It can run on Nvidia TX2 in real-time, also provide depth estimation based on fisheye.
+
+Drone path and RGB point cloud estimation
+![Image of PCL](support_files/point_cloud.png)
+Feature tracker for fisheye
+![Image of fisheye](support_files/feature_track.png)
+Disparity estimation for depth estimation
+![Image of Disparity](support_files/disparity.png)
+
 ## 1. Prerequisites  
 The essential software environment is same as VINS-Fusion. Besides, it requires OpenCV cuda version.(Only test it on OpenCV 3.4.1).
 Visionworks: Optional
