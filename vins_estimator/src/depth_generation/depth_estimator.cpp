@@ -214,7 +214,11 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
 
 cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     static int count = 0;
-    if (count ++ % 1 == 0) {
+    int skip = 10/extrinsic_calib_rate;
+    if (skip <= 0) {
+        skip = 1;
+    }
+    if (count ++ % skip == 0) {
         if(enable_extrinsic_calib) {
             bool success = online_calib->calibrate_extrincic(left, right);
             if (success) {

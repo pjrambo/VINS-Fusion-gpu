@@ -55,6 +55,7 @@ class DepthEstimator {
     bool enable_extrinsic_calib = false;
 
     std::string output_path;
+    double extrinsic_calib_rate = 1;
 #ifndef WITHOUT_VWORKS
     vx_image vx_img_l;
     vx_image vx_img_r;

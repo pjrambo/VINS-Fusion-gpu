@@ -20,6 +20,7 @@ using namespace std;
 class StereoOnlineCalib {
     cv::Mat cameraMatrix;
     cv::Mat R, T;
+    cv::Mat R0, T0;
     cv::Mat E;
     Eigen::Matrix3d E_eig;
     Eigen::Vector3d T_eig;
@@ -29,7 +30,7 @@ class StereoOnlineCalib {
     double scale = 0;
 public:
     StereoOnlineCalib(cv::Mat _R, cv::Mat _T, cv::Mat _cameraMatrix, bool _show):
-        cameraMatrix(_cameraMatrix), show(_show)
+        cameraMatrix(_cameraMatrix), R0(_R), T0(_T), show(_show)
     {
         scale = cv::norm(_T);
         update(_R, _T);
@@ -44,6 +45,8 @@ public:
     }
     
     void update(cv::Mat R, cv::Mat T) {
+        std::cerr << "R" << R << std::endl;
+        std::cerr << "T1" << T << std::endl;
         this->R = R;
         this->T = T;
         cv::cv2eigen(T, T_eig);
@@ -85,17 +88,14 @@ bool StereoOnlineCalib::calibrate_extrinsic_opencv(std::vector<cv::Point2f> left
     }
 
 
-    double dis1 = norm(R - R1);
-    double dis2 = norm(R - R2);
-    double dis3 = norm(t - T/scale);
+    double dis1 = norm(R0 - R1);
+    double dis2 = norm(R0 - R2);
+    double dis3 = norm(t - T0/scale);
 
     // std::cout << "R0" << R << std::endl;
     // std::cout << "T0" << T << std::endl;
     
-    // std::cout << "Essential Matrix" << essentialMat << std::endl;
-    // std::cout << "R1" << R1 << "DIS" << norm(R - R1) << std::endl;
-    // std::cout << "R2" << R2 << "DIS" << norm(R - R2) << std::endl;
-    // std::cout << "T1" << t*scale << "DIS" << dis3 << std::endl;
+
 
     if (dis1 < dis2) {
         if (dis1 < GOOD_R_THRES && dis3 < GOOD_T_THRES) {
@@ -353,10 +353,10 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
 
     double thres = 0.05;
     
-    // matches = filter_by_x(matches, kps2, kps1, thres);
-    // matches = filter_by_y(matches, kps2, kps1, thres);
+    matches = filter_by_x(matches, kps2, kps1, thres);
+    matches = filter_by_y(matches, kps2, kps1, thres);
 
-    matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
+    // matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
 
     vector<cv::Point2f> _pts1, _pts2;
     vector<uchar> status;
