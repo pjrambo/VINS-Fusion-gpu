@@ -1,5 +1,4 @@
-#define USE_VWORKS
-#include <opencv/cv.h>
+#include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/core/eigen.hpp>
@@ -39,6 +38,8 @@ struct SGMParams {
     int flags = 1;
 };
 
+class StereoOnlineCalib;
+
 class DepthEstimator {
     cv::Mat cameraMatrix;
     bool show = false;
@@ -66,35 +67,18 @@ class DepthEstimator {
     ColorDisparityGraph * color;
 #endif
 
+    StereoOnlineCalib * online_calib;
+
     std::vector<cv::Point2f> left_pts;
     std::vector<cv::Point2f> right_pts;
 
 public:
     DepthEstimator(SGMParams _params, Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,
-    bool _show, bool _enable_extrinsic_calib, std::string _output_path):
-        cameraMatrix(camera_mat.clone()),show(_show),params(_params),
-        enable_extrinsic_calib(_enable_extrinsic_calib),output_path(_output_path)
-    {
-        cv::eigen2cv(R01, R);
-        cv::eigen2cv(t01, T);
-    }
+    bool _show, bool _enable_extrinsic_calib, std::string _output_path);
 
     DepthEstimator(SGMParams _params, std::string Path, cv::Mat camera_mat,
-    bool _show, bool _enable_extrinsic_calib, std::string _output_path):
-        cameraMatrix(camera_mat.clone()),show(_show),params(_params),
-        enable_extrinsic_calib(_enable_extrinsic_calib),output_path(_output_path)
-    {
-        cv::FileStorage fsSettings(Path, cv::FileStorage::READ);
-        ROS_INFO("Stereo read RT from %s", Path.c_str());
-        fsSettings["R"] >> R;
-        fsSettings["T"] >> T;
-        fsSettings.release();
-    }
+    bool _show, bool _enable_extrinsic_calib, std::string _output_path);
 
-    bool calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
     cv::Mat ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
-    cv::Mat ComputeDispartiyMapVisionWorks(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
     cv::Mat ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
-    void find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2, bool visualize = false);
-
 };

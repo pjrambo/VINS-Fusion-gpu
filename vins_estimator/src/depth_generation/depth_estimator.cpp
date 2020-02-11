@@ -7,75 +7,44 @@
 #include "../utility/tic_toc.h"
 #include <opencv2/cudafeatures2d.hpp>
 #include "../estimator/parameters.h"
+#include "stereo_online_calib.hpp"
 
 #ifndef WITHOUT_VWORKS
 ovxio::ContextGuard context;
 #endif
 
-#define MINIUM_ESSENTIALMAT_SIZE 10
-#define GOOD_RT_THRES 0.1
-#define GOOD_RT_THRES_T 0.1
 
-bool DepthEstimator::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
 
-    std::vector<cv::Point2f> Pts1;
-    std::vector<cv::Point2f> Pts2;
-    TicToc tic1;
-    find_corresponding_pts(left, right, Pts1, Pts2, true);
+DepthEstimator::DepthEstimator(SGMParams _params, Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,
+bool _show, bool _enable_extrinsic_calib, std::string _output_path):
+    cameraMatrix(camera_mat.clone()),show(_show),params(_params),
+    enable_extrinsic_calib(_enable_extrinsic_calib),output_path(_output_path)
+{
+    cv::eigen2cv(R01, R);
+    cv::eigen2cv(t01, T);
 
-    if (Pts1.size() < MINIUM_ESSENTIALMAT_SIZE) {
-        return false;
+    if (enable_extrinsic_calib) {
+        online_calib = new StereoOnlineCalib(R, T, cameraMatrix, show);
     }
-
-    left_pts.insert( left_pts.end(), Pts1.begin(), Pts1.end() );
-    right_pts.insert( right_pts.end(), Pts2.begin(), Pts2.end() );
-
-    ROS_INFO("All pts for stereo calib %d; Find1 use %fms", left_pts.size(), tic1.toc());
-
-    if (left_pts.size() < 50) {
-        return false;
-    }
-    TicToc tic2;
-    vector<uchar> status;
-    cv::Mat essentialMat = cv::findEssentialMat(left_pts, right_pts, cameraMatrix, cv::RANSAC, 0.999, 1.0, status);
-    ROS_INFO("Find2 use %fms", left_pts.size(), tic2.toc());
-
-    double scale = norm(T);
-
-    cv::Mat R1, R2, t;
-    decomposeEssentialMat(essentialMat, R1, R2, t);
-    if (t.at<double>(0, 0) > 0) {
-        t = -t;
-    }
-
-
-    double dis1 = norm(R - R1);
-    double dis2 = norm(R - R2);
-    double dis3 = norm(t - T/scale);
-
-    std::cout << "R0" << R << std::endl;
-    std::cout << "T0" << T << std::endl;
-    
-    std::cout << "Essential Matrix" << essentialMat << std::endl;
-    std::cout << "R1" << R1 << "DIS" << norm(R - R1) << std::endl;
-    std::cout << "R2" << R2 << "DIS" << norm(R - R2) << std::endl;
-    std::cout << "T1" << t*scale << "DIS" << dis3 << std::endl;
-
-    if (dis1 < dis2) {
-        if (dis1 < GOOD_RT_THRES && dis3 < GOOD_RT_THRES_T) {
-            R = R1;
-            T = t*scale;
-            return true;
-        }
-    } else {
-        if (dis2 < GOOD_RT_THRES && dis3 < GOOD_RT_THRES_T) {
-            R = R2;
-            T = t*scale;
-            return true;
-        }
-    }
-    return false;
 }
+
+DepthEstimator::DepthEstimator(SGMParams _params, std::string Path, cv::Mat camera_mat,
+bool _show, bool _enable_extrinsic_calib, std::string _output_path):
+    cameraMatrix(camera_mat.clone()),show(_show),params(_params),
+    enable_extrinsic_calib(_enable_extrinsic_calib),output_path(_output_path)
+{
+    cv::FileStorage fsSettings(Path, cv::FileStorage::READ);
+    ROS_INFO("Stereo read RT from %s", Path.c_str());
+    fsSettings["R"] >> R;
+    fsSettings["T"] >> T;
+    fsSettings.release();
+
+    if (enable_extrinsic_calib) {
+        online_calib = new StereoOnlineCalib(R, T, cameraMatrix, show);
+    }
+}
+    
+
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
@@ -247,8 +216,10 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
     static int count = 0;
     if (count ++ % 10 == 0) {
         if(enable_extrinsic_calib) {
-            bool success = calibrate_extrincic(left, right);
+            bool success = online_calib->calibrate_extrincic(left, right);
             if (success) {
+                R = online_calib->get_rotation();
+                T = online_calib->get_translation();
                 cv::FileStorage fs(output_path, cv::FileStorage::WRITE);
                 fs << "R" << R;
                 fs << "T" << T;
@@ -280,233 +251,3 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
     return XYZ;
 }
 
-#define ORB_HAMMING_DISTANCE 40 //Max hamming
-#define ORB_UV_DISTANCE 1.5 //UV distance bigger than mid*this will be removed
-
-
-std::vector<cv::KeyPoint> detect_orb_by_region(cv::Mat _img, int features, int cols = 4, int rows = 3) {
-    int small_width = _img.cols / cols;
-    int small_height = _img.rows / rows;
-    printf("Cut to W %d H %d for FAST\n", small_width, small_height);
-    
-    auto _orb = cv::ORB::create(features/(cols*rows));
-    std::vector<cv::KeyPoint> ret;
-    for (int i = 0; i < cols; i ++) {
-        for (int j = 0; j < rows; j ++) {
-            std::vector<cv::KeyPoint> kpts;
-            _orb->detect(_img(cv::Rect(small_width*i, small_width*j, small_width, small_height)), kpts);
-            printf("Detect %ld feature in reigion %d %d\n", kpts.size(), i, j);
-
-            for (auto kp : kpts) {
-                kp.pt.x = kp.pt.x + small_width*i;
-                kp.pt.y = kp.pt.y + small_width*j;
-                ret.push_back(kp);
-            }
-        }
-    }
-
-    return ret;
-}
-
-std::vector<cv::DMatch> filter_by_duv(const std::vector<cv::DMatch> & matches, 
-    std::vector<cv::KeyPoint> query_pts, 
-    std::vector<cv::KeyPoint> train_pts) {
-    std::vector<cv::DMatch> good_matches;
-    std::vector<float> uv_dis;
-    for (auto gm : matches) {
-        if (gm.queryIdx >= query_pts.size() || gm.trainIdx >= train_pts.size()) {
-            ROS_ERROR("out of size");
-            exit(-1);
-        } 
-        uv_dis.push_back(cv::norm(query_pts[gm.queryIdx].pt - train_pts[gm.trainIdx].pt));
-    }
-
-    std::sort(uv_dis.begin(), uv_dis.end());
-    
-    // printf("MIN UV DIS %f, MID %f END %f\n", uv_dis[0], uv_dis[uv_dis.size()/2], uv_dis[uv_dis.size() - 1]);
-
-    double mid_dis = uv_dis[uv_dis.size()/2];
-
-    for (auto gm: matches) {
-        if (gm.distance < mid_dis*ORB_UV_DISTANCE) {
-            good_matches.push_back(gm);
-        }
-    }
-
-    return good_matches;
-}
-
-std::vector<cv::DMatch> filter_by_x(const std::vector<cv::DMatch> & matches, 
-    std::vector<cv::KeyPoint> query_pts, 
-    std::vector<cv::KeyPoint> train_pts, double OUTLIER_XY_PRECENT) {
-    std::vector<cv::DMatch> good_matches;
-    std::vector<float> dxs;
-    for (auto gm : matches) {
-        dxs.push_back(query_pts[gm.queryIdx].pt.x - train_pts[gm.trainIdx].pt.x);
-    }
-
-    std::sort(dxs.begin(), dxs.end());
-
-    int num = dxs.size();
-    int l = num*OUTLIER_XY_PRECENT;
-    if (l == 0) {
-        l = 1;
-    }
-    int r = num*(1-OUTLIER_XY_PRECENT);
-    if (r >= num - 1) {
-        r = num - 2;
-    }
-
-    if (r <= l ) {
-        return good_matches;
-    }
-
-    // printf("MIN DX DIS:%f, l:%f m:%f r:%f END:%f\n", dxs[0], dxs[l], dxs[num/2], dxs[r], dxs[dxs.size() - 1]);
-
-    double lv = dxs[l];
-    double rv = dxs[r];
-
-    for (auto gm: matches) {
-        if (query_pts[gm.queryIdx].pt.x - train_pts[gm.trainIdx].pt.x > lv && query_pts[gm.queryIdx].pt.x - train_pts[gm.trainIdx].pt.x < rv) {
-            good_matches.push_back(gm);
-        }
-    }
-
-    return good_matches;
-}
-
-std::vector<cv::DMatch> filter_by_y(const std::vector<cv::DMatch> & matches, 
-    std::vector<cv::KeyPoint> query_pts, 
-    std::vector<cv::KeyPoint> train_pts, double OUTLIER_XY_PRECENT) {
-    std::vector<cv::DMatch> good_matches;
-    std::vector<float> dys;
-    for (auto gm : matches) {
-        dys.push_back(query_pts[gm.queryIdx].pt.y - train_pts[gm.trainIdx].pt.y);
-    }
-
-    std::sort(dys.begin(), dys.end());
-
-    int num = dys.size();
-    int l = num*OUTLIER_XY_PRECENT;
-    if (l == 0) {
-        l = 1;
-    }
-    int r = num*(1-OUTLIER_XY_PRECENT);
-    if (r >= num - 1) {
-        r = num - 2;
-    }
-
-    if (r <= l ) {
-        return good_matches;
-    }
-
-    // printf("MIN DX DIS:%f, l:%f m:%f r:%f END:%f\n", dys[0], dys[l], dys[num/2], dys[r], dys[dys.size() - 1]);
-
-    double lv = dys[l];
-    double rv = dys[r];
-
-    for (auto gm: matches) {
-        if (query_pts[gm.queryIdx].pt.y - train_pts[gm.trainIdx].pt.y > lv && query_pts[gm.queryIdx].pt.y - train_pts[gm.trainIdx].pt.y < rv) {
-            good_matches.push_back(gm);
-        }
-    }
-
-    return good_matches;
-}
-
-std::vector<cv::DMatch> filter_by_hamming(const std::vector<cv::DMatch> & matches) {
-    std::vector<cv::DMatch> good_matches;
-    std::vector<float> dys;
-    for (auto gm : matches) {
-        dys.push_back(gm.distance);
-    }
-
-    std::sort(dys.begin(), dys.end());
-
-    // printf("MIN DX DIS:%f, 2min %fm ax %f\n", dys[0], 2*dys[0], dys[dys.size() - 1]);
-
-    double max_hamming = 2*dys[0];
-    if (max_hamming < ORB_HAMMING_DISTANCE) {
-        max_hamming = ORB_HAMMING_DISTANCE;
-    }
-    for (auto gm: matches) {
-        if (gm.distance < max_hamming) {
-            good_matches.push_back(gm);
-        }
-    }
-
-    return good_matches;
-}
-
-
-void DepthEstimator::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2, bool visualize) {
-    TicToc tic;
-    std::vector<cv::KeyPoint> kps1, kps2;
-    std::vector<cv::DMatch> good_matches;
-    // bool use_surf = false;
-
-    // auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
-    std::cout << img1.size() << std::endl;
-    // auto _orb = cv::cuda::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
-    // cv::Mat _mask(img1.size(), CV_8UC1, cv::Scalar(255));
-    // cv::cuda::GpuMat mask(_mask);
-    
-    cv::Mat desc1, desc2;
-    cv::Mat _img1, _img2, mask;
-    
-    img1.download(_img1);
-    img2.download(_img2);
-
-    auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
-    _orb->detectAndCompute(_img1, mask, kps1, desc1);
-    _orb->detectAndCompute(_img2, mask, kps2, desc2);
-
-    size_t j = 0;
-
-    cv::BFMatcher bfmatcher(cv::NORM_HAMMING2, true);
-    std::vector<cv::DMatch> matches;
-    bfmatcher.match(desc2, desc1, matches);
-    // printf("ORIGIN MATCHES %ld\n", matches.size());
-    matches = filter_by_hamming(matches);
-    // printf("AFTER HAMMING X MATCHES %ld\n", matches.size());
-    
-    // matches = filter_by_duv(matches, kps2, kps1);
-    // printf("AFTER DUV MATCHES %ld\n", matches.size());
-
-    double thres = 0.05;
-    
-    matches = filter_by_x(matches, kps2, kps1, thres);
-    matches = filter_by_y(matches, kps2, kps1, thres);
-
-    vector<cv::Point2f> _pts1, _pts2;
-    vector<uchar> status;
-    for (auto gm : matches) {
-        auto _id1 = gm.trainIdx;
-        auto _id2 = gm.queryIdx;
-        _pts1.push_back(kps1[_id1].pt);
-        _pts2.push_back(kps2[_id2].pt);
-    }
-
-    // cv::findEssentialMat(_pts1, _pts2, cv::RANSAC, 0.99, 1.0, status);
-    cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
-
-    for(int i = 0; i < _pts1.size(); i ++) {
-        if (i < status.size() && status[i]) {
-            Pts1.push_back(_pts1[i]);
-            Pts2.push_back(_pts2[i]);
-            good_matches.push_back(matches[i]);
-        }
-    }
-
-    ROS_INFO("Find correponding cost %fms", tic.toc());
-    
-    if (visualize) {
-        cv::Mat img1_cpu, img2_cpu, _show;
-        // img1.download(_img1);
-        // img2.download(_img2);
-        cv::drawMatches(_img2, kps2, _img1, kps1, good_matches, _show);
-        // cv::resize(_show, _show, cv::Size(), VISUALIZE_SCALE, VISUALIZE_SCALE);
-        cv::imshow("KNNMatch", _show);
-        cv::waitKey(2);
-    }
-}
