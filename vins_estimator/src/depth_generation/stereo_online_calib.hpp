@@ -13,20 +13,26 @@
 #define MINIUM_ESSENTIALMAT_SIZE 10
 #define GOOD_R_THRES 0.1
 #define GOOD_T_THRES 0.1
-
+#define MAX_FIND_ESSENTIALMAT_PTS 100000
+#define MAX_ESSENTIAL_OUTLIER_COST 0.01
 using namespace std;
 
 class StereoOnlineCalib {
     cv::Mat cameraMatrix;
     cv::Mat R, T;
+    cv::Mat E;
+    Eigen::Matrix3d E_eig;
     Eigen::Vector3d T_eig;
     Eigen::Matrix3d R_eig;
     bool show;
     std::vector<cv::Point2f> left_pts, right_pts;
+    double scale = 0;
 public:
     StereoOnlineCalib(cv::Mat _R, cv::Mat _T, cv::Mat _cameraMatrix, bool _show):
-        R(_R), T(_T), cameraMatrix(_cameraMatrix), show(_show)
+        cameraMatrix(_cameraMatrix), show(_show)
     {
+        scale = cv::norm(_T);
+        update(_R, _T);
     }
 
     cv::Mat get_rotation() {
@@ -37,6 +43,20 @@ public:
         return T;
     }
     
+    void update(cv::Mat R, cv::Mat T) {
+        this->R = R;
+        this->T = T;
+        cv::cv2eigen(T, T_eig);
+        cv::cv2eigen(R, R_eig);
+
+        Eigen::Matrix3d Tcross;
+        Tcross << 0, -T_eig.z(), T_eig.y(),
+                T_eig.z(), 0, -T_eig.x(),
+                -T_eig.y(), T_eig.x(), 0;
+        E_eig = Tcross*R_eig;
+        cv::eigen2cv(E_eig, E);
+    }
+
     void find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2);
     bool calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
     static std::vector<cv::KeyPoint> detect_orb_by_region(cv::Mat _img, int features, int cols = 4, int rows = 3);
@@ -49,10 +69,14 @@ bool StereoOnlineCalib::calibrate_extrinsic_opencv(std::vector<cv::Point2f> left
     }
     TicToc tic2;
     vector<uchar> status;
-    cv::Mat essentialMat = cv::findEssentialMat(left_pts, right_pts, cameraMatrix, cv::RANSAC, 0.999, 1.0, status);
-    ROS_INFO("Find2 use %fms", left_pts.size(), tic2.toc());
+    cv::Mat essentialMat = cv::findEssentialMat(left_pts, right_pts, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
+    int status_count = 0;
+    for (auto u : status) {
+        status_count += u;
+    }
 
-    double scale = norm(T);
+    ROS_INFO("Find EssentialMat with %ld/%d pts use %fms", left_pts.size(), status_count, tic2.toc());
+
 
     cv::Mat R1, R2, t;
     decomposeEssentialMat(essentialMat, R1, R2, t);
@@ -75,9 +99,7 @@ bool StereoOnlineCalib::calibrate_extrinsic_opencv(std::vector<cv::Point2f> left
 
     if (dis1 < dis2) {
         if (dis1 < GOOD_R_THRES && dis3 < GOOD_T_THRES) {
-            R = R1;
-            T = t*scale;
-            
+            update(R1, t*scale);
             ROS_INFO("Update R T");
             std::cout << "R" << R << std::endl;
             std::cout << "T" << T << std::endl;
@@ -85,9 +107,7 @@ bool StereoOnlineCalib::calibrate_extrinsic_opencv(std::vector<cv::Point2f> left
         }
     } else {
         if (dis2 < GOOD_R_THRES && dis3 < GOOD_T_THRES) {
-            R = R2;
-            T = t*scale;
-
+            update(R2, t*scale);
             ROS_INFO("Update R T");
             std::cout << "R" << R << std::endl;
             std::cout << "T" << T << std::endl;
@@ -101,7 +121,6 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
 
     std::vector<cv::Point2f> Pts1;
     std::vector<cv::Point2f> Pts2;
-    TicToc tic1;
     find_corresponding_pts(left, right, Pts1, Pts2);
 
     if (Pts1.size() < MINIUM_ESSENTIALMAT_SIZE) {
@@ -111,7 +130,10 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
     left_pts.insert( left_pts.end(), Pts1.begin(), Pts1.end() );
     right_pts.insert( right_pts.end(), Pts2.begin(), Pts2.end() );
 
-    ROS_INFO("All pts for stereo calib %d; Find1 use %fms", left_pts.size(), tic1.toc());
+    while (left_pts.size() > MAX_FIND_ESSENTIALMAT_PTS) {
+        left_pts.erase(left_pts.begin());
+        right_pts.erase(right_pts.begin());
+    }
 
     return calibrate_extrinsic_opencv(left_pts, right_pts);
 }
@@ -271,6 +293,35 @@ std::vector<cv::DMatch> filter_by_hamming(const std::vector<cv::DMatch> & matche
 }
 
 
+//Assue undist image
+Eigen::Vector3d undist(const cv::Point2f & pt, const cv::Mat & cameraMatrix) {
+    double x = (pt.x - cameraMatrix.at<double>(0, 2))/ cameraMatrix.at<double>(0, 0);
+    double y = (pt.y - cameraMatrix.at<double>(1, 2))/ cameraMatrix.at<double>(1, 1);
+    return Eigen::Vector3d(x, y, 1);
+}
+
+std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,     
+    std::vector<cv::KeyPoint> query_pts, 
+    std::vector<cv::KeyPoint> train_pts, 
+    cv::Mat cameraMatrix, Eigen::Matrix3d E) {
+    std::vector<cv::DMatch> good_matches;
+    std::vector<float> dys;
+
+    for (auto gm: matches) {
+        auto pt1 = train_pts[gm.trainIdx].pt;
+        auto pt2 = query_pts[gm.queryIdx].pt;
+
+        auto f1 = undist(pt1, cameraMatrix);
+        auto f2 = undist(pt2, cameraMatrix);
+
+        auto cost = f1.transpose()*E*f2;
+        if (cost.norm() < MAX_ESSENTIAL_OUTLIER_COST) {
+            good_matches.push_back(gm);
+        }
+    }
+    return good_matches;
+}
+
 void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2) {
     TicToc tic;
     std::vector<cv::KeyPoint> kps1, kps2;
@@ -298,17 +349,14 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
     cv::BFMatcher bfmatcher(cv::NORM_HAMMING2, true);
     std::vector<cv::DMatch> matches;
     bfmatcher.match(desc2, desc1, matches);
-    // printf("ORIGIN MATCHES %ld\n", matches.size());
     matches = filter_by_hamming(matches);
-    // printf("AFTER HAMMING X MATCHES %ld\n", matches.size());
-    
-    // matches = filter_by_duv(matches, kps2, kps1);
-    // printf("AFTER DUV MATCHES %ld\n", matches.size());
 
     double thres = 0.05;
     
-    matches = filter_by_x(matches, kps2, kps1, thres);
-    matches = filter_by_y(matches, kps2, kps1, thres);
+    // matches = filter_by_x(matches, kps2, kps1, thres);
+    // matches = filter_by_y(matches, kps2, kps1, thres);
+
+    matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
 
     vector<cv::Point2f> _pts1, _pts2;
     vector<uchar> status;
@@ -319,6 +367,9 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
         _pts2.push_back(kps2[_id2].pt);
     }
 
+    ROS_INFO("BRIEF MATCH cost %fms", tic.toc());
+
+    TicToc tic0;
     if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
         cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
     }
@@ -330,8 +381,9 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
             good_matches.push_back(matches[i]);
         }
     }
+    // good_matches = matches;
 
-    ROS_INFO("Find correponding cost %fms", tic.toc());
+    ROS_INFO("Total %ld cost %fms Find Essential cost %fms", Pts1.size(), tic.toc(), tic0.toc());
     
     if (show) {
         cv::Mat img1_cpu, img2_cpu, _show;

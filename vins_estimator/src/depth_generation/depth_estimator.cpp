@@ -214,7 +214,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
 
 cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     static int count = 0;
-    if (count ++ % 10 == 0) {
+    if (count ++ % 1 == 0) {
         if(enable_extrinsic_calib) {
             bool success = online_calib->calibrate_extrincic(left, right);
             if (success) {
@@ -224,6 +224,7 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
                 fs << "R" << R;
                 fs << "T" << T;
                 fs.release();
+                first_init = true;
             }
         }
     }
