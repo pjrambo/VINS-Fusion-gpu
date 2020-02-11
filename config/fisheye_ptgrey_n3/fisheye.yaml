@@ -12,7 +12,7 @@ image0_topic: "/stereo/left/image_raw"
 image1_topic: "/stereo/right/image_raw"
 output_path: "/home/xuhao/output"
 
-depth_config: "depth.yaml"
+depth_config: "depth_cpu.yaml"
 cam0_calib: "up.yaml"
 cam1_calib: "down.yaml"
 image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
@@ -83,8 +83,8 @@ rgb_depth_cloud: 0 # -1: not estimate depth, 0 depth cloud will be gray, 1 depth
 #Note that colored depth cloud will slow down whole system
 
 depth_estimate_baseline: 0.05
-top_cnt: 50
-side_cnt: 50
+top_cnt: 30
+side_cnt: 30
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 
 # min_dist: 20            # min distance between two features, this is for GFTT

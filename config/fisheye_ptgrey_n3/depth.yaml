@@ -2,12 +2,12 @@
 ---
 
 enable_front: 1
-enable_left: 0
-enable_right: 0
+enable_left: 1
+enable_right: 1
 enable_rear: 0
-downsample_ratio: 1.0
+downsample_ratio: 0.5
 use_vworks: 1
-block_size: 11 #Bigger gives better quality; but slow
+block_size: 9 #Bigger gives better quality; but slow
 min_disparity: 2
 num_disp: 32
 disp12Maxdiff: 32000
@@ -17,8 +17,10 @@ uniquenessRatio: 25
 speckleWindowSize: 300
 speckleRange: 5
 mode: 1
-p1: 8 #Bigger gives smooth
-p2: 109
+# p1: 8 #Bigger gives smooth
+# p2: 109
+p1: 90 #Bigger gives smooth
+p2: 129
 
 bt_clip_value: 95
 ct_win_size: 0
@@ -30,9 +32,11 @@ pub_cloud_per_direction: 0
 
 pub_cloud_step: 3
 pub_depth_map: 1
-show_disparity: 1
+show_disparity: 0
 flags: 2
-depth_cloud_radius: 30
+depth_cloud_radius: 15
 enable_extrinsic_calib: 0
 
 front_depth_RT: "front_depth.yaml"
+left_depth_RT: "left_depth.yaml"
+right_depth_RT: "right_depth.yaml"
