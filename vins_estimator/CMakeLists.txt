@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g ")
 
-set(ENABLE_BACKWARD false)
+set(ENABLE_BACKWARD true)
 set(ENABLE_VWORKS true)
 
 find_package(catkin REQUIRED COMPONENTS

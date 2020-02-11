@@ -2,10 +2,10 @@
 ---
 
 enable_front: 1
-enable_left: 1
-enable_right: 1
+enable_left: 0
+enable_right: 0
 enable_rear: 0
-downsample_ratio: 0.5
+downsample_ratio: 1.0
 use_vworks: 0
 block_size: 11
 min_disparity: 1
@@ -19,6 +19,8 @@ speckleRange: 5
 mode: 1
 p1: 3000
 p2: 3600
+# p1: 1000
+# p2: 1600
 
 bt_clip_value: 31
 ct_win_size: 0
@@ -26,9 +28,10 @@ hc_win_size: 1
 scanlines_mask: 255
 
 pub_cloud_step: 1
-show_disparity: 0
+show_disparity: 1
 pub_depth_map: 1
 flags: 2
-depth_cloud_radius: 10
+depth_cloud_radius: 30
 pub_cloud_all: 1
 
+enable_extrinsic_calib: 1

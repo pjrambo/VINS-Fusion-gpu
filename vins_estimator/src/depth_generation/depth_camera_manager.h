@@ -42,8 +42,11 @@ class DepthCamManager {
     std::vector<DepthEstimator *> deps;
 
     int show_disparity = 0;
+    int enable_extrinsic_calib_for_depth = 0;
     double depth_cloud_radius = 5;
     camodocal::CameraPtr depth_cam;
+
+    std::vector<std::string> dep_RT_config;
 
 public:
     FisheyeUndist * fisheye = nullptr;
@@ -63,6 +66,8 @@ public:
         Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
         Eigen::Matrix3d R, Eigen::Vector3d P
     );
+
+    DepthEstimator * create_depth_estimator(int direction, Eigen::Matrix3d r01, Eigen::Vector3d t01);
     
     void publish_world_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp,
         int dir, int step = 3, cv::Mat color = cv::Mat());

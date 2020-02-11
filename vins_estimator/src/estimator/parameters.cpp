@@ -71,7 +71,7 @@ int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
-
+std::string configPath;
 
 template <typename T>
 T readParam(ros::NodeHandle &n, std::string name)
@@ -194,7 +194,7 @@ void readParameters(std::string config_file)
 
 
     int pn = config_file.find_last_of('/');
-    std::string configPath = config_file.substr(0, pn);
+    configPath = config_file.substr(0, pn);
 
 
     depth_config = configPath + "/" + fsSettings["depth_config"];

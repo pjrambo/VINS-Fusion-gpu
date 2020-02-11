@@ -75,9 +75,22 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
         show_disparity = fsSettings["show_disparity"];
         depth_cloud_radius = fsSettings["depth_cloud_radius"];
 
-        pub_depth_map = (int)fsSettings["pub_depth_map"];;
+        pub_depth_map = (int)fsSettings["pub_depth_map"];
         pub_cloud_all =  (int)fsSettings["pub_cloud_all"];
         pub_cloud_per_direction = (int)fsSettings["pub_cloud_per_direction"];
+        enable_extrinsic_calib_for_depth = (int)fsSettings["enable_extrinsic_calib"];
+        std::string cfg;
+        fsSettings["left_depth_RT"] >> cfg;
+        dep_RT_config.push_back(cfg);        
+
+        fsSettings["front_depth_RT"] >> cfg;
+        dep_RT_config.push_back(cfg);        
+        
+        fsSettings["right_depth_RT"] >> cfg;
+        dep_RT_config.push_back(cfg);        
+        
+        fsSettings["rear_depth_RT"] >> cfg;
+        dep_RT_config.push_back(cfg);
     }
     fclose(fh);
 
@@ -104,6 +117,34 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     deps.push_back(nullptr);
 }
 
+DepthEstimator * DepthCamManager::create_depth_estimator(int direction, Eigen::Matrix3d r01, Eigen::Vector3d t01) {
+    DepthEstimator * dep_est;
+    
+    std::string _output_path;
+    if (direction == 0) {
+        _output_path = OUTPUT_FOLDER + "/left_dep.yaml";
+    }
+    if (direction == 1) {
+        _output_path = OUTPUT_FOLDER + "/front_dep.yaml";
+    }
+    if (direction == 2) {
+        _output_path = OUTPUT_FOLDER + "/right_dep.yaml";
+    }
+    if (direction == 3) {
+
+        _output_path = OUTPUT_FOLDER + "/rear_dep.yaml";
+    }
+    if (dep_RT_config[direction] != "") {
+        //Build stereo with estimate extrinsic
+        deps[direction] = new DepthEstimator(sgm_params, configPath + "/" + dep_RT_config[direction], cam_side_cv_transpose, show_disparity,
+            enable_extrinsic_calib_for_depth, _output_path);
+    } else {
+        deps[direction] = new DepthEstimator(sgm_params, -t01, r01, cam_side_cv_transpose, show_disparity,
+            enable_extrinsic_calib_for_depth, _output_path);
+    }
+    return deps[direction];
+}
+
 void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
     Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
     Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
@@ -121,23 +162,21 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
         cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
         cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
     }
-
+    
     cv::cuda::transpose(up_front, tmp);
     cv::cuda::flip(tmp, up_front, 0);
 
     cv::cuda::transpose(down_front, tmp);
     cv::cuda::flip(tmp, down_front, 0);
 
-    Eigen::Vector3d t01 = tic2 - tic1;
-    t01 = ric1.transpose()*t01;
-    // ROS_INFO("T01");
-    // std::cout << t01;
 
-    DepthEstimator * dep_est;
     if (deps[direction] == nullptr) {
-        deps[direction] = new DepthEstimator(sgm_params, -t01, ric1.transpose() * ric2, cam_side_cv_transpose, show_disparity);
+        Eigen::Vector3d t01 = tic2 - tic1;
+        t01 = ric1.transpose()*t01;
+        create_depth_estimator(direction, ric1.transpose() * ric2, t01);
     }
-    dep_est = deps[direction];
+    
+    auto dep_est = deps[direction];
     
     cv::Mat pointcloud_up = dep_est->ComputeDepthCloud(up_front, down_front);
 
