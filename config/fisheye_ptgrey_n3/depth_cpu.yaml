@@ -17,8 +17,8 @@ uniquenessRatio: 25
 speckleWindowSize: 300
 speckleRange: 5
 mode: 1
-p1: 1800
-p2: 2000
+p1: 2000
+p2: 2500
 # p1: 1000
 # p2: 1600
 

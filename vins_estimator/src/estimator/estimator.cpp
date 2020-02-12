@@ -559,6 +559,7 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         last_P0 = Ps[0];
         updateLatestStates();
         if (RGB_DEPTH_CLOUD >= 0) {
+            //Need to sync img use for depth estimator and the keyframe: may cause accuracy problem
             depth_cam_manager->update_images(ros::Time(header), fisheye_imgs_up, fisheye_imgs_down,
                 ric[0], tic[0], ric[1], tic[1], latest_Q.toRotationMatrix(), latest_P
             );
