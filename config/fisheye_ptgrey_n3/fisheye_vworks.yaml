@@ -80,7 +80,7 @@ use_gpu: 1
 use_gpu_acc_flow: 1
 
 use_vxworks: 1
-rgb_depth_cloud: 1 #-1: not estimate depth, 0 depth cloud will be gray, 1 depth cloud will be colored;
+rgb_depth_cloud: 0 #-1: not estimate depth, 0 depth cloud will be gray, 1 depth cloud will be colored;
 #Note that colored depth cloud will slow down whole system
 depth_estimate_baseline: 0.05
 top_cnt: 30

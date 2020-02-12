@@ -36,6 +36,6 @@ pub_cloud_all: 1
 
 enable_extrinsic_calib: 0
 
-# front_depth_RT: "front_depth.yaml"
-# left_depth_RT: "left_depth.yaml"
-# right_depth_RT: "right_depth.yaml"
+front_depth_RT: "front_depth.yaml"
+left_depth_RT: "left_depth.yaml"
+right_depth_RT: "right_depth.yaml"
