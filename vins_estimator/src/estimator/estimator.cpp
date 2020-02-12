@@ -59,6 +59,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     inputImageCnt++;
     FeatureFrame featureFrame;
     TicToc featureTrackerTime;
+    vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
     
     if (FISHEYE) {
         featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, fisheye_imgs_up, fisheye_imgs_down);
@@ -87,6 +88,10 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
         {
             mBuf.lock();
             featureBuf.push(make_pair(t, featureFrame));
+            if (FISHEYE) {
+                fisheye_imgs_upBuf.push(fisheye_imgs_up);
+                fisheye_imgs_downBuf.push(fisheye_imgs_down);
+            }
             mBuf.unlock();
         }
     }
@@ -94,6 +99,10 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     {
         mBuf.lock();
         featureBuf.push(make_pair(t, featureFrame));
+        if (FISHEYE) {
+            fisheye_imgs_upBuf.push(fisheye_imgs_up);
+            fisheye_imgs_downBuf.push(fisheye_imgs_down);
+        }
         mBuf.unlock();
         TicToc processTime;
         processMeasurements();
@@ -187,10 +196,17 @@ void Estimator::processMeasurements()
         //printf("process measurments\n");
         TicToc t_process;
         pair<double, FeatureFrame > feature;
+        std::vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
         vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
         if(!featureBuf.empty())
         {
             feature = featureBuf.front();
+
+            if (FISHEYE) {
+                fisheye_imgs_up = fisheye_imgs_upBuf.front();
+                fisheye_imgs_down = fisheye_imgs_downBuf.front();
+            }
+
             curTime = feature.first + td;
             while(1)
             {
@@ -210,6 +226,10 @@ void Estimator::processMeasurements()
                 getIMUInterval(prevTime, curTime, accVector, gyrVector);
 
             featureBuf.pop();
+            if (FISHEYE) {
+                fisheye_imgs_upBuf.pop();
+                fisheye_imgs_downBuf.pop();
+            }
             mBuf.unlock();
 
             if(USE_IMU)
@@ -244,7 +264,14 @@ void Estimator::processMeasurements()
             pubPointCloud(*this, header);
             pubKeyframe(*this);
             pubTF(*this, header);
-
+            
+            if (FISHEYE && RGB_DEPTH_CLOUD >= 0) {
+                //Need to sync img use for depth estimator and the keyframe: may cause accuracy problem
+                depth_cam_manager->update_images(ros::Time(feature.first), fisheye_imgs_up, fisheye_imgs_down,
+                    ric[0], tic[0], ric[1], tic[1], latest_Q.toRotationMatrix(), latest_P
+                );
+            }
+            
             double dt = t_process.toc();
             mea_sum_time += dt;
             mea_track_count ++;
@@ -558,12 +585,6 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         last_R0 = Rs[0];
         last_P0 = Ps[0];
         updateLatestStates();
-        if (RGB_DEPTH_CLOUD >= 0) {
-            //Need to sync img use for depth estimator and the keyframe: may cause accuracy problem
-            depth_cam_manager->update_images(ros::Time(header), fisheye_imgs_up, fisheye_imgs_down,
-                ric[0], tic[0], ric[1], tic[1], latest_Q.toRotationMatrix(), latest_P
-            );
-        }
 
     }  
 }

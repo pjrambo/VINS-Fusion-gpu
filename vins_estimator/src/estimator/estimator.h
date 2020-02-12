@@ -180,6 +180,6 @@ class Estimator
 
     DepthCamManager * depth_cam_manager = nullptr;
 
-    std::vector<cv::cuda::GpuMat> fisheye_imgs_up;
-    std::vector<cv::cuda::GpuMat> fisheye_imgs_down;
+    queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_upBuf;
+    queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_downBuf;
 };
