@@ -55,14 +55,13 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
     // Size newImageSize=Size(), Rect* validPixROI1=0, Rect* validPixROI2=0 )¶
     TicToc tic;
     if (first_init) {
+        cv::Mat _Q;
         cv::Size imgSize = left.size();
 
         // std::cout << "ImgSize" << imgSize << "\nR" << R << "\nT" << T << std::endl;
         cv::stereoRectify(cameraMatrix, cv::Mat(), cameraMatrix, cv::Mat(), imgSize, 
-            R, T, R1, R2, P1, P2, Q, 0);
-        // Q.at<double>(3, 2) = -Q.at<double>(3, 2);
+            R, T, R1, R2, P1, P2, _Q, 0);
         std::cout << Q << std::endl;
-        // std::cout << "R1" << R1 << "P1" << P1 << std::endl; 
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R1, P1, imgSize, CV_32FC1, _map11,
                                 _map12);
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R2, P2, imgSize, CV_32FC1, _map21,
@@ -71,8 +70,9 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         map12.upload(_map12);
         map21.upload(_map21);
         map22.upload(_map22);
-        Q.convertTo(Q, CV_32F);
+        _Q.convertTo(Q, CV_32F);
 
+        std::cerr << "Q" << _Q << std::endl;
         first_init = false;
     } 
 

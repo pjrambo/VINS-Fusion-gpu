@@ -17,6 +17,31 @@
 #define MAX_ESSENTIAL_OUTLIER_COST 0.01
 using namespace std;
 
+inline Eigen::Vector3d quat2eulers(const Eigen::Quaterniond &quat);
+
+Eigen::Vector3d rotationMatrixToEulerAngles(cv::Mat &R)
+{
+ 
+    float sy = sqrt(R.at<double>(0,0) * R.at<double>(0,0) +  R.at<double>(1,0) * R.at<double>(1,0) );
+ 
+    bool singular = sy < 1e-6; // If
+ 
+    float x, y, z;
+    if (!singular)
+    {
+        x = atan2(R.at<double>(2,1) , R.at<double>(2,2));
+        y = atan2(-R.at<double>(2,0), sy);
+        z = atan2(R.at<double>(1,0), R.at<double>(0,0));
+    }
+    else
+    {
+        x = atan2(-R.at<double>(1,2), R.at<double>(1,1));
+        y = atan2(-R.at<double>(2,0), sy);
+        z = 0;
+    }
+    return Eigen::Vector3d(x, y, z);     
+}
+
 class StereoOnlineCalib {
     cv::Mat cameraMatrix;
     cv::Mat R, T;
@@ -45,12 +70,15 @@ public:
     }
     
     void update(cv::Mat R, cv::Mat T) {
-        std::cerr << "R" << R << std::endl;
-        std::cerr << "T1" << T << std::endl;
         this->R = R;
         this->T = T;
         cv::cv2eigen(T, T_eig);
         cv::cv2eigen(R, R_eig);
+
+        auto rpy = rotationMatrixToEulerAngles(R) * 57.3;
+
+        ROS_WARN("New Relative pose R %f P %f Y %f", rpy.x(), rpy.y(), rpy.z());
+        std::cerr << "T1" << T << std::endl;
 
         Eigen::Matrix3d Tcross;
         Tcross << 0, -T_eig.z(), T_eig.y(),
@@ -65,6 +93,17 @@ public:
     static std::vector<cv::KeyPoint> detect_orb_by_region(cv::Mat _img, int features, int cols = 4, int rows = 3);
     bool calibrate_extrinsic_opencv(std::vector<cv::Point2f> left_pts, std::vector<cv::Point2f> right_pts);
 };
+
+
+inline Eigen::Vector3d quat2eulers(const Eigen::Quaterniond &quat) {
+    Eigen::Vector3d rpy;
+    rpy.x() = atan2(2 * (quat.w() * quat.x() + quat.y() * quat.z()),
+                    1 - 2 * (quat.x() * quat.x() + quat.y() * quat.y()));
+    rpy.y() = asin(2 * (quat.w() * quat.y() - quat.z() * quat.x()));
+    rpy.z() = atan2(2 * (quat.w() * quat.z() + quat.x() * quat.y()),
+                    1 - 2 * (quat.y() * quat.y() + quat.z() * quat.z()));
+    return rpy;
+}
 
 bool StereoOnlineCalib::calibrate_extrinsic_opencv(std::vector<cv::Point2f> left_pts, std::vector<cv::Point2f> right_pts) {
     if (left_pts.size() < 50) {
