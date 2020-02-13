@@ -17,10 +17,10 @@ uniquenessRatio: 25
 speckleWindowSize: 300
 speckleRange: 5
 mode: 1
-# p1: 8 #Bigger gives smooth
-# p2: 109
-p1: 90 #Bigger gives smooth
-p2: 129
+p1: 40 #Bigger gives smooth
+p2: 150
+# p1: 90 #Bigger gives smooth
+# p2: 129
 
 bt_clip_value: 95
 ct_win_size: 0
@@ -32,11 +32,11 @@ pub_cloud_per_direction: 0
 
 pub_cloud_step: 3
 pub_depth_map: 1
-show_disparity: 0
+show_disparity: 1
 flags: 2
 depth_cloud_radius: 15
 enable_extrinsic_calib: 0
 
-front_depth_RT: "front_depth.yaml"
-left_depth_RT: "left_depth.yaml"
-right_depth_RT: "right_depth.yaml"
+# front_depth_RT: "front_depth.yaml"
+# left_depth_RT: "left_depth.yaml"
+# right_depth_RT: "right_depth.yaml"
