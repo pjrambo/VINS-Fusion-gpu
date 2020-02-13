@@ -48,7 +48,7 @@ struct StereoCostFunctor {
         // std::cerr << E_eig << std::endl;
 
         for (int i = 0; i < left_pts.size(); i++) {
-            Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i];
+            Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i]*100.0;
             residual[i] = ret(0, 0);
         }
 
@@ -137,16 +137,17 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     cost_function->SetNumResiduals(left_pts.size());
 
     std::cerr << "solve extrinsic with " << left_pts.size() << "Pts" << std::endl;
-    std::cerr << "Initial R" << R0_eig << std::endl;
-    std::cerr << "Initial T" << T0_eig << std::endl;
-    Eigen::Vector3d ypr = Utility::R2ypr(R0_eig, true);
-    auto thetaphi = xyz2thetaphi(T0_eig);
+    std::cerr << "Initial R" << R_eig << std::endl;
+    std::cerr << "Initial T" << T_eig << std::endl;
+    Eigen::Vector3d ypr = Utility::R2ypr(R_eig, true);
+    auto thetaphi = xyz2thetaphi(T_eig);
     auto t_init = thetaphi2xyz(thetaphi.first, thetaphi.second);
     std::cerr << "T init non scale" << t_init << std::endl;
     ROS_WARN("\nInital RPY %f %f %f deg Theta %f Phi %f", ypr.x(), ypr.y(), ypr.z(), 
         thetaphi.first, thetaphi.second);
 
     std::vector<double> x;
+    //x is roll pitch yaw
     x.push_back(ypr.z());
     x.push_back(ypr.y());
     x.push_back(ypr.x());
@@ -180,16 +181,20 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     vector<pair<const double*, const double*> > covariance_blocks;
     covariance_blocks.push_back(make_pair(x.data(), x.data()));
     CHECK(covariance.Compute(covariance_blocks, &problem));
-    Eigen::Matrix<double, 5,5 > cov;
+    Eigen::Matrix<double, 5, 5> cov;
     covariance.GetCovarianceBlock(x.data(), x.data(), cov.data());
 
-    std::cerr << "cov\n" << cov << std::endl;
 
-    ROS_WARN("Solved R %f P %f Y %f", x[0], x[1], x[2]);
+    std::cerr << "cov\n" << cov << "Max" << cov.maxCoeff() << std::endl;
+
+    ROS_WARN("Solved Y %f P %f R %f", x[2], x[1], x[0]);
     std::cerr << _R << std::endl;
     ROS_WARN("Solved T %f %f %f theta %f phi %f", _t_eig.x(), _t_eig.y(), _t_eig.z(), x[3]*57.3, x[4]*57.3);
 
-    update(_R, _T);
+    if (cov.maxCoeff() < MAX_ACCEPT_COV) {
+        update(_R, _T);
+    }
+
     return true;
 }
 
@@ -513,6 +518,9 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
     // _orb->compute(_img1, kps1, desc1);
     // _orb->compute(_img2, kps2, desc2);
 
+    if (desc1.empty() || desc2.empty()) {
+        return;
+    }
     size_t j = 0;
 
     cv::BFMatcher bfmatcher(cv::NORM_HAMMING2, true);
@@ -538,21 +546,28 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
 
     ROS_INFO("BRIEF MATCH cost %fms", tic.toc());
 
-    TicToc tic0;
-    if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
-        cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
-    }
 
     for(int i = 0; i < _pts1.size(); i ++) {
-        if (i < status.size() && status[i]) {
-            Pts1.push_back(_pts1[i]);
-            Pts2.push_back(_pts2[i]);
-            good_matches.push_back(matches[i]);
-        }
+        Pts1.push_back(_pts1[i]);
+        Pts2.push_back(_pts2[i]);
+        good_matches.push_back(matches[i]);
     }
+
+    // TicToc tic0;
+    // if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
+    //     cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
+    // }
+
+    // for(int i = 0; i < _pts1.size(); i ++) {
+    //     if (i < status.size() && status[i]) {
+    //         Pts1.push_back(_pts1[i]);
+    //         Pts2.push_back(_pts2[i]);
+    //         good_matches.push_back(matches[i]);
+    //     }
+    // }
     // good_matches = matches;
 
-    ROS_INFO("Total %ld cost %fms Find Essential cost %fms", Pts1.size(), tic.toc(), tic0.toc());
+    // ROS_INFO("Total %ld cost %fms Find Essential cost %fms", Pts1.size(), tic.toc(), tic0.toc());
     
     if (show) {
         cv::Mat img1_cpu, img2_cpu, _show;

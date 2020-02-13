@@ -13,9 +13,10 @@
 #define MINIUM_ESSENTIALMAT_SIZE 10
 #define GOOD_R_THRES 0.1
 #define GOOD_T_THRES 0.1
-#define MAX_FIND_ESSENTIALMAT_PTS 10000000
-#define MAX_ESSENTIAL_OUTLIER_COST 0.001
+#define MAX_FIND_ESSENTIALMAT_PTS 10000
+#define MAX_ESSENTIAL_OUTLIER_COST 0.01
 #define PTS_NUM_REG 50
+#define MAX_ACCEPT_COV 0.25
 using namespace std;
 
 #define CALIBCOLS 3
@@ -71,7 +72,7 @@ public:
 
         auto rpy = Utility::R2ypr(R_eig);
 
-        ROS_WARN("New Relative pose R %f P %f Y %f", rpy.x(), rpy.y(), rpy.z());
+        ROS_WARN("New Relative pose Y %f P %f R %f", rpy.x(), rpy.y(), rpy.z());
 
         Eigen::Matrix3d Tcross;
         Tcross << 0, -T_eig.z(), T_eig.y(),
