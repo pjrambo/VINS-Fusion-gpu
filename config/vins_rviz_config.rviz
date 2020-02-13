@@ -9,6 +9,8 @@ Panels:
         - /Axes1
         - /LoopGroup1/loopPath1
         - /VIOGroup1
+        - /VIOGroup1/PointCloud1
+        - /VIOGroup1/HistoryPointCloud1
         - /GlobalGroup1/CarModel1
         - /Odometry1/Shape1
         - /DepthCloudAll1
@@ -32,7 +34,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: PointCloud
   - Class: rviz/Displays
     Help Height: 138
     Name: Displays
@@ -220,7 +222,7 @@ Visualization Manager:
           Marker Topic: /vins_estimator/camera_pose_visual
           Name: CameraMarker
           Namespaces:
-            {}
+            CameraPoseVisualization: true
           Queue Size: 100
           Value: true
         - Alpha: 1
@@ -364,7 +366,7 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz/PointCloud
       Color: 255; 255; 255
-      Color Transformer: ""
+      Color Transformer: RGB8
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -373,12 +375,12 @@ Visualization Manager:
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: DepthCloudAll
-      Position Transformer: ""
+      Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.05000000074505806
-      Style: Flat Squares
+      Size (m): 0.10000000149011612
+      Style: Points
       Topic: /vins_estimator/depth_cloud
       Unreliable: false
       Use Fixed Frame: true
@@ -425,25 +427,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/ThirdPersonFollower
-      Distance: 8.958962440490723
+      Distance: 12.657269477844238
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.17593491077423096
-        Y: -0.6896145343780518
-        Z: 0.04465612396597862
+        X: 0.9398840665817261
+        Y: -1.621910572052002
+        Z: 0.044653501361608505
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.26979032158851624
+      Pitch: 0.2897948920726776
       Target Frame: world
       Value: ThirdPersonFollower (rviz)
-      Yaw: 3.560215950012207
+      Yaw: 2.950213670730591
     Saved: ~
 Window Geometry:
   Displays:
@@ -462,6 +464,6 @@ Window Geometry:
     collapsed: false
   Width: 810
   X: 270
-  Y: 108
+  Y: 52
   loop_match_Image:
     collapsed: false

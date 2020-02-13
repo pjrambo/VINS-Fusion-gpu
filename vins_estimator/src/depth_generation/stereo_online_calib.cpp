@@ -5,7 +5,7 @@
 Eigen::Vector3d undist(const cv::Point2f & pt, const cv::Mat & cameraMatrix) {
     double x = (pt.x - cameraMatrix.at<double>(0, 2))/ cameraMatrix.at<double>(0, 0);
     double y = (pt.y - cameraMatrix.at<double>(1, 2))/ cameraMatrix.at<double>(1, 1);
-    return Eigen::Vector3d(x, y, 1).normalized();
+    return Eigen::Vector3d(x, y, 1);
 }
 
 using namespace ceres;
@@ -37,19 +37,9 @@ struct StereoCostFunctor {
         EulerAnglesToRotationMatrix(_x[0], 3, R);
         // std::cerr << "R" << R << std::endl;
         
-        // std::cerr << "R in ceres " << std::endl;
-        // for (int i = 0; i < 3; i ++) {
-        //     for(int j = 0; j < 3; j++) {
-        //         std::cerr << R[i*3 + j] << " ";
-        //     }
-        //     std::cerr << "\n";
-        // }
-
-        // theta 3
-        // phi 4
-        T tx = cos(_x[0][3])*cos(_x[0][4]);
-        T ty = cos(_x[0][3])*sin(_x[0][4]);
-        T tz = sin(_x[0][3]);
+        T tx = T(-1);
+        T ty = _x[0][3];
+        T tz = _x[0][4];
 
         T E[9];
         EssentialMatfromRT(R, tx, ty, tz, E);
@@ -58,7 +48,7 @@ struct StereoCostFunctor {
         // std::cerr << E_eig << std::endl;
 
         for (int i = 0; i < left_pts.size(); i++) {
-            Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i];
+            Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i]*100.0;
             residual[i] = ret(0, 0);
         }
 
@@ -71,22 +61,32 @@ struct StereoCostFunctor {
         // residual[0] = T(10.0) - x[0];
         T R[9];
         EulerAnglesToRotationMatrix(_x, 3, R);
-        T tx = cos(_x[3])*cos(_x[4]);
-        T ty = cos(_x[3])*sin(_x[4]);
-        T tz = sin(_x[3]);
+        T tx = -1;
+        T ty = _x[3];
+        T tz = _x[4];
+        
+        Eigen::Matrix<T, 3, 3, Eigen::RowMajor> R_eig = Eigen::Map <Eigen::Matrix <T, 3, 3, Eigen::RowMajor>> (R);
+
+        Eigen::Matrix<T, 3, 3, Eigen::RowMajor> E_eig;
+
+        Eigen::Matrix<T, 3, 3, Eigen::RowMajor> Tcross;
+        Tcross <<   0, -tz, ty, 
+                    tz, 0, -tx,
+                    -ty, tx, 0;
+
+        E_eig = Tcross*R_eig;
+        // std::cerr << "t" << tx  << ":" << ty <<":" << tz << std::endl;
+        // std::cerr << "Reig" << R_eig << std::endl;
+        // std::cerr << "Eeig" << E_eig << std::endl;
 
         T E[9];
         EssentialMatfromRT(R, tx, ty, tz, E);
-
-        Eigen::Matrix<T, 3, 3, Eigen::RowMajor> E_eig = Eigen::Map <Eigen::Matrix <T, 3, 3, Eigen::RowMajor>> (E);
-        std::cerr << E_eig << std::endl;
+        
+        E_eig = Eigen::Map <Eigen::Matrix <T, 3, 3, Eigen::RowMajor>> (E);
+        // std::cerr <<  "E ceres" << E_eig << std::endl;
 
         for (int i = 0; i < left_pts.size(); i++) {
-            std::cerr << "PTS" << std::endl;
-            std::cerr << right_pts[i].transpose() << std::endl;
-            std::cerr << left_pts[i].transpose() << std::endl;
             Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i];
-            std::cerr << i << ":" << ret << std::endl;
         }
 
         return true;
@@ -110,9 +110,9 @@ struct StereoCostFunctor {
 };
 
 Eigen::Vector3d thetaphi2xyz(double theta, double phi) {
-    double tx = -cos(theta)*cos(phi);
-    double ty = -cos(theta)*sin(phi);
-    double tz = -sin(theta);
+    double tx = - cos(theta)*cos(phi);
+    double ty = - cos(theta)*sin(phi);
+    double tz = - sin(theta);
     return Eigen::Vector3d(tx, ty, tz);
 }
 
@@ -135,41 +135,71 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     auto cost_function = new DynamicAutoDiffCostFunction<StereoCostFunctor, 7>(stereo_func);
     cost_function->AddParameterBlock(5);
     cost_function->SetNumResiduals(left_pts.size());
-    Eigen::Vector3d rpy = Utility::R2ypr(R_eig, false);
-    auto thetaphi = xyz2thetaphi(T_eig);
 
-    ROS_WARN("\nInital RPY %f %f %f Theta %f Phi %f", rpy.x(), rpy.y(), rpy.z(), 
-        thetaphi.first, thetaphi.second);
+    std::cerr << "solve extrinsic with " << left_pts.size() << "Pts" << std::endl;
+    std::cerr << "Initial R" << R_eig << std::endl;
+    std::cerr << "Initial T" << T_eig << std::endl;
+
+    auto t_init = T_eig / -T_eig.x();
+
+
+    Eigen::Vector3d ypr = Utility::R2ypr(R_eig, true);
+    std::cerr << "T init non scale" << t_init << std::endl;
+    ROS_WARN("\nInital RPY %f %f %f deg", ypr.x(), ypr.y(), ypr.z());
+
     std::vector<double> x;
-    x.push_back(rpy.x());
-    x.push_back(rpy.y());
-    x.push_back(rpy.z());
+    //x is roll pitch yaw
+    x.push_back(ypr.z());
+    x.push_back(ypr.y());
+    x.push_back(ypr.x());
 
-    x.push_back(thetaphi.first);
-    x.push_back(thetaphi.second);
+    x.push_back(t_init.y());
+    x.push_back(t_init.z());
     
     stereo_func->Evalute<double>(x.data());
     Problem problem;
     problem.AddResidualBlock(cost_function, NULL, x.data());
     Solver::Options options;
+
+    options.trust_region_strategy_type = ceres::DOGLEG;
     options.max_num_iterations = 100;
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
     Solver::Summary summary;
     Solve(options, &problem, &summary);
-    std::cerr << summary.BriefReport() << "\n";
+    std::cerr << summary.BriefReport() << " time " << summary.minimizer_time_in_seconds*1000 << "ms\n";
 
-    Eigen::Vector3d _t_eig = thetaphi2xyz(x[3], x[4])*scale;
-    ROS_WARN("R %f P %f Y %f", x[0]*57.3, x[1]*57.3, x[2]*57.3);
-    ROS_WARN("T %f %f %f theta %f phi %f", _t_eig.x(), _t_eig.y(), _t_eig.z(), x[3], x[4]);
-    Eigen::Matrix3d _R_eig = Utility::ypr2R( Eigen::Vector3d(x[2], x[1], x[0])*180.0/M_PI);
+    Eigen::Vector3d _t_eig(-1, x[3], x[4]);
+    _t_eig = _t_eig * baseline;
+    auto _R_eig = Utility::ypr2R( Eigen::Vector3d(x[2], x[1], x[0]));
     cv::Mat _R;
     cv::Mat _T;
 
     cv::eigen2cv(_R_eig, _R);
     cv::eigen2cv(_t_eig, _T);
 
-    // return false;
-    // update(_R, _T);
+    Covariance::Options covoptions;
+    Covariance covariance(covoptions);
+
+    vector<pair<const double*, const double*> > covariance_blocks;
+    covariance_blocks.push_back(make_pair(x.data(), x.data()));
+    CHECK(covariance.Compute(covariance_blocks, &problem));
+    Eigen::Matrix<double, 5, 5> cov;
+    covariance.GetCovarianceBlock(x.data(), x.data(), cov.data());
+
+
+    std::cerr << "cov\n" << cov << "Max" << cov.maxCoeff() << std::endl;
+
+    ROS_WARN("Solved Y %f P %f R %f", x[2], x[1], x[0]);
+    std::cerr << _R << std::endl;
+    ROS_WARN("Solved T %f %f %f", _t_eig.x(), _t_eig.y(), _t_eig.z());
+
+    if (cov.maxCoeff() < MAX_ACCEPT_COV) {
+        ROS_WARN("Update R T");
+        std::cerr << _R << std::endl;
+        std::cerr << _T << std::endl;
+        update(_R, _T);
+    }
+
     return true;
 }
 
@@ -196,24 +226,71 @@ bool StereoOnlineCalib::calibrate_extrinsic_opencv(const std::vector<cv::Point2f
         return false;
     }
 
-    ROS_INFO("Find EssentialMat with %ld/%d pts use %fms", left_pts.size(), status_count, tic2.toc());
+    ROS_WARN("Find EssentialMat with %ld/%d pts use %fms", left_pts.size(), status_count, tic2.toc());
     cv::Mat _R, t;
     int num = cv::recoverPose(essentialMat, left_pts, right_pts, cameraMatrix, _R, t);
-    ROS_INFO("Recorver pose take with %ld/%d pts use %fms", left_good.size(), num, tic2.toc());
+    ROS_WARN("Recorver pose take with %ld/%d pts use %fms", left_good.size(), num, tic2.toc());
 
     double disR = norm(R0 - _R);
-    double disT = norm(t - T0/scale);
+    double disT = norm(t - T0/baseline);
 
     // std::cerr << "R" << _R << "DIS R" << disR << std::endl;
     // std::cerr << "T" << t*scale << "DIS T" << disT << std::endl;
 
     if (disR < GOOD_R_THRES && disT < GOOD_T_THRES) {
-        update(_R, t*scale);
-        ROS_INFO("Update R T");
-        std::cout << "R" << R << std::endl;
-        std::cout << "T" << T << std::endl;
+        update(_R, t*baseline);
+        ROS_WARN("Update R T");
+        std::cerr << "R" << R << std::endl;
+        std::cerr << "T" << T << std::endl;
+        std::cerr << "t" << t << std::endl;
+        std::cerr << "E" << essentialMat << std::endl;
+        
+        // return calibrate_extrinsic_optimize(left_pts, right_pts);
         return true;
     }
+
+    return false;
+}
+
+typedef std::pair<cv::Point2f, cv::Point2f> point_pair;
+typedef std::vector<point_pair> matched_points;
+
+bool compareDisparity(point_pair p1, point_pair p2) 
+{ 
+    return cv::norm(p1.first - p1.second) > cv::norm(p2.first - p2.second);
+}
+
+void StereoOnlineCalib::filter_points_by_region(std::vector<cv::Point2f> & good_left, std::vector<cv::Point2f> & good_right) {
+    std::map<int, matched_points> regions;
+    for (int i = 0; i < left_pts.size(); i ++) {
+        float x =  left_pts[i].x;
+        float y =  left_pts[i].y;
+        // printf("%f %f\n", width, height);
+        int _reg_id = (int)(x*CALIBCOLS/width)*1000 + (int)(y*CALIBROWS/height);
+        if (regions.find(_reg_id) == regions.end()) {
+            regions[_reg_id] = matched_points();
+        }
+        // printf("Reg_id %d\n", _reg_id);
+        regions[_reg_id].push_back(make_pair(left_pts[i], right_pts[i]));
+    }
+
+    
+    for (auto reg : regions) {
+        int count = 0;
+        auto & pts_stack = reg.second;
+        std::random_shuffle ( pts_stack.begin(), pts_stack.end() );
+
+        // std::sort(pts_stack.begin(), pts_stack.end(), compareDisparity);
+        for (auto it: pts_stack) {
+            good_left.push_back(it.first);
+            good_right.push_back(it.second);
+            count ++;
+            if (count > PTS_NUM_REG) {
+                break;
+            }
+        }
+    }
+
 }
 
 bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
@@ -234,7 +311,31 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
         right_pts.erase(right_pts.begin());
     }
 
-    return calibrate_extrinsic_optimize(left_pts, right_pts);
+    std::vector<cv::Point2f> good_left;
+    std::vector<cv::Point2f> good_right;
+    
+    filter_points_by_region(good_left, good_right);
+    cv::Mat _show;
+    left.download(_show);
+    cv::cvtColor(_show, _show, cv::COLOR_GRAY2BGR);
+
+    std::map<int, cv::Scalar> region_colors;
+    
+
+    /*    
+    for (int i = 0; i < good_left.size(); i ++) {
+        float x = good_left[i].x;
+        float y = good_right[i].y;
+        int _reg_id = (int)(x*CALIBCOLS/width)*1000 + (int)(y*CALIBROWS/height);
+        if (region_colors.find(_reg_id) == region_colors.end()) {
+            region_colors[_reg_id] = cv::Scalar(rand()%255, rand()%255, rand()%255);
+        }
+        cv::circle(_show, good_left[i], 1, region_colors[_reg_id], 2);
+        cv::arrowedLine(_show, good_left[i], good_right[i], cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+    }
+    cv::imshow("Regions", _show);*/
+
+    return calibrate_extrinsic_optimize(good_left, good_right);
     // return calibrate_extrinsic_opencv(left_pts, right_pts);
 }
 
@@ -424,6 +525,9 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
     // _orb->compute(_img1, kps1, desc1);
     // _orb->compute(_img2, kps2, desc2);
 
+    if (desc1.empty() || desc2.empty()) {
+        return;
+    }
     size_t j = 0;
 
     cv::BFMatcher bfmatcher(cv::NORM_HAMMING2, true);
@@ -449,21 +553,27 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
 
     ROS_INFO("BRIEF MATCH cost %fms", tic.toc());
 
-    TicToc tic0;
-    if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
-        cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
-    }
 
     for(int i = 0; i < _pts1.size(); i ++) {
-        if (i < status.size() && status[i]) {
-            Pts1.push_back(_pts1[i]);
-            Pts2.push_back(_pts2[i]);
-            good_matches.push_back(matches[i]);
-        }
+        Pts1.push_back(_pts1[i]);
+        Pts2.push_back(_pts2[i]);
+        good_matches.push_back(matches[i]);
     }
+
+    // if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
+    //     cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.999, 1.0, status);
+    // }
+
+    // for(int i = 0; i < _pts1.size(); i ++) {
+    //     if (i < status.size() && status[i]) {
+    //         Pts1.push_back(_pts1[i]);
+    //         Pts2.push_back(_pts2[i]);
+    //         good_matches.push_back(matches[i]);
+    //     }
+    // }
     // good_matches = matches;
 
-    ROS_INFO("Total %ld cost %fms Find Essential cost %fms", Pts1.size(), tic.toc(), tic0.toc());
+    // ROS_INFO("Total %ld cost %fms Find Essential cost %fms", Pts1.size(), tic.toc(), tic0.toc());
     
     if (show) {
         cv::Mat img1_cpu, img2_cpu, _show;

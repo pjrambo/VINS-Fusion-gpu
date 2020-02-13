@@ -268,7 +268,7 @@ void Estimator::processMeasurements()
             if (FISHEYE && RGB_DEPTH_CLOUD >= 0) {
                 //Need to sync img use for depth estimator and the keyframe: may cause accuracy problem
                 depth_cam_manager->update_images(ros::Time(feature.first), fisheye_imgs_up, fisheye_imgs_down,
-                    ric[0], tic[0], ric[1], tic[1], latest_Q.toRotationMatrix(), latest_P
+                    ric[0], tic[0], ric[1], tic[1], Rs[WINDOW_SIZE], Ps[WINDOW_SIZE]
                 );
             }
             
