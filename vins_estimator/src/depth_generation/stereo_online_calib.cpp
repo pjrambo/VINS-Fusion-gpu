@@ -1,5 +1,11 @@
 #include "stereo_online_calib.hpp"
 
+
+bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point2f> & left_pts, 
+    const std::vector<cv::Point2f> & right_pts) {
+
+}
+
 bool StereoOnlineCalib::calibrate_extrinsic_opencv(const std::vector<cv::Point2f> & left_pts, 
     const std::vector<cv::Point2f> & right_pts) {
     if (left_pts.size() < 50) {
@@ -266,7 +272,7 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
     // matches = filter_by_x(matches, kps2, kps1, thres);
     // matches = filter_by_y(matches, kps2, kps1, thres);
 
-    // matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
+    matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
 
     vector<cv::Point2f> _pts1, _pts2;
     vector<uchar> status;

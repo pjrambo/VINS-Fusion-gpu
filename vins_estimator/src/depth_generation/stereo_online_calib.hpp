@@ -66,4 +66,5 @@ public:
     bool calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
     static std::vector<cv::KeyPoint> detect_orb_by_region(cv::Mat & _img, int features, int cols = 2, int rows = 4);
     bool calibrate_extrinsic_opencv(const std::vector<cv::Point2f> & left_pts, const std::vector<cv::Point2f> & right_pts);
+    bool calibrate_extrinsic_optimize(const std::vector<cv::Point2f> & left_pts, const std::vector<cv::Point2f> & right_pts);
 };
