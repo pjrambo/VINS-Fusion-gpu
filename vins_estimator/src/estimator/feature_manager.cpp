@@ -406,11 +406,13 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             continue;
         }
 
+        int main_cam_id = it_per_id.main_cam;
+
         std::vector<Eigen::Matrix<double, 3, 4>> poses;
         std::vector<Eigen::Vector3d> ptss;
         Eigen::Matrix<double, 3, 4> origin_pose;
-        auto t0 = Ps[it_per_id.start_frame] + Rs[it_per_id.start_frame] * tic[0];
-        auto R0 = Rs[it_per_id.start_frame] * ric[0];
+        auto t0 = Ps[it_per_id.start_frame] + Rs[it_per_id.start_frame] * tic[main_cam_id];
+        auto R0 = Rs[it_per_id.start_frame] * ric[main_cam_id];
         origin_pose.leftCols<3>() = R0.transpose();
         origin_pose.rightCols<1>() = -R0.transpose() * t0;
         bool has_stereo = false;
@@ -421,7 +423,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         for (unsigned int frame = 0; frame < it_per_id.feature_per_frame.size(); frame ++) {
             int imu_i = it_per_id.start_frame + frame;
             Eigen::Matrix<double, 3, 4> leftPose;
-            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
+            Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[main_cam_id];
             _max.x() = max(t0.x(), _max.x());
             _max.y() = max(t0.y(), _max.y());
             _max.z() = max(t0.z(), _max.z());
@@ -430,7 +432,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             _min.y() = min(t0.y(), _min.y());
             _min.z() = min(t0.z(), _min.z());
 
-            Eigen::Matrix3d R0 = Rs[imu_i] * ric[0];
+            Eigen::Matrix3d R0 = Rs[imu_i] * ric[main_cam_id];
             leftPose.leftCols<3>() = R0.transpose();
             leftPose.rightCols<1>() = -R0.transpose() * t0;
             Eigen::Vector3d point0 = it_per_id.feature_per_frame[frame].point;
@@ -439,6 +441,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             ptss.push_back(point0);
 
             if(STEREO && it_per_id.feature_per_frame[frame].is_stereo) {
+                //Secondary cam must be 1 now
                 has_stereo = true;
                 Eigen::Matrix<double, 3, 4> rightPose;
                 Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[1];
