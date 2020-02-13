@@ -14,7 +14,11 @@
 
 #ifndef WITHOUT_VWORKS
 #include "vworks_feature_tracker.hpp"
-extern ovxio::ContextGuard context;
+#ifdef OVX
+ovxio::ContextGuard context;
+#else 
+vx_context context;
+#endif
 #endif
 // #define PERF_OUTPUT
 Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
@@ -359,7 +363,7 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
 
     //Add Points Top
     TicToc tic;
-    ROS_DEBUG("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
+    ROS_INFO("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
     if (lack_up_top_pts > require_pts/4) {
         if(mask.empty())
             cout << "mask is empty " << endl;
@@ -550,6 +554,7 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     gpu_status.download(status);
     if(FLOW_BACK)
     {
+        ROS_INFO("Is flow back");
         cv::cuda::GpuMat reverse_gpu_status;
         cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
         cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
@@ -747,6 +752,8 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
 }
 
 void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img) {
+    context = VX_API_CALL(vxCreateContext());
+
     vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
     vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
     vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
