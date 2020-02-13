@@ -5,7 +5,7 @@
 Eigen::Vector3d undist(const cv::Point2f & pt, const cv::Mat & cameraMatrix) {
     double x = (pt.x - cameraMatrix.at<double>(0, 2))/ cameraMatrix.at<double>(0, 0);
     double y = (pt.y - cameraMatrix.at<double>(1, 2))/ cameraMatrix.at<double>(1, 1);
-    return Eigen::Vector3d(x, y, 1).normalized();
+    return Eigen::Vector3d(x, y, 1);
 }
 
 using namespace ceres;
@@ -37,9 +37,9 @@ struct StereoCostFunctor {
         EulerAnglesToRotationMatrix(_x[0], 3, R);
         // std::cerr << "R" << R << std::endl;
         
-        T tx = -cos(_x[0][3])*cos(_x[0][4]);
-        T ty = -cos(_x[0][3])*sin(_x[0][4]);
-        T tz = -sin(_x[0][3]);
+        T tx = T(-1);
+        T ty = _x[0][3];
+        T tz = _x[0][4];
 
         T E[9];
         EssentialMatfromRT(R, tx, ty, tz, E);
@@ -61,10 +61,10 @@ struct StereoCostFunctor {
         // residual[0] = T(10.0) - x[0];
         T R[9];
         EulerAnglesToRotationMatrix(_x, 3, R);
-        T tx = -cos(_x[3])*cos(_x[4]);
-        T ty = -cos(_x[3])*sin(_x[4]);
-        T tz = -sin(_x[3]);
-
+        T tx = -1;
+        T ty = _x[3];
+        T tz = _x[4];
+        
         Eigen::Matrix<T, 3, 3, Eigen::RowMajor> R_eig = Eigen::Map <Eigen::Matrix <T, 3, 3, Eigen::RowMajor>> (R);
 
         Eigen::Matrix<T, 3, 3, Eigen::RowMajor> E_eig;
@@ -110,14 +110,14 @@ struct StereoCostFunctor {
 };
 
 Eigen::Vector3d thetaphi2xyz(double theta, double phi) {
-    double tx = -cos(theta)*cos(phi);
-    double ty = -cos(theta)*sin(phi);
-    double tz = -sin(theta);
+    double tx = - cos(theta)*cos(phi);
+    double ty = - cos(theta)*sin(phi);
+    double tz = - sin(theta);
     return Eigen::Vector3d(tx, ty, tz);
 }
 
 std::pair<double, double> xyz2thetaphi(Eigen::Vector3d xyz) {
-    xyz = -xyz.normalized();
+    xyz = - xyz.normalized();
     // double tx = cos(theta)*cos(phi);
     // double ty = cos(theta)*sin(phi);
     // double tz = sin(theta);
@@ -139,12 +139,13 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     std::cerr << "solve extrinsic with " << left_pts.size() << "Pts" << std::endl;
     std::cerr << "Initial R" << R_eig << std::endl;
     std::cerr << "Initial T" << T_eig << std::endl;
+
+    auto t_init = T_eig / -T_eig.x();
+
+
     Eigen::Vector3d ypr = Utility::R2ypr(R_eig, true);
-    auto thetaphi = xyz2thetaphi(T_eig);
-    auto t_init = thetaphi2xyz(thetaphi.first, thetaphi.second);
     std::cerr << "T init non scale" << t_init << std::endl;
-    ROS_WARN("\nInital RPY %f %f %f deg Theta %f Phi %f", ypr.x(), ypr.y(), ypr.z(), 
-        thetaphi.first, thetaphi.second);
+    ROS_WARN("\nInital RPY %f %f %f deg", ypr.x(), ypr.y(), ypr.z());
 
     std::vector<double> x;
     //x is roll pitch yaw
@@ -152,8 +153,8 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     x.push_back(ypr.y());
     x.push_back(ypr.x());
 
-    x.push_back(thetaphi.first);
-    x.push_back(thetaphi.second);
+    x.push_back(t_init.y());
+    x.push_back(t_init.z());
     
     stereo_func->Evalute<double>(x.data());
     Problem problem;
@@ -167,7 +168,8 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     Solve(options, &problem, &summary);
     std::cerr << summary.BriefReport() << " time " << summary.minimizer_time_in_seconds*1000 << "ms\n";
 
-    Eigen::Vector3d _t_eig = thetaphi2xyz(x[3], x[4])*scale;
+    Eigen::Vector3d _t_eig(-1, x[3], x[4]);
+    _t_eig = _t_eig * baseline;
     auto _R_eig = Utility::ypr2R( Eigen::Vector3d(x[2], x[1], x[0]));
     cv::Mat _R;
     cv::Mat _T;
@@ -189,9 +191,12 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
 
     ROS_WARN("Solved Y %f P %f R %f", x[2], x[1], x[0]);
     std::cerr << _R << std::endl;
-    ROS_WARN("Solved T %f %f %f theta %f phi %f", _t_eig.x(), _t_eig.y(), _t_eig.z(), x[3]*57.3, x[4]*57.3);
+    ROS_WARN("Solved T %f %f %f", _t_eig.x(), _t_eig.y(), _t_eig.z());
 
     if (cov.maxCoeff() < MAX_ACCEPT_COV) {
+        ROS_WARN("Update R T");
+        std::cerr << _R << std::endl;
+        std::cerr << _T << std::endl;
         update(_R, _T);
     }
 
@@ -227,13 +232,13 @@ bool StereoOnlineCalib::calibrate_extrinsic_opencv(const std::vector<cv::Point2f
     ROS_WARN("Recorver pose take with %ld/%d pts use %fms", left_good.size(), num, tic2.toc());
 
     double disR = norm(R0 - _R);
-    double disT = norm(t - T0/scale);
+    double disT = norm(t - T0/baseline);
 
     // std::cerr << "R" << _R << "DIS R" << disR << std::endl;
     // std::cerr << "T" << t*scale << "DIS T" << disT << std::endl;
 
     if (disR < GOOD_R_THRES && disT < GOOD_T_THRES) {
-        update(_R, t*scale);
+        update(_R, t*baseline);
         ROS_WARN("Update R T");
         std::cerr << "R" << R << std::endl;
         std::cerr << "T" << T << std::endl;
@@ -477,8 +482,8 @@ std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,
         auto pt1 = train_pts[gm.trainIdx].pt;
         auto pt2 = query_pts[gm.queryIdx].pt;
 
-        auto f1 = undist(pt1, cameraMatrix);
-        auto f2 = undist(pt2, cameraMatrix);
+        auto f1 = undist(pt1, cameraMatrix)*cameraMatrix.at<double>(0, 0);
+        auto f2 = undist(pt2, cameraMatrix)*cameraMatrix.at<double>(0, 0);
 
         auto cost = f2.transpose()*E*f1;
         if (cost.norm() < MAX_ESSENTIAL_OUTLIER_COST) {

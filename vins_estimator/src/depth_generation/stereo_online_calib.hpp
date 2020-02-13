@@ -14,7 +14,7 @@
 #define GOOD_R_THRES 0.1
 #define GOOD_T_THRES 0.1
 #define MAX_FIND_ESSENTIALMAT_PTS 10000
-#define MAX_ESSENTIAL_OUTLIER_COST 0.01
+#define MAX_ESSENTIAL_OUTLIER_COST 10.0
 #define PTS_NUM_REG 50
 #define MAX_ACCEPT_COV 0.25
 using namespace std;
@@ -38,14 +38,14 @@ class StereoOnlineCalib {
     int height;
     bool show;
     std::vector<cv::Point2f> left_pts, right_pts;
-    double scale = 0;
+    double baseline = 0;
 public:
     StereoOnlineCalib(cv::Mat _R, cv::Mat _T, cv::Mat _cameraMatrix, int _width, int _height, bool _show):
         cameraMatrix(_cameraMatrix), R0(_R), T0(_T), width(_width), height(_height), show(_show)
     {
-        scale = cv::norm(_T);
         cv::cv2eigen(_R, R0_eig);
         cv::cv2eigen(_T, T0_eig);
+        baseline = -T0_eig.x();
 
         Eigen::Matrix3d Tcross;
         Tcross << 0, -T0_eig.z(), T0_eig.y(),
