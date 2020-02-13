@@ -36,6 +36,7 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
     t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
     t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
     t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
+    // t_transpose = Eigen::AngleAxisd(0, Eigen::Vector3d(0, 0, 1));
 
     ROS_INFO("Reading depth config from %s", depth_config.c_str());
     FILE *fh = fopen(depth_config.c_str(),"r");
@@ -109,8 +110,6 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
                   fisheye->imgWidth*downsample_ratio, fisheye->sideImgHeight*downsample_ratio,0, 0, 0, 0,
                   f_side*downsample_ratio, f_side*downsample_ratio, cx_side*downsample_ratio, cy_side*downsample_ratio));
 
-    t_transpose = Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 0, 1));
-
     deps.push_back(nullptr);
     deps.push_back(nullptr);
     deps.push_back(nullptr);
@@ -139,7 +138,7 @@ DepthEstimator * DepthCamManager::create_depth_estimator(int direction, Eigen::M
         deps[direction] = new DepthEstimator(sgm_params, configPath + "/" + dep_RT_config[direction], cam_side_cv_transpose, show_disparity,
             enable_extrinsic_calib_for_depth, _output_path);
     } else {
-        deps[direction] = new DepthEstimator(sgm_params, -t01, r01, cam_side_cv_transpose, show_disparity,
+        deps[direction] = new DepthEstimator(sgm_params, t01, r01, cam_side_cv_transpose, show_disparity,
             enable_extrinsic_calib_for_depth, _output_path);
     }
     return deps[direction];
@@ -171,9 +170,13 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
 
 
     if (deps[direction] == nullptr) {
-        Eigen::Vector3d t01 = tic2 - tic1;
-        t01 = ric1.transpose()*t01;
-        create_depth_estimator(direction, ric1.transpose() * ric2, t01);
+        //According to my dervive
+        //R = R_r^T R_l
+        //T = R_r^T (T_l - T_r)
+
+        Eigen::Vector3d t01 = tic1 - tic2;
+        t01 = ric2.transpose()*t01;
+        create_depth_estimator(direction, ric2.transpose() * ric1, t01);
     }
     
     auto dep_est = deps[direction];
@@ -280,7 +283,7 @@ void DepthCamManager::add_pts_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eige
             double z = vec[2];
             Vector3d pts_i(x, y, z);
 
-            if (z > 0.2 && pts_i.norm() < depth_cloud_radius) {
+            if (pts_i.norm() < depth_cloud_radius) {
                 Vector3d w_pts_i = R * pts_i + P;
                 // Vector3d w_pts_i = pts_i;
 
