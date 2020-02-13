@@ -770,14 +770,25 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
 void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda::GpuMat & down_top_img, cv::cuda::GpuMat & up_side_img, cv::cuda::GpuMat & down_side_img) {
     context = VX_API_CALL(vxCreateContext());
 
-    vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
-    vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
-    vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
-    vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
+    if (enable_up_top) {
+        vx_up_top_image = nvx_cv::createVXImageFromCVGpuMat(context, up_top_img_fix);
+        vx_up_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_top_fix); 
+    }
 
-    vx_up_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_top_fix); 
-    vx_down_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_down_top_fix); 
-    vx_up_side_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_side_fix); 
+    if(enable_down_top) {
+        vx_down_top_image = nvx_cv::createVXImageFromCVGpuMat(context, down_top_img_fix);
+        vx_down_top_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_down_top_fix); 
+    }
+
+    if(enable_up_side) {
+        vx_up_side_image = nvx_cv::createVXImageFromCVGpuMat(context, up_side_img_fix);
+        vx_up_side_mask = nvx_cv::createVXImageFromCVGpuMat(context, mask_up_side_fix); 
+    }
+
+    if(enable_down_side) {
+        vx_down_side_image = nvx_cv::createVXImageFromCVGpuMat(context, down_side_img_fix);
+    }
+
     
     nvx::FeatureTracker::Params params;
     params.use_rgb = RGB_DEPTH_CLOUD;
@@ -789,17 +800,21 @@ void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda
 
     params.lk_win_size = 21;
     params.detector_cell_size = MIN_DIST;
-
-    tracker_up_top = nvx::FeatureTracker::create(context, params);
-    tracker_up_top->init(vx_up_top_image, vx_up_top_mask);
-
-    tracker_down_top = nvx::FeatureTracker::create(context, params);
-    tracker_down_top->init(vx_down_top_image, vx_down_top_mask);
-
+    if (enable_up_top) {
+        tracker_up_top = nvx::FeatureTracker::create(context, params);
+        tracker_up_top->init(vx_up_top_image, vx_up_top_mask);
+    }
+    if(enable_down_top) {
+        tracker_down_top = nvx::FeatureTracker::create(context, params);
+        tracker_down_top->init(vx_down_top_image, vx_down_top_mask);
+    }
     params.detector_cell_size = MIN_DIST;
     params.array_capacity = SIDE_PTS_CNT;
-    tracker_up_side = nvx::FeatureTracker::create(context, params);
-    tracker_up_side->init(vx_up_side_image, vx_up_side_mask);
+
+    if(enable_up_side) {
+        tracker_up_side = nvx::FeatureTracker::create(context, params);
+        tracker_up_side->init(vx_up_side_image, vx_up_side_mask);
+    }
 }
 
 #endif
@@ -863,37 +878,71 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 #else
         TicToc tic;
         //TODO: simpified this to make no copy
-        up_top_img.copyTo(up_top_img_fix);
-        down_top_img.copyTo(down_top_img_fix);
-        up_side_img.copyTo(up_side_img_fix);
-        down_side_img.copyTo(down_side_img_fix);
+        if (enable_up_top) {
+            up_top_img.copyTo(up_top_img_fix);
+        }
+
+        if(enable_down_top) {
+            down_top_img.copyTo(down_top_img_fix);
+        }
+
+        if(enable_up_side) {
+            up_side_img.copyTo(up_side_img_fix);
+        }
+
+        if(enable_down_side) {
+            down_side_img.copyTo(down_side_img_fix);
+        }
 
         ROS_INFO("Copy Image cost %fms", tic.toc());
         if(first_frame) {
             setMaskFisheye();
-            mask_up_top_fix.upload(mask_up_top);
-            mask_down_top_fix.upload(mask_down_top);
-            mask_up_side_fix.upload(mask_up_side);
+            if (enable_up_top) {
+                mask_up_top_fix.upload(mask_up_top);
+            }
+    
+            if(enable_down_top) {
+                mask_down_top_fix.upload(mask_down_top);
+            }
+
+            if(enable_up_side) {
+                mask_up_side_fix.upload(mask_up_side);
+            }
             ROS_INFO("setFisheyeMask Image cost %fms", tic.toc());
 
             init_vworks_tracker(up_top_img_fix, down_top_img_fix, up_side_img_fix, down_side_img_fix);
             first_frame = false;
         } else {
-            tracker_up_top->track(vx_up_top_image, vx_up_top_mask);
-            tracker_down_top->track(vx_down_top_image, vx_down_top_mask);
-            tracker_up_side->track(vx_up_side_image, vx_up_side_mask);
+            if (enable_up_top) {
+                tracker_up_top->track(vx_up_top_image, vx_up_top_mask);
+            }
+
+            if(enable_down_top) {
+                tracker_down_top->track(vx_down_top_image, vx_down_top_mask);
+            }
+
+            if(enable_up_side) {
+                tracker_up_side->track(vx_up_side_image, vx_up_side_mask);
+            }
         }
         
         ROS_INFO("Track only cost %fms", tic.toc());
 
-        process_vworks_tracking(tracker_up_top,  ids_up_top, prev_up_top_pts, cur_up_top_pts, 
-            track_up_top_cnt, n_pts_up_top, up_top_id_by_index);
+        if (enable_up_top) {
+            process_vworks_tracking(tracker_up_top,  ids_up_top, prev_up_top_pts, cur_up_top_pts, 
+                track_up_top_cnt, n_pts_up_top, up_top_id_by_index);
+        }
 
-        process_vworks_tracking(tracker_down_top,  ids_down_top, prev_down_top_pts, cur_down_top_pts, 
-            track_down_top_cnt, n_pts_down_top, down_top_id_by_index);
+        if(enable_down_top) {
+            process_vworks_tracking(tracker_down_top,  ids_down_top, prev_down_top_pts, cur_down_top_pts, 
+                track_down_top_cnt, n_pts_down_top, down_top_id_by_index);
+        }
+
+        if(enable_up_side) {
+            process_vworks_tracking(tracker_up_side,  ids_up_side, prev_up_side_pts, cur_up_side_pts, 
+                track_up_side_cnt, n_pts_up_side, up_side_id_by_index);
+        }
         
-        process_vworks_tracking(tracker_up_side,  ids_up_side, prev_up_side_pts, cur_up_side_pts, 
-            track_up_side_cnt, n_pts_up_side, up_side_id_by_index);
         ROS_INFO("Visionworks cost %fms", tic.toc());
 
         if (enable_down_side) {
