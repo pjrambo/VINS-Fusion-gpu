@@ -114,8 +114,11 @@ target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRAR
 
 
 add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})
-target_link_libraries(vins_node vins_lib estimator_lib sgm ovx nvx ${CUDA_LIBRARIES})
-
+if(ENABLE_VWORKS)
+target_link_libraries(vins_node vins_lib estimator_lib ovx nvx ${CUDA_LIBRARIES})
+else()
+target_link_libraries(vins_node vins_lib estimator_lib ${CUDA_LIBRARIES})
+endif()
 # add_library(vins_nodelet_lib src/rosNodelet.cpp)
 # target_link_libraries(vins_nodelet_lib vins_lib estimator_lib)
 
