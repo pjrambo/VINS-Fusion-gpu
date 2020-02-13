@@ -517,7 +517,7 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
 vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img, 
                         cv::cuda::GpuMat & prev_img, vector<cv::Point2f> & prev_pts, 
                         vector<int> & ids, vector<int> & track_cnt,
-                        bool flow_back, vector<cv::Point2f> prediction_points){
+                        bool is_lr_track, vector<cv::Point2f> prediction_points){
     if (prev_pts.size() == 0) {
         return vector<cv::Point2f>();
     }
@@ -691,8 +691,19 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
     auto cv_cur_flags = cv_cur_pts_flag.second;
     bool first_frame = _id_by_index.empty();
 
+
+    //For new point; prev is 1 cur is 255
+    //For old point; prev and cur is 255
+    //1 is create by FAST
+    //255 is track by opticalflow
+    //Now we always use tracked 2 frame point instead of full
+    //This is because the vworks tracker
     if (!first_frame) {
         for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
+            if (cv_cur_flags[i] == 0) {
+                //This is failed point
+                continue;
+            }
             int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
             int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
             if (_id_by_index.find(prev_pos_id) != _id_by_index.end()) {
@@ -704,13 +715,14 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
                 prev_pts.push_back(cv_prev_pts_flag.first[i]);
                 cur_pts.push_back(cv_cur_pts[i]);
                 if (debug_output) {
-                    ROS_INFO("Index %d ID %d POSID %d PrevID %d PT %f %f ->  %f %f",
+                    ROS_INFO("Index %d ID %d POSID %d PrevID %d PT %f %f ->  %f %f FLAG %d from %d",
                         i,
                         _ids.back(),
                         cur_pos_id,
                         prev_pos_id,
                         prev_pts.back().x, prev_pts.back().y,
-                        cur_pts.back().x, cur_pts.back().y
+                        cur_pts.back().x, cur_pts.back().y,
+                        cv_cur_flags[i], cv_prev_pts_flag.second[i]
                     );
                 }
                 _track[_id] ++;
@@ -719,8 +731,12 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
     }
 
     for (unsigned int i = 0; i < cv_cur_pts.size(); i ++) {
-        // if(cv_cur_flags[i] == 0 || first_frame) {
+        if (cv_cur_flags[i] == 0) {
+            //This is failed point
+            continue;
+        }
         int prev_pos_id = to_pt_pos_id(cv_prev_pts_flag.first[i]);
+        //This create new points
         if (_id_by_index.find(prev_pos_id) == _id_by_index.end()) {
             //This is new create points
             int cur_pos_id = to_pt_pos_id(cv_cur_pts[i]);
@@ -730,8 +746,8 @@ void FeatureTracker::process_vworks_tracking(nvx::FeatureTracker* _tracker, vect
             new_id_by_index[cur_pos_id] = _ids.back();
             _track[_ids.back()] = 1;
             if (debug_output) {
-                ROS_INFO("New ID %d pos_id %d  prev_id %d PT %f %f", _ids.back(), 
-                    cur_pos_id, prev_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y);
+                ROS_INFO("New ID %d pos_id %d  prev_id %d PT %f %f CUR %d PREV %d", _ids.back(), 
+                    cur_pos_id, prev_pos_id, cv_cur_pts[i].x, cv_cur_pts[i].y, cv_cur_flags[i], cv_prev_pts_flag.second[i]);
             }
         }
     }
@@ -879,7 +895,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
         if (enable_down_side) {
             ids_down_side = ids_up_side;
-            auto down_side_init_pts = cur_up_side_pts;
+            vector<cv::Point2f> down_side_init_pts = cur_up_side_pts;
             cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
             // ROS_INFO("Down side try to track %ld pts; gives %ld:%ld", cur_up_side_pts.size(), cur_down_side_pts.size(), ids_down_side.size());
         }
@@ -897,14 +913,14 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         //If has predict;
         if (enable_up_top) {
             // ROS_INFO("Tracking top");
-            cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img, prev_up_top_pts, ids_up_top, track_up_top_cnt, FLOW_BACK);
+            cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img, prev_up_top_pts, ids_up_top, track_up_top_cnt, false);
         }
         if (enable_up_side) {
-            cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img, prev_up_side_pts, ids_up_side, track_up_side_cnt, FLOW_BACK);
+            cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img, prev_up_side_pts, ids_up_side, track_up_side_cnt, false);
         }
 
         if (enable_down_top) {
-            cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, FLOW_BACK);
+            cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img, prev_down_top_pts, ids_down_top, track_down_top_cnt, false);
         }
         
         ROS_INFO("FT %fms", t_r.toc());
@@ -931,8 +947,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
         if (enable_down_side) {
             ids_down_side = ids_up_side;
-            auto down_side_init_pts = cur_up_side_pts;
-            cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, FLOW_BACK);
+            std::vector<cv::Point2f> down_side_init_pts = cur_up_side_pts;
+            cur_down_side_pts = opticalflow_track(down_side_img, up_side_img, down_side_init_pts, ids_down_side, track_down_side_cnt, true);
             // ROS_INFO("Down side try to track %ld pts; gives %ld:%ld", cur_up_side_pts.size(), cur_down_side_pts.size(), ids_down_side.size());
         }
     }

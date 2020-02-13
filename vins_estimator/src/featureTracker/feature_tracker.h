@@ -61,7 +61,7 @@ public:
     vector<cv::Point2f> opticalflow_track(cv::cuda::GpuMat & cur_img, 
                         cv::cuda::GpuMat & prev_img, vector<cv::Point2f> & prev_pts, 
                         vector<int> & ids, vector<int> & track_cnt,
-                        bool flow_back, vector<cv::Point2f> prediction_points = vector<cv::Point2f>());
+                        bool is_lr_track, vector<cv::Point2f> prediction_points = vector<cv::Point2f>());
     
     void setMask();
     void setMaskFisheye();
