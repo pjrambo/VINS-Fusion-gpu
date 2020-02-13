@@ -75,10 +75,9 @@ public:
         cv::cv2eigen(T, T_eig);
         cv::cv2eigen(R, R_eig);
 
-        auto rpy = rotationMatrixToEulerAngles(R) * 57.3;
+        auto rpy = rotationMatrixToEulerAngles(R);
 
-        ROS_WARN("New Relative pose R %f P %f Y %f", rpy.x(), rpy.y(), rpy.z());
-        std::cerr << "T1" << T << std::endl;
+        ROS_WARN("New Relative pose R %f P %f Y %f", rpy.x() * 57.3, rpy.y() * 57.3, rpy.z() * 57.3);
 
         Eigen::Matrix3d Tcross;
         Tcross << 0, -T_eig.z(), T_eig.y(),
@@ -90,8 +89,8 @@ public:
 
     void find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2);
     bool calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
-    static std::vector<cv::KeyPoint> detect_orb_by_region(cv::Mat _img, int features, int cols = 4, int rows = 3);
-    bool calibrate_extrinsic_opencv(std::vector<cv::Point2f> left_pts, std::vector<cv::Point2f> right_pts);
+    static std::vector<cv::KeyPoint> detect_orb_by_region(cv::Mat & _img, int features, int cols = 2, int rows = 4);
+    bool calibrate_extrinsic_opencv(const std::vector<cv::Point2f> & left_pts, const std::vector<cv::Point2f> & right_pts);
 };
 
 
@@ -105,55 +104,47 @@ inline Eigen::Vector3d quat2eulers(const Eigen::Quaterniond &quat) {
     return rpy;
 }
 
-bool StereoOnlineCalib::calibrate_extrinsic_opencv(std::vector<cv::Point2f> left_pts, std::vector<cv::Point2f> right_pts) {
+bool StereoOnlineCalib::calibrate_extrinsic_opencv(const std::vector<cv::Point2f> & left_pts, 
+    const std::vector<cv::Point2f> & right_pts) {
     if (left_pts.size() < 50) {
         return false;
     }
     TicToc tic2;
     vector<uchar> status;
-    cv::Mat essentialMat = cv::findEssentialMat(left_pts, right_pts, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
+    std::vector<cv::Point2f> left_good, right_good;
+    cv::Mat essentialMat = cv::findEssentialMat(left_pts, right_pts, cameraMatrix, cv::RANSAC, 0.99, 1000, status);
     int status_count = 0;
-    for (auto u : status) {
-        status_count += u;
+    for (int i = 0; i < status.size(); i++) {
+        auto u = status[i];
+        if (u > 0) {
+            status_count += u;
+            left_good.push_back(left_pts[i]);
+            right_good.push_back(right_pts[i]);
+        }
+    }
+
+    if (status_count < MINIUM_ESSENTIALMAT_SIZE) {
+        return false;
     }
 
     ROS_INFO("Find EssentialMat with %ld/%d pts use %fms", left_pts.size(), status_count, tic2.toc());
+    cv::Mat _R, t;
+    int num = cv::recoverPose(essentialMat, left_pts, right_pts, cameraMatrix, _R, t);
+    ROS_INFO("Recorver pose take with %ld/%d pts use %fms", left_good.size(), num, tic2.toc());
 
+    double disR = norm(R0 - _R);
+    double disT = norm(t - T0/scale);
 
-    cv::Mat R1, R2, t;
-    decomposeEssentialMat(essentialMat, R1, R2, t);
-    if (t.at<double>(0, 0) > 0) {
-        t = -t;
+    // std::cerr << "R" << _R << "DIS R" << disR << std::endl;
+    // std::cerr << "T" << t*scale << "DIS T" << disT << std::endl;
+
+    if (disR < GOOD_R_THRES && disT < GOOD_T_THRES) {
+        update(_R, t*scale);
+        ROS_INFO("Update R T");
+        std::cout << "R" << R << std::endl;
+        std::cout << "T" << T << std::endl;
+        return true;
     }
-
-
-    double dis1 = norm(R0 - R1);
-    double dis2 = norm(R0 - R2);
-    double dis3 = norm(t - T0/scale);
-
-    // std::cout << "R0" << R << std::endl;
-    // std::cout << "T0" << T << std::endl;
-    
-
-
-    if (dis1 < dis2) {
-        if (dis1 < GOOD_R_THRES && dis3 < GOOD_T_THRES) {
-            update(R1, t*scale);
-            ROS_INFO("Update R T");
-            std::cout << "R" << R << std::endl;
-            std::cout << "T" << T << std::endl;
-            return true;
-        }
-    } else {
-        if (dis2 < GOOD_R_THRES && dis3 < GOOD_T_THRES) {
-            update(R2, t*scale);
-            ROS_INFO("Update R T");
-            std::cout << "R" << R << std::endl;
-            std::cout << "T" << T << std::endl;
-            return true;
-        }
-    }
-    return false;
 }
 
 bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
@@ -177,18 +168,19 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
     return calibrate_extrinsic_opencv(left_pts, right_pts);
 }
 
-std::vector<cv::KeyPoint> StereoOnlineCalib::detect_orb_by_region(cv::Mat _img, int features, int cols, int rows) {
+std::vector<cv::KeyPoint> StereoOnlineCalib::detect_orb_by_region(cv::Mat & _img, int features, int cols, int rows) {
     int small_width = _img.cols / cols;
     int small_height = _img.rows / rows;
-    printf("Cut to W %d H %d for FAST\n", small_width, small_height);
+    // printf("Cut to W %d H %d for FAST\n", small_width, small_height);
     
-    auto _orb = cv::ORB::create(features/(cols*rows));
+    auto _orb = cv::ORB::create(100, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
     std::vector<cv::KeyPoint> ret;
     for (int i = 0; i < cols; i ++) {
         for (int j = 0; j < rows; j ++) {
             std::vector<cv::KeyPoint> kpts;
+            cv::imshow("Rect", _img(cv::Rect(small_width*i, small_width*j, small_width, small_height)));
             _orb->detect(_img(cv::Rect(small_width*i, small_width*j, small_width, small_height)), kpts);
-            printf("Detect %ld feature in reigion %d %d\n", kpts.size(), i, j);
+            // printf("Detect %ld feature in reigion %d %d\n", kpts.size(), i, j);
 
             for (auto kp : kpts) {
                 kp.pt.x = kp.pt.x + small_width*i;
@@ -314,6 +306,10 @@ std::vector<cv::DMatch> filter_by_hamming(const std::vector<cv::DMatch> & matche
         dys.push_back(gm.distance);
     }
 
+    if (dys.size() == 0) {
+        return good_matches;
+    }
+
     std::sort(dys.begin(), dys.end());
 
     // printf("MIN DX DIS:%f, 2min %fm ax %f\n", dys[0], 2*dys[0], dys[dys.size() - 1]);
@@ -378,10 +374,17 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
     
     img1.download(_img1);
     img2.download(_img2);
+    // detect_orb_by_region
 
     auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
     _orb->detectAndCompute(_img1, mask, kps1, desc1);
     _orb->detectAndCompute(_img2, mask, kps2, desc2);
+
+    // auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
+    // kps1 = detect_orb_by_region(_img1, 1000);
+    // kps2 = detect_orb_by_region(_img2, 1000);
+    // _orb->compute(_img1, kps1, desc1);
+    // _orb->compute(_img2, kps2, desc2);
 
     size_t j = 0;
 

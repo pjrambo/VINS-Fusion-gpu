@@ -72,7 +72,6 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         map22.upload(_map22);
         _Q.convertTo(Q, CV_32F);
 
-        std::cerr << "Q" << _Q << std::endl;
         first_init = false;
     } 
 
@@ -218,7 +217,7 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
     if (skip <= 0) {
         skip = 1;
     }
-    if (count ++ % skip == 0) {
+    if (count ++ % 5 == 0) {
         if(enable_extrinsic_calib) {
             bool success = online_calib->calibrate_extrincic(left, right);
             if (success) {
