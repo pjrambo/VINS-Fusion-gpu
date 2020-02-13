@@ -77,7 +77,11 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const FeatureFrame
         {
             // ROS_INFO("Stereo feature %d", id_pts.first);
             f_per_fra.rightObservation(id_pts.second[1].second);
-            assert(id_pts.second[1].first == 1);
+            // assert(id_pts.second[1].first == 1);
+            if (id_pts.second[1].first != 1) {
+                ROS_WARN("Bug occurs on pt, skip");
+                continue;
+            }
         }
 
         int feature_id = id_pts.first;

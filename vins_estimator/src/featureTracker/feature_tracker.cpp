@@ -782,6 +782,9 @@ void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda
     nvx::FeatureTracker::Params params;
     params.use_rgb = RGB_DEPTH_CLOUD;
     params.use_harris_detector = false;
+    // params.use_harris_detector = true;
+    // params.harris_k = 0.04;
+    // params.harris_thresh = 10;
     params.array_capacity = TOP_PTS_CNT;
 
     params.lk_win_size = 21;
