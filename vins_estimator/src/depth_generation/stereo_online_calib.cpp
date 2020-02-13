@@ -278,6 +278,8 @@ void StereoOnlineCalib::filter_points_by_region(std::vector<cv::Point2f> & good_
     for (auto reg : regions) {
         int count = 0;
         auto & pts_stack = reg.second;
+        std::random_shuffle ( pts_stack.begin(), pts_stack.end() );
+
         // std::sort(pts_stack.begin(), pts_stack.end(), compareDisparity);
         for (auto it: pts_stack) {
             good_left.push_back(it.first);
@@ -482,8 +484,8 @@ std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,
         auto pt1 = train_pts[gm.trainIdx].pt;
         auto pt2 = query_pts[gm.queryIdx].pt;
 
-        auto f1 = undist(pt1, cameraMatrix)*cameraMatrix.at<double>(0, 0);
-        auto f2 = undist(pt2, cameraMatrix)*cameraMatrix.at<double>(0, 0);
+        auto f1 = undist(pt1, cameraMatrix);
+        auto f2 = undist(pt2, cameraMatrix);
 
         auto cost = f2.transpose()*E*f1;
         if (cost.norm() < MAX_ESSENTIAL_OUTLIER_COST) {
@@ -558,9 +560,8 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
         good_matches.push_back(matches[i]);
     }
 
-    // TicToc tic0;
     // if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
-    //     cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.99, 1.0, status);
+    //     cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.999, 1.0, status);
     // }
 
     // for(int i = 0; i < _pts1.size(); i ++) {

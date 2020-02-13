@@ -14,9 +14,9 @@
 #define GOOD_R_THRES 0.1
 #define GOOD_T_THRES 0.1
 #define MAX_FIND_ESSENTIALMAT_PTS 10000
-#define MAX_ESSENTIAL_OUTLIER_COST 10.0
-#define PTS_NUM_REG 50
-#define MAX_ACCEPT_COV 0.25
+#define MAX_ESSENTIAL_OUTLIER_COST 0.02
+#define PTS_NUM_REG 200
+#define MAX_ACCEPT_COV 0.1
 using namespace std;
 
 #define CALIBCOLS 3
@@ -27,13 +27,11 @@ class StereoOnlineCalib {
     cv::Mat R, T;
     cv::Mat R0, T0;
     cv::Mat E;
-    Eigen::Matrix3d E_eig;
-    Eigen::Matrix3d E0_eig;
-    Eigen::Vector3d T_eig;
-    Eigen::Matrix3d R_eig;
+    Eigen::Matrix3d E_eig, E0_eig;
+    Eigen::Vector3d T_eig, T0_eig;
+    Eigen::Vector3d T_eig_norm;
+    Eigen::Matrix3d R_eig, R0_eig;
 
-    Eigen::Vector3d T0_eig;
-    Eigen::Matrix3d R0_eig;
     int width;
     int height;
     bool show;
@@ -46,14 +44,8 @@ public:
         cv::cv2eigen(_R, R0_eig);
         cv::cv2eigen(_T, T0_eig);
         baseline = -T0_eig.x();
-
-        Eigen::Matrix3d Tcross;
-        Tcross << 0, -T0_eig.z(), T0_eig.y(),
-        T0_eig.z(), 0, -T0_eig.x(),
-        -T0_eig.y(), T0_eig.x(), 0;
-        
-        E0_eig = Tcross*R0_eig;
         update(_R, _T);
+        E0_eig = E_eig;
     }
 
     cv::Mat get_rotation() const {
@@ -70,14 +62,18 @@ public:
         cv::cv2eigen(T, T_eig);
         cv::cv2eigen(R, R_eig);
 
+        T_eig_norm = T_eig.normalized();
+
+        std::cerr << "Teig_norm" << T_eig_norm << std::endl;
+
         auto rpy = Utility::R2ypr(R_eig);
 
         ROS_WARN("New Relative pose Y %f P %f R %f", rpy.x(), rpy.y(), rpy.z());
 
         Eigen::Matrix3d Tcross;
-        Tcross << 0, -T_eig.z(), T_eig.y(),
-                T_eig.z(), 0, -T_eig.x(),
-                -T_eig.y(), T_eig.x(), 0;
+        Tcross << 0, -T_eig_norm.z(), T_eig_norm.y(),
+                T_eig_norm.z(), 0, -T_eig_norm.x(),
+                -T_eig_norm.y(), T_eig_norm.x(), 0;
         E_eig = Tcross*R_eig;
         cv::eigen2cv(E_eig, E);
     }
