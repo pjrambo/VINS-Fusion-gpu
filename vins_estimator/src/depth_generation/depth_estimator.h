@@ -66,7 +66,7 @@ class DepthEstimator {
     ColorDisparityGraph * color;
 #endif
 
-    StereoOnlineCalib * online_calib;
+    StereoOnlineCalib * online_calib = nullptr;
 
     std::vector<cv::Point2f> left_pts;
     std::vector<cv::Point2f> right_pts;

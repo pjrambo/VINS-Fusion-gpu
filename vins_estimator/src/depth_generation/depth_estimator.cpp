@@ -26,10 +26,6 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
 {
     cv::eigen2cv(R01, R);
     cv::eigen2cv(t01, T);
-
-    if (enable_extrinsic_calib) {
-        online_calib = new StereoOnlineCalib(R, T, cameraMatrix, show);
-    }
 }
 
 DepthEstimator::DepthEstimator(SGMParams _params, std::string Path, cv::Mat camera_mat,
@@ -42,10 +38,6 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
     fsSettings["R"] >> R;
     fsSettings["T"] >> T;
     fsSettings.release();
-
-    if (enable_extrinsic_calib) {
-        online_calib = new StereoOnlineCalib(R, T, cameraMatrix, show);
-    }
 }
     
 
@@ -223,6 +215,11 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
     }
     if (count ++ % 5 == 0) {
         if(enable_extrinsic_calib) {
+
+            if (online_calib == nullptr) {
+                online_calib = new StereoOnlineCalib(R, T, cameraMatrix, left.cols, left.rows, show);
+            }
+            
             bool success = online_calib->calibrate_extrincic(left, right);
             if (success) {
                 R = online_calib->get_rotation();
