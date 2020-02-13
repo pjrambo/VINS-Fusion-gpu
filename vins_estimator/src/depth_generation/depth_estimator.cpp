@@ -10,7 +10,11 @@
 #include "stereo_online_calib.hpp"
 
 #ifndef WITHOUT_VWORKS
-ovxio::ContextGuard context;
+#ifdef OVX
+extern ovxio::ContextGuard context;
+#else 
+extern vx_context context;
+#endif
 #endif
 
 
@@ -121,10 +125,10 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             auto lsize = leftRectify_fix.size();
             // disparity_fix = cv::cuda::GpuMat(leftRectify_fix.size(), CV_8U);
             // disparity_fix_cpu = cv::Mat(leftRectify_fix.size(), CV_8U);
+#ifdef OVX
             vxDirective(context, VX_DIRECTIVE_ENABLE_PERFORMANCE);
-
             vxRegisterLogCallback(context, &ovxio::stdoutLogCallback, vx_false_e);
-
+#endif
             //
             // Create a NVXIO-based frame source
             //

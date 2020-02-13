@@ -38,7 +38,7 @@
 #include <VX/vxu.h>
 #include <NVX/nvx.h>
 
-#include <OVX/UtilityOVX.hpp>
+#include "../featureTracker/ovx_replaceheader.hpp"
 
 #ifdef __ANDROID__
 #define LOG_TAG "SGBM"
@@ -93,7 +93,7 @@ namespace hlsgm
 
     void SGBM::run()
     {
-        NVXIO_SAFE_CALL( vxProcessGraph(main_graph_) );
+        VX_API_CALL( vxProcessGraph(main_graph_) );
     }
 
     SGBM::~SGBM()
@@ -109,9 +109,9 @@ namespace hlsgm
         vx_uint32 width = 0;
         vx_uint32 height = 0;
 
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_FORMAT, &format, sizeof(format)) );
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_WIDTH, &width, sizeof(width)) );
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_HEIGHT, &height, sizeof(height)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_FORMAT, &format, sizeof(format)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_WIDTH, &width, sizeof(width)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_HEIGHT, &height, sizeof(height)) );
 
         main_graph_ = vxCreateGraph(context);
         NVXIO_CHECK_REFERENCE(main_graph_);
@@ -175,7 +175,7 @@ namespace hlsgm
         // NVXIO_CHECK_REFERENCE(convert_depth_node_);
 
         // verify the graph
-        NVXIO_SAFE_CALL( vxVerifyGraph(main_graph_) );
+        VX_API_CALL( vxVerifyGraph(main_graph_) );
 
         // clean up
         // vxReleaseImage(&left_gray);
@@ -186,11 +186,13 @@ namespace hlsgm
 
     void SGBM::printPerfs() const
     {
+#ifdef OVX
         ovxio::printPerf(main_graph_, "Stereo");
         ovxio::printPerf(left_cvt_color_node_, "Left Color Convert");
         ovxio::printPerf(right_cvt_color_node_, "Right Color Convert");
         ovxio::printPerf(semi_global_matching_node_, "SGBM");
         ovxio::printPerf(convert_depth_node_, "Convert Depth");
+#endif
     }
 }
 
@@ -233,7 +235,7 @@ namespace llsgm
 
     void SGBM::run()
     {
-        NVXIO_SAFE_CALL( vxProcessGraph(main_graph_) );
+        VX_API_CALL( vxProcessGraph(main_graph_) );
     }
 
     SGBM::~SGBM()
@@ -249,9 +251,9 @@ namespace llsgm
         vx_uint32 height = 0;
         vx_uint32 D = params.max_disparity - params.min_disparity;
 
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_FORMAT, &format, sizeof(format)) );
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_WIDTH, &width, sizeof(width)) );
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_HEIGHT, &height, sizeof(height)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_FORMAT, &format, sizeof(format)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_WIDTH, &width, sizeof(width)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_HEIGHT, &height, sizeof(height)) );
 
         main_graph_ = vxCreateGraph(context);
         NVXIO_CHECK_REFERENCE(main_graph_);
@@ -371,11 +373,12 @@ namespace llsgm
         vxReleaseImage(&right_gray);
         vxReleaseImage(&left_gray);
 
-        NVXIO_SAFE_CALL( vxVerifyGraph(main_graph_) );
+        VX_API_CALL( vxVerifyGraph(main_graph_) );
     }
 
     void SGBM::printPerfs() const
     {
+#ifdef OVX
         ovxio::printPerf(main_graph_, "Stereo");
         ovxio::printPerf(left_cvt_color_node_, "Left Color Convert");
         ovxio::printPerf(right_cvt_color_node_, "Right Color Convert");
@@ -386,6 +389,7 @@ namespace llsgm
         ovxio::printPerf(aggregate_cost_scanlines_node_, "Aggregate Scanlines");
         ovxio::printPerf(compute_disparity_node_, "Compute Disparity");
         ovxio::printPerf(convert_depth_node_, "Convert Depth");
+#endif
     }
 }
 
@@ -439,7 +443,7 @@ namespace psgm
 
     void SGBM::run()
     {
-        NVXIO_SAFE_CALL( vxProcessGraph(main_graph_) );
+        VX_API_CALL( vxProcessGraph(main_graph_) );
     }
 
     SGBM::~SGBM()
@@ -456,9 +460,9 @@ namespace psgm
         vx_uint32 full_D = params.max_disparity - params.min_disparity;
         vx_int32 sad = params.sad;
 
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_FORMAT, &format, sizeof(format)) );
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_WIDTH, &full_width, sizeof(full_width)) );
-        NVXIO_SAFE_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_HEIGHT, &full_height, sizeof(full_height)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_FORMAT, &format, sizeof(format)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_WIDTH, &full_width, sizeof(full_width)) );
+        VX_API_CALL( vxQueryImage(left, VX_IMAGE_ATTRIBUTE_HEIGHT, &full_height, sizeof(full_height)) );
 
         // We use nvxCreateStreamGraph instead of ordinary vxCreateGraph to
         // indicate that the execution order of nodes should be the same as the
@@ -652,7 +656,7 @@ namespace psgm
         vxReleaseScalar(&s_shift);
         NVXIO_CHECK_REFERENCE(convert_depth_node);
 
-        NVXIO_SAFE_CALL( vxVerifyGraph(main_graph_) );
+        VX_API_CALL( vxVerifyGraph(main_graph_) );
     }
 
     void SGBM::printPerfs() const

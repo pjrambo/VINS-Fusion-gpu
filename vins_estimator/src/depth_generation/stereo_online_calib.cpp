@@ -47,9 +47,9 @@ struct StereoCostFunctor {
 
         // theta 3
         // phi 4
-        T tx = -cos(_x[0][3])*cos(_x[0][4]);
-        T ty = -cos(_x[0][3])*sin(_x[0][4]);
-        T tz = -sin(_x[0][3]);
+        T tx = cos(_x[0][3])*cos(_x[0][4]);
+        T ty = cos(_x[0][3])*sin(_x[0][4]);
+        T tz = sin(_x[0][3]);
 
         T E[9];
         EssentialMatfromRT(R, tx, ty, tz, E);
@@ -58,9 +58,35 @@ struct StereoCostFunctor {
         // std::cerr << E_eig << std::endl;
 
         for (int i = 0; i < left_pts.size(); i++) {
-            
             Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i];
             residual[i] = ret(0, 0);
+        }
+
+        return true;
+    }
+
+
+    template <typename T>
+    bool Evalute(T const * _x) const {
+        // residual[0] = T(10.0) - x[0];
+        T R[9];
+        EulerAnglesToRotationMatrix(_x, 3, R);
+        T tx = cos(_x[3])*cos(_x[4]);
+        T ty = cos(_x[3])*sin(_x[4]);
+        T tz = sin(_x[3]);
+
+        T E[9];
+        EssentialMatfromRT(R, tx, ty, tz, E);
+
+        Eigen::Matrix<T, 3, 3, Eigen::RowMajor> E_eig = Eigen::Map <Eigen::Matrix <T, 3, 3, Eigen::RowMajor>> (E);
+        std::cerr << E_eig << std::endl;
+
+        for (int i = 0; i < left_pts.size(); i++) {
+            std::cerr << "PTS" << std::endl;
+            std::cerr << right_pts[i].transpose() << std::endl;
+            std::cerr << left_pts[i].transpose() << std::endl;
+            Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i];
+            std::cerr << i << ":" << ret << std::endl;
         }
 
         return true;
@@ -104,8 +130,9 @@ std::pair<double, double> xyz2thetaphi(Eigen::Vector3d xyz) {
 
 bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point2f> & left_pts, 
     const std::vector<cv::Point2f> & right_pts) {
-    auto cost_function = new DynamicAutoDiffCostFunction<StereoCostFunctor, 7>(
-        new StereoCostFunctor(left_pts, right_pts, cameraMatrix));
+    
+    auto stereo_func = new StereoCostFunctor(left_pts, right_pts, cameraMatrix);
+    auto cost_function = new DynamicAutoDiffCostFunction<StereoCostFunctor, 7>(stereo_func);
     cost_function->AddParameterBlock(5);
     cost_function->SetNumResiduals(left_pts.size());
     Eigen::Vector3d rpy = Utility::R2ypr(R_eig, false);
@@ -121,6 +148,7 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     x.push_back(thetaphi.first);
     x.push_back(thetaphi.second);
     
+    stereo_func->Evalute<double>(x.data());
     Problem problem;
     problem.AddResidualBlock(cost_function, NULL, x.data());
     Solver::Options options;
@@ -141,7 +169,7 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     cv::eigen2cv(_t_eig, _T);
 
     // return false;
-    update(_R, _T);
+    // update(_R, _T);
     return true;
 }
 

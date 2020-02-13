@@ -30,10 +30,8 @@
 #include "fisheye_undist.hpp"
 
 #ifndef WITHOUT_VWORKS
-#include <OVX/UtilityOVX.hpp>
-#include <NVX/nvx.h>
-#include <NVX/nvx_opencv_interop.hpp>
 #include "vworks_feature_tracker.hpp"
+#include "NVX/nvx_opencv_interop.hpp"
 #endif
 
 using namespace std;

@@ -37,7 +37,7 @@
 #include <VX/vxu.h>
 #include <NVX/nvx.h>
 
-#include <OVX/UtilityOVX.hpp>
+#include "ovx_replaceheader.hpp"
 
 //
 // The feature_tracker.cpp contains the implementation of the  virtual void
@@ -256,6 +256,7 @@ namespace
         std::cout << "Found old" << num_items << " Features New"<< num_items_new << std::endl;
 #endif
 
+#ifdef OVX
         ovxio::printPerf(main_graph_, "Feature Tracker");
         if (params_.use_rgb) {
             ovxio::printPerf(cvt_color_node_, "Color Convert");
@@ -264,6 +265,7 @@ namespace
         ovxio::printPerf(pyr_node_, "Pyramid");
         ovxio::printPerf(feature_track_node_, "Feature Track");
         ovxio::printPerf(opt_flow_node_, "Optical Flow");
+#endif
     }
 
     void FeatureTrackerImpl::release()

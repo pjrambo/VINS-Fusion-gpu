@@ -29,7 +29,7 @@
 
 #include <algorithm>
 
-#include <OVX/UtilityOVX.hpp>
+#include "../featureTracker/ovx_replaceheader.hpp"
 
 #include "color_disparity_graph.hpp"
 
@@ -172,11 +172,13 @@ void ColorDisparityGraph::process()
 
 void ColorDisparityGraph::printPerfs()
 {
+#ifdef OVX
     ovxio::printPerf(graph_, "Color Disparity");
     ovxio::printPerf(lut_node_[0], "Red Channel Table Lookup");
     ovxio::printPerf(lut_node_[1], "Green Channel Table Lookup");
     ovxio::printPerf(lut_node_[2], "Blue Channel Table Lookup");
     ovxio::printPerf(combine_node_, "Channel Combine");
+#endif
 }
 
 #endif

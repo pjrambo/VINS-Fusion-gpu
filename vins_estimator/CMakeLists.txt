@@ -29,10 +29,10 @@ find_package(catkin REQUIRED COMPONENTS
 if(ENABLE_VWORKS)
     find_package(VisionWorks REQUIRED)
     #Set path to visionworks sample here
-    include_directories(
-        /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
-    )
-    link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
+    # include_directories(
+        # /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
+    # )
+    # link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
 else()
     add_definitions(-DWITHOUT_VWORKS)
 endif(ENABLE_VWORKS)
@@ -81,14 +81,31 @@ generate_messages(
 )
 
 catkin_package()
-    
-add_library(vins_lib
-    src/estimator/parameters.cpp
-    src/estimator/feature_manager.cpp
+
+add_library(stereo_depth
+    src/depth_generation/depth_estimator.cpp
+    src/depth_generation/stereo_matching.cpp
+    src/depth_generation/depth_camera_manager.cpp
+    src/depth_generation/color_disparity_graph.cpp
+    src/depth_generation/stereo_online_calib.cpp
+)
+
+add_library(vins_frontend 
+    src/featureTracker/feature_tracker.cpp
+    src/featureTracker/vworks_feature_tracker.cpp
+)
+
+
+add_library(vins_factors_lib
     src/factor/pose_local_parameterization.cpp
     src/factor/projectionTwoFrameOneCamFactor.cpp
     src/factor/projectionTwoFrameTwoCamFactor.cpp
     src/factor/projectionOneFrameTwoCamFactor.cpp
+)
+
+add_library(vins_lib
+    src/estimator/parameters.cpp
+    src/estimator/feature_manager.cpp
     src/factor/marginalization_factor.cpp
     src/utility/utility.cpp
     src/utility/visualization.cpp
@@ -97,28 +114,21 @@ add_library(vins_lib
     src/initial/initial_aligment.cpp
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
-    src/featureTracker/feature_tracker.cpp
-    src/depth_generation/depth_estimator.cpp
-    src/depth_generation/stereo_matching.cpp
-    src/depth_generation/depth_camera_manager.cpp
-    src/depth_generation/color_disparity_graph.cpp
-    src/depth_generation/stereo_online_calib.cpp
-    src/featureTracker/vworks_feature_tracker.cpp
+
 )
 
 add_library(estimator_lib SHARED
     src/estimator/estimator.cpp
 )
 
-target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
+target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
+target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
+target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
 
 
-add_executable(vins_node src/rosNodeTest.cpp ${CUDA_SRC})
-if(ENABLE_VWORKS)
-target_link_libraries(vins_node vins_lib estimator_lib ovx nvx ${CUDA_LIBRARIES})
-else()
-target_link_libraries(vins_node vins_lib estimator_lib ${CUDA_LIBRARIES})
-endif()
+add_executable(vins_node src/rosNodeTest.cpp )
+target_link_libraries(vins_node vins_lib estimator_lib vins_frontend stereo_depth vins_factors_lib ${CUDA_LIBRARIES})
+
 # add_library(vins_nodelet_lib src/rosNodelet.cpp)
 # target_link_libraries(vins_nodelet_lib vins_lib estimator_lib)
 
