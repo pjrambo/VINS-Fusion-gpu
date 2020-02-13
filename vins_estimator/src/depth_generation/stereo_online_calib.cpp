@@ -174,6 +174,17 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     cv::eigen2cv(_R_eig, _R);
     cv::eigen2cv(_t_eig, _T);
 
+    Covariance::Options covoptions;
+    Covariance covariance(covoptions);
+
+    vector<pair<const double*, const double*> > covariance_blocks;
+    covariance_blocks.push_back(make_pair(x.data(), x.data()));
+    CHECK(covariance.Compute(covariance_blocks, &problem));
+    Eigen::Matrix<double, 5,5 > cov;
+    covariance.GetCovarianceBlock(x.data(), x.data(), cov.data());
+
+    std::cerr << "cov\n" << cov << std::endl;
+
     ROS_WARN("Solved R %f P %f Y %f", x[0], x[1], x[2]);
     std::cerr << _R << std::endl;
     ROS_WARN("Solved T %f %f %f theta %f phi %f", _t_eig.x(), _t_eig.y(), _t_eig.z(), x[3]*57.3, x[4]*57.3);
@@ -234,6 +245,10 @@ bool StereoOnlineCalib::calibrate_extrinsic_opencv(const std::vector<cv::Point2f
 typedef std::pair<cv::Point2f, cv::Point2f> point_pair;
 typedef std::vector<point_pair> matched_points;
 
+bool compareDisparity(point_pair p1, point_pair p2) 
+{ 
+    return cv::norm(p1.first - p1.second) > cv::norm(p2.first - p2.second);
+}
 
 void StereoOnlineCalib::filter_points_by_region(std::vector<cv::Point2f> & good_left, std::vector<cv::Point2f> & good_right) {
     std::map<int, matched_points> regions;
@@ -252,7 +267,9 @@ void StereoOnlineCalib::filter_points_by_region(std::vector<cv::Point2f> & good_
     
     for (auto reg : regions) {
         int count = 0;
-        for (auto it: reg.second) {
+        auto & pts_stack = reg.second;
+        // std::sort(pts_stack.begin(), pts_stack.end(), compareDisparity);
+        for (auto it: pts_stack) {
             good_left.push_back(it.first);
             good_right.push_back(it.second);
             count ++;
@@ -291,8 +308,9 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
     cv::cvtColor(_show, _show, cv::COLOR_GRAY2BGR);
 
     std::map<int, cv::Scalar> region_colors;
-
     
+
+    /*    
     for (int i = 0; i < good_left.size(); i ++) {
         float x = good_left[i].x;
         float y = good_right[i].y;
@@ -301,14 +319,9 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
             region_colors[_reg_id] = cv::Scalar(rand()%255, rand()%255, rand()%255);
         }
         cv::circle(_show, good_left[i], 1, region_colors[_reg_id], 2);
+        cv::arrowedLine(_show, good_left[i], good_right[i], cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
     }
-    // for (auto it: regions) {
-    //     for (auto pt: it.second) {
-    //         cv::circle(_show, pt.first, 1, color, 2);
-    //     }
-    // }
-    // return calibrate_extrinsic_optimize(left_pts, right_pts);
-    cv::imshow("Regions", _show);
+    cv::imshow("Regions", _show);*/
 
     return calibrate_extrinsic_optimize(good_left, good_right);
     // return calibrate_extrinsic_opencv(left_pts, right_pts);
@@ -509,10 +522,10 @@ void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda
 
     double thres = 0.05;
     
-    matches = filter_by_x(matches, kps2, kps1, thres);
-    matches = filter_by_y(matches, kps2, kps1, thres);
+    // matches = filter_by_x(matches, kps2, kps1, thres);
+    // matches = filter_by_y(matches, kps2, kps1, thres);
 
-    // matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E0_eig);
+    matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
 
     vector<cv::Point2f> _pts1, _pts2;
     vector<uchar> status;
