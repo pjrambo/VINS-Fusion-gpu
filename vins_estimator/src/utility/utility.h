@@ -72,7 +72,7 @@ class Utility
         return ans;
     }
 
-    static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R)
+    static Eigen::Vector3d R2ypr(const Eigen::Matrix3d &R, int degress = true)
     {
         Eigen::Vector3d n = R.col(0);
         Eigen::Vector3d o = R.col(1);
@@ -86,7 +86,12 @@ class Utility
         ypr(1) = p;
         ypr(2) = r;
 
-        return ypr / M_PI * 180.0;
+        if (degress) {
+            return ypr / M_PI * 180.0;
+        } else {
+            return ypr;
+        }
+
     }
 
     template <typename Derived>

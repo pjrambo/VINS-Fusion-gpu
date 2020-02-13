@@ -202,8 +202,8 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::hconcat(_show, gray_disp, _show);
             cv::hconcat(_show, color_disp, _show);
             char win_name[50] = {0};
-            sprintf(win_name, "RAW_DISP %f %f %f", T.at<double>(0, 0), T.at<double>(1, 0), T.at<double>(2, 0));
-            cv::imshow(win_name, _show);
+            // sprintf(win_name, "RAW_DISP %f %f %f", T.at<double>(0, 0), T.at<double>(1, 0), T.at<double>(2, 0));
+            cv::imshow("Disparity", _show);
             cv::waitKey(2);
         }            
         return cv_disp;

@@ -1,9 +1,148 @@
 #include "stereo_online_calib.hpp"
+#include "ceres/ceres.h"
+#include "ceres/rotation.h"
+
+Eigen::Vector3d undist(const cv::Point2f & pt, const cv::Mat & cameraMatrix) {
+    double x = (pt.x - cameraMatrix.at<double>(0, 2))/ cameraMatrix.at<double>(0, 0);
+    double y = (pt.y - cameraMatrix.at<double>(1, 2))/ cameraMatrix.at<double>(1, 1);
+    return Eigen::Vector3d(x, y, 1).normalized();
+}
+
+using namespace ceres;
+struct StereoCostFunctor {
+
+    template <typename T>
+    static void EssentialMatfromRT(const T * R, T x, T y, T z, T * E) {
+        E[0] = R[6]*y-R[3]*z;
+        E[1] = R[7]*y-R[4]*z;
+        E[2] = R[8]*y-R[5]*z;
+
+        E[3] = -R[6]*x+R[0]*z;
+        E[4] = -R[7]*x+R[1]*z;
+        E[5] = -R[8]*x+R[2]*z;
+
+        E[6] = R[3]*x - R[0]*y;
+        E[7] = R[4]*x - R[1]*y;
+        E[8] = R[5]*x - R[2]*y;
+    }
+
+    //We assue the R is near identity and T is near -1, 0, 0
+    //We use roll pitch yaw to represent rotation;
+    //-1 * [cos(theta)cos(phi), cos(theta)* sin(phi), sin(theta)]
+    //X is [roll, pitch, yaw, theta, phi]
+    template <typename T>
+    bool operator()(T const *const * _x, T* residual) const {
+        // residual[0] = T(10.0) - x[0];
+        T R[9];
+        EulerAnglesToRotationMatrix(_x[0], 3, R);
+        // std::cerr << "R" << R << std::endl;
+        
+        // std::cerr << "R in ceres " << std::endl;
+        // for (int i = 0; i < 3; i ++) {
+        //     for(int j = 0; j < 3; j++) {
+        //         std::cerr << R[i*3 + j] << " ";
+        //     }
+        //     std::cerr << "\n";
+        // }
+
+        // theta 3
+        // phi 4
+        T tx = -cos(_x[0][3])*cos(_x[0][4]);
+        T ty = -cos(_x[0][3])*sin(_x[0][4]);
+        T tz = -sin(_x[0][3]);
+
+        T E[9];
+        EssentialMatfromRT(R, tx, ty, tz, E);
+
+        Eigen::Matrix<T, 3, 3, Eigen::RowMajor> E_eig = Eigen::Map <Eigen::Matrix <T, 3, 3, Eigen::RowMajor>> (E);
+        // std::cerr << E_eig << std::endl;
+
+        for (int i = 0; i < left_pts.size(); i++) {
+            
+            Eigen::Matrix<T, 1, 1, Eigen::RowMajor> ret = right_pts[i].transpose()*E_eig*left_pts[i];
+            residual[i] = ret(0, 0);
+        }
+
+        return true;
+    }
+
+    std::vector<Eigen::Vector3d> left_pts, right_pts;
+    StereoCostFunctor(const std::vector<cv::Point2f> & _left_pts, 
+        const std::vector<cv::Point2f> & _right_pts, cv::Mat cameraMatrix)
+    {
+
+        assert(_left_pts.size() == _right_pts.size() && _left_pts.size() > 0 && "Solver need equal LR pts more than zero");
+        for (size_t i = 0; i < _left_pts.size(); i++) {
+            
+            Eigen::Vector3d pt_l(undist(_left_pts[i], cameraMatrix));
+            Eigen::Vector3d pt_r(undist(_right_pts[i], cameraMatrix));
+
+            left_pts.push_back(pt_l);
+            right_pts.push_back(pt_r);
+        }
+    }
+};
+
+Eigen::Vector3d thetaphi2xyz(double theta, double phi) {
+    double tx = -cos(theta)*cos(phi);
+    double ty = -cos(theta)*sin(phi);
+    double tz = -sin(theta);
+    return Eigen::Vector3d(tx, ty, tz);
+}
+
+std::pair<double, double> xyz2thetaphi(Eigen::Vector3d xyz) {
+    xyz = - xyz.normalized();
+    // double tx = cos(theta)*cos(phi);
+    // double ty = cos(theta)*sin(phi);
+    // double tz = sin(theta);
+    double theta = asin(xyz.z());
+    double phi = atan2(xyz.y(), xyz.x());
+
+    return make_pair(theta, phi);
+}
 
 
 bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point2f> & left_pts, 
     const std::vector<cv::Point2f> & right_pts) {
+    auto cost_function = new DynamicAutoDiffCostFunction<StereoCostFunctor, 7>(
+        new StereoCostFunctor(left_pts, right_pts, cameraMatrix));
+    cost_function->AddParameterBlock(5);
+    cost_function->SetNumResiduals(left_pts.size());
+    Eigen::Vector3d rpy = Utility::R2ypr(R_eig, false);
+    auto thetaphi = xyz2thetaphi(T_eig);
 
+    ROS_WARN("\nInital RPY %f %f %f Theta %f Phi %f", rpy.x(), rpy.y(), rpy.z(), 
+        thetaphi.first, thetaphi.second);
+    std::vector<double> x;
+    x.push_back(rpy.x());
+    x.push_back(rpy.y());
+    x.push_back(rpy.z());
+
+    x.push_back(thetaphi.first);
+    x.push_back(thetaphi.second);
+    
+    Problem problem;
+    problem.AddResidualBlock(cost_function, NULL, x.data());
+    Solver::Options options;
+    options.max_num_iterations = 100;
+    options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
+    Solver::Summary summary;
+    Solve(options, &problem, &summary);
+    std::cerr << summary.BriefReport() << "\n";
+
+    Eigen::Vector3d _t_eig = thetaphi2xyz(x[3], x[4])*scale;
+    ROS_WARN("R %f P %f Y %f", x[0]*57.3, x[1]*57.3, x[2]*57.3);
+    ROS_WARN("T %f %f %f theta %f phi %f", _t_eig.x(), _t_eig.y(), _t_eig.z(), x[3], x[4]);
+    Eigen::Matrix3d _R_eig = Utility::ypr2R( Eigen::Vector3d(x[2], x[1], x[0])*180.0/M_PI);
+    cv::Mat _R;
+    cv::Mat _T;
+
+    cv::eigen2cv(_R_eig, _R);
+    cv::eigen2cv(_t_eig, _T);
+
+    // return false;
+    update(_R, _T);
+    return true;
 }
 
 bool StereoOnlineCalib::calibrate_extrinsic_opencv(const std::vector<cv::Point2f> & left_pts, 
@@ -67,7 +206,8 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
         right_pts.erase(right_pts.begin());
     }
 
-    return calibrate_extrinsic_opencv(left_pts, right_pts);
+    return calibrate_extrinsic_optimize(left_pts, right_pts);
+    // return calibrate_extrinsic_opencv(left_pts, right_pts);
 }
 
 std::vector<cv::KeyPoint> StereoOnlineCalib::detect_orb_by_region(cv::Mat & _img, int features, int cols, int rows) {
@@ -203,11 +343,6 @@ std::vector<cv::DMatch> filter_by_hamming(const std::vector<cv::DMatch> & matche
 
 
 //Assue undist image
-Eigen::Vector3d undist(const cv::Point2f & pt, const cv::Mat & cameraMatrix) {
-    double x = (pt.x - cameraMatrix.at<double>(0, 2))/ cameraMatrix.at<double>(0, 0);
-    double y = (pt.y - cameraMatrix.at<double>(1, 2))/ cameraMatrix.at<double>(1, 1);
-    return Eigen::Vector3d(x, y, 1);
-}
 
 std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,     
     std::vector<cv::KeyPoint> query_pts, 
@@ -223,7 +358,7 @@ std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,
         auto f1 = undist(pt1, cameraMatrix);
         auto f2 = undist(pt2, cameraMatrix);
 
-        auto cost = f1.transpose()*E*f2;
+        auto cost = f2.transpose()*E*f1;
         if (cost.norm() < MAX_ESSENTIAL_OUTLIER_COST) {
             good_matches.push_back(gm);
         }
@@ -231,7 +366,8 @@ std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,
     return good_matches;
 }
 
-void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2) {
+void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, 
+    std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2) {
     TicToc tic;
     std::vector<cv::KeyPoint> kps1, kps2;
     std::vector<cv::DMatch> good_matches;
