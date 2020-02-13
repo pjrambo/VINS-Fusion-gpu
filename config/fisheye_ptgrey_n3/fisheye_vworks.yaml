@@ -25,7 +25,7 @@ enable_up_top: 1
 enable_down_top: 1
 enable_up_side: 1
 enable_down_side: 1
-enable_rear_side: 1
+enable_rear_side: 0
 thres_outlier : 5.0
 tri_max_err: 3.0
 # Extrinsic parameter between IMU and Camera.
@@ -91,8 +91,8 @@ max_solve_cnt: 30 # Max Point for solve; highly influence performace
 min_dist: 100            # for vworks
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 1           # publish tracking image as topic
-flow_back: 0            # perform forward and backward optical flow to improve feature tracking accuracy
+show_track: 0           # publish tracking image as topic
+flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 
 #optimization parameters
 max_solver_time: 0.04 # max solver itration time (ms), to guarantee real time
