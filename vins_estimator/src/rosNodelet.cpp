@@ -16,6 +16,7 @@
 #include <boost/thread.hpp>
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
+#include "depth_generation/depth_camera_manager.h"
 
 
 
@@ -28,7 +29,7 @@ namespace vins_nodelet_pkg
         private:
             message_filters::Subscriber<sensor_msgs::Image> * image_sub_l;
             message_filters::Subscriber<sensor_msgs::Image> * image_sub_r;
-
+            DepthCamManager * cam_manager = nullptr;
             virtual void onInit()
             {
                 auto n = getNodeHandle();
@@ -39,7 +40,8 @@ namespace vins_nodelet_pkg
                 std::cout << "config file is " << config_file << '\n';
                 readParameters(config_file);
                 estimator.setParameter();
-
+                cam_manager = new DepthCamManager(n, &(estimator.featureTracker.fisheys_undists[0]));
+                estimator.depth_cam_manager = cam_manager;
             #ifdef EIGEN_DONT_PARALLELIZE
                 ROS_DEBUG("EIGEN_DONT_PARALLELIZE");
             #endif
@@ -60,7 +62,6 @@ namespace vins_nodelet_pkg
 
             void img_callback(const sensor_msgs::ImageConstPtr &img1_msg, const sensor_msgs::ImageConstPtr &img2_msg)
             {
-                // ROS_INFO("imu img2\n");
                 auto img1 = getImageFromMsg(img1_msg);
                 auto img2 = getImageFromMsg(img2_msg);
                 estimator.inputImage(img1_msg->header.stamp.toSec(), img1->image, img2->image);
@@ -69,6 +70,7 @@ namespace vins_nodelet_pkg
             cv_bridge::CvImageConstPtr getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
             {
                 cv_bridge::CvImageConstPtr ptr;
+                std::cout << img_msg->encoding << std::endl;
                 if (img_msg->encoding == "8UC1")
                 {
                     sensor_msgs::Image img;
@@ -83,9 +85,11 @@ namespace vins_nodelet_pkg
                 }
                 else
                 {
-                    ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
-                    // toCvShare will cause image jitter later inside function `inputImage`, don't know the reason
-                    // ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
+                    if (FISHEYE) {
+                        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
+                    } else {
+                        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);        
+                    }
                 }
                 return ptr;
             }

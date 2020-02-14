@@ -554,7 +554,7 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     gpu_status.download(status);
     if(FLOW_BACK)
     {
-        ROS_INFO("Is flow back");
+        // ROS_INFO("Is flow back");
         cv::cuda::GpuMat reverse_gpu_status;
         cv::cuda::GpuMat reverse_gpu_pts = prev_gpu_pts;
         cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
