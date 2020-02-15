@@ -40,6 +40,9 @@ class DepthCamManager {
     int pub_cloud_step = 1;
 
     std::vector<DepthEstimator *> deps;
+    std::vector<cv::Mat> depth_maps;
+    std::vector<cv::Mat> pts_3ds;
+    std::vector<cv::Mat> texture_imgs;
 
     int show_disparity = 0;
     int enable_extrinsic_calib_for_depth = 0;
@@ -49,16 +52,21 @@ class DepthCamManager {
     std::vector<std::string> dep_RT_config;
 
 public:
+
+    void init_with_extrinsic(Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
+        Eigen::Matrix3d ric2, Eigen::Vector3d tic2);
     FisheyeUndist * fisheye = nullptr;
 
-    Eigen::Quaterniond t1, t2, t3, t4, t_down, t_transpose;
+    Eigen::Quaterniond t_left, t_front, t_right, t_rear, t_down, t_rotate;
     double f_side, cx_side, cy_side;
 
     DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye);
 
+    void update_depth_image(int direction, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+        Eigen::Matrix3d ric1, Eigen::Matrix3d ric_dept);
+    
     void update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
-        Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
-        Eigen::Matrix3d ric2, Eigen::Vector3d tic2,
+        Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
         Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl, Eigen::Matrix3d ric_depth);
 
     void update_images(ros::Time stamp, std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams,
@@ -66,6 +74,15 @@ public:
         Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
         Eigen::Matrix3d R, Eigen::Vector3d P
     );
+
+
+    void update_images_to_buf(std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams);
+
+    void update_pcl_depth_from_image(ros::Time stamp, int direction, Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
+        Eigen::Matrix3d R, Eigen::Vector3d P, Eigen::Matrix3d ric_depth, sensor_msgs::PointCloud & pcl);
+
+    void pub_depths_from_buf(ros::Time stamp, Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
+        Eigen::Matrix3d R, Eigen::Vector3d P);
 
     DepthEstimator * create_depth_estimator(int direction, Eigen::Matrix3d r01, Eigen::Vector3d t01);
     

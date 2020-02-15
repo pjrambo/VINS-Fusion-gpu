@@ -55,6 +55,8 @@ class Estimator
     void processImage(const FeatureFrame &image, const double header);
     void processMeasurements();
 
+    void processDepthGeneration();
+
     // internal
     void clearState();
     bool initialStructure();
@@ -102,6 +104,7 @@ class Estimator
 
     std::thread trackThread;
     std::thread processThread;
+    std::thread depthThread;
 
     FeatureTracker featureTracker;
 
@@ -180,6 +183,7 @@ class Estimator
 
     DepthCamManager * depth_cam_manager = nullptr;
 
+    queue<double> fisheye_imgs_stampBuf;
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_upBuf;
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_downBuf;
 };

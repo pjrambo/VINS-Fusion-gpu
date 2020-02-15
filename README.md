@@ -67,8 +67,10 @@ side_cnt: 30 #number of track point for side view
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 show_track: 0 # if display track
 use_vxworks: 0 #use vision works for front-end; not as stable as CUDA now
-rgb_depth_cloud: 0 # -1: not estimate depth, 0 depth cloud will be gray, 1 depth cloud will be colored;
-#Note that colored depth cloud will slow down whole system, only for visualization
+
+enable_depth: 1 # If estimate depth cloud; only available for dual fisheye now
+rgb_depth_cloud: 0 # -1: point no texture,  0 depth cloud will be gray, 1 depth cloud will be colored;
+#Note that textured and colored depth cloud will slow down whole system
 ```
 Parameter for depth estimation
 

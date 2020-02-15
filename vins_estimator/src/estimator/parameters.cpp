@@ -66,6 +66,7 @@ int TOP_PTS_CNT;
 int SIDE_PTS_CNT;
 int MAX_SOLVE_CNT;
 int RGB_DEPTH_CLOUD;
+int ENABLE_DEPTH;
 
 int MIN_DIST;
 double F_THRESHOLD;
@@ -116,6 +117,7 @@ void readParameters(std::string config_file)
     SHOW_TRACK = fsSettings["show_track"];
     FLOW_BACK = fsSettings["flow_back"];
     RGB_DEPTH_CLOUD = fsSettings["rgb_depth_cloud"];
+    ENABLE_DEPTH = fsSettings["enable_depth"];
     ENABLE_DOWNSAMPLE = fsSettings["enable_downsample"];
     MULTIPLE_THREAD = fsSettings["multiple_thread"];
     THRES_OUTLIER = fsSettings["thres_outlier"];

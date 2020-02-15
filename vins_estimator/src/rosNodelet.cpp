@@ -40,8 +40,12 @@ namespace vins_nodelet_pkg
                 std::cout << "config file is " << config_file << '\n';
                 readParameters(config_file);
                 estimator.setParameter();
-                cam_manager = new DepthCamManager(n, &(estimator.featureTracker.fisheys_undists[0]));
-                estimator.depth_cam_manager = cam_manager;
+                
+                if (ENABLE_DEPTH) {
+                    cam_manager = new DepthCamManager(n, &(estimator.featureTracker.fisheys_undists[0]));
+                    cam_manager -> init_with_extrinsic(estimator.ric[0], estimator.tic[0], estimator.ric[1], estimator.tic[1]);
+                    estimator.depth_cam_manager = cam_manager;
+                }
             #ifdef EIGEN_DONT_PARALLELIZE
                 ROS_DEBUG("EIGEN_DONT_PARALLELIZE");
             #endif

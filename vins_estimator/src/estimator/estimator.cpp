@@ -48,6 +48,9 @@ void Estimator::setParameter()
     if (MULTIPLE_THREAD)
     {
         processThread   = std::thread(&Estimator::processMeasurements, this);
+        if (FISHEYE && ENABLE_DEPTH) {
+            depthThread   = std::thread(&Estimator::processDepthGeneration, this);
+        }
     }
 }
 
@@ -102,11 +105,19 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
         if (FISHEYE) {
             fisheye_imgs_upBuf.push(fisheye_imgs_up);
             fisheye_imgs_downBuf.push(fisheye_imgs_down);
+            fisheye_imgs_stampBuf.push(t);
         }
         mBuf.unlock();
         TicToc processTime;
         processMeasurements();
         printf("process time: %f\n", processTime.toc());
+
+        if(FISHEYE && ENABLE_DEPTH) {
+            TicToc processDepthTime;
+            processDepthGeneration();
+            printf("process depth time: %f\n", processDepthTime.toc());
+        }
+
     }
     
 }
@@ -186,6 +197,51 @@ bool Estimator::IMUAvailable(double t)
         return false;
 }
 
+void Estimator::processDepthGeneration() {
+    if (!FISHEYE) {
+        ROS_ERROR("Depth generation is only vaild for dual fisheye now");
+        return;
+    }
+
+    std::vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
+
+    while(true) {
+        if (!fisheye_imgs_upBuf.empty()) {
+            fisheye_imgs_up = fisheye_imgs_upBuf.front();
+            fisheye_imgs_down = fisheye_imgs_downBuf.front();
+            double t = fisheye_imgs_stampBuf.front();
+
+            mBuf.lock();
+            fisheye_imgs_upBuf.pop();
+            fisheye_imgs_downBuf.pop();
+            fisheye_imgs_stampBuf.pop();
+            mBuf.unlock();
+
+            //Use imu propaget for depth cloud, this is for realtime peformance;
+            while(1) {
+                if (IMUAvailable(t + td))
+                    break;
+                else
+                {
+                    printf("Depth wait for IMU ... \n");
+                    if (! MULTIPLE_THREAD)
+                        return;
+                    std::chrono::milliseconds dura(10);
+                    std::this_thread::sleep_for(dura);
+                }
+            }
+
+            TicToc tic;
+            depth_cam_manager->update_images_to_buf(fisheye_imgs_up, fisheye_imgs_down);
+
+            Eigen::Vector3d _sync_last_P = last_P;
+            Eigen::Matrix3d _sync_last_R = last_R;
+            depth_cam_manager->pub_depths_from_buf(ros::Time(t), this->ric[0], this->tic[0], _sync_last_R, _sync_last_P);
+            ROS_INFO("Depth generation cost %fms", tic.toc());
+        }
+    }
+}
+
 void Estimator::processMeasurements()
 {
 
@@ -196,16 +252,10 @@ void Estimator::processMeasurements()
         //printf("process measurments\n");
         TicToc t_process;
         pair<double, FeatureFrame > feature;
-        std::vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
         vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
         if(!featureBuf.empty())
         {
             feature = featureBuf.front();
-
-            if (FISHEYE) {
-                fisheye_imgs_up = fisheye_imgs_upBuf.front();
-                fisheye_imgs_down = fisheye_imgs_downBuf.front();
-            }
 
             curTime = feature.first + td;
             while(1)
@@ -226,10 +276,6 @@ void Estimator::processMeasurements()
                 getIMUInterval(prevTime, curTime, accVector, gyrVector);
 
             featureBuf.pop();
-            if (FISHEYE) {
-                fisheye_imgs_upBuf.pop();
-                fisheye_imgs_downBuf.pop();
-            }
             mBuf.unlock();
 
             if(USE_IMU)
@@ -264,13 +310,6 @@ void Estimator::processMeasurements()
             pubPointCloud(*this, header);
             pubKeyframe(*this);
             pubTF(*this, header);
-            
-            if (FISHEYE && RGB_DEPTH_CLOUD >= 0) {
-                //Need to sync img use for depth estimator and the keyframe: may cause accuracy problem
-                depth_cam_manager->update_images(ros::Time(feature.first), fisheye_imgs_up, fisheye_imgs_down,
-                    ric[0], tic[0], ric[1], tic[1], Rs[WINDOW_SIZE], Ps[WINDOW_SIZE]
-                );
-            }
             
             double dt = t_process.toc();
             mea_sum_time += dt;
@@ -556,7 +595,10 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         if (! MULTIPLE_THREAD)
         {
             featureTracker.removeOutliers(removeIndex);
-            predictPtsInNextFrame();
+
+            if (!FISHEYE) {
+                predictPtsInNextFrame();
+            }
         }
             
         ROS_DEBUG("solver costs: %fms", t_solve.toc());
