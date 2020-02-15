@@ -233,9 +233,9 @@ int main(int argc, char **argv)
     estimator.setParameter();
 
     if (FISHEYE && ENABLE_DEPTH) {
-        DepthCamManager cam_manager(n, &(estimator.featureTracker.fisheys_undists[0]));
-        estimator.depth_cam_manager = &cam_manager;
-        cam_manager.init_with_extrinsic(estimator.ric[0], estimator.tic[0], estimator.ric[1], estimator.tic[1]);
+        DepthCamManager * cam_manager = new DepthCamManager(n, &(estimator.featureTracker.fisheys_undists[0]));
+        estimator.depth_cam_manager = cam_manager;
+        cam_manager->init_with_extrinsic(estimator.ric[0], estimator.tic[0], estimator.ric[1], estimator.tic[1]);
     }
 #ifdef EIGEN_DONT_PARALLELIZE
     ROS_DEBUG("EIGEN_DONT_PARALLELIZE");

@@ -60,6 +60,7 @@ extern int STEREO;
 extern int FISHEYE;
 extern int RGB_DEPTH_CLOUD;
 extern int ENABLE_DEPTH;
+extern int ENABLE_PERF_OUTPUT;
 extern double FISHEYE_FOV;
 
 extern int enable_up_top;

@@ -67,7 +67,7 @@ int SIDE_PTS_CNT;
 int MAX_SOLVE_CNT;
 int RGB_DEPTH_CLOUD;
 int ENABLE_DEPTH;
-
+int ENABLE_PERF_OUTPUT;
 int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
@@ -132,6 +132,7 @@ void readParameters(std::string config_file)
     enable_down_side = fsSettings["enable_down_side"];
     enable_rear_side = fsSettings["enable_rear_side"];
     depth_estimate_baseline = fsSettings["depth_estimate_baseline"];
+    ENABLE_PERF_OUTPUT = fsSettings["enable_perf_output"];
 
     USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
 

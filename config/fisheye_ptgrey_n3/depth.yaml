@@ -28,7 +28,6 @@ hc_win_size: 1
 scanlines_mask: 255
 
 pub_cloud_all: 1
-pub_cloud_per_direction: 0
 
 pub_cloud_step: 3
 pub_depth_map: 1

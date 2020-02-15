@@ -94,6 +94,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
             if (FISHEYE) {
                 fisheye_imgs_upBuf.push(fisheye_imgs_up);
                 fisheye_imgs_downBuf.push(fisheye_imgs_down);
+                fisheye_imgs_stampBuf.push(t);
             }
             mBuf.unlock();
         }
@@ -201,11 +202,13 @@ void Estimator::processDepthGeneration() {
     if (!FISHEYE) {
         ROS_ERROR("Depth generation is only vaild for dual fisheye now");
         return;
+    } else {
+        ROS_INFO("Launch depth generation thread");
     }
 
     std::vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
 
-    while(true) {
+    while(ros::ok()) {
         if (!fisheye_imgs_upBuf.empty()) {
             fisheye_imgs_up = fisheye_imgs_upBuf.front();
             fisheye_imgs_down = fisheye_imgs_downBuf.front();

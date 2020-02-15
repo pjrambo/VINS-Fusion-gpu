@@ -1,6 +1,7 @@
 #include "depth_camera_manager.h" 
 #include "../estimator/parameters.h"
 #include <geometry_msgs/PoseStamped.h>
+#include "../utility/tic_toc.h"
 
 using namespace Eigen;
 
@@ -119,35 +120,37 @@ DepthCamManager::DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye
 
     depth_maps.resize(4);
     pts_3ds.resize(4);
+    texture_imgs.resize(4);
 }
 
 
 void DepthCamManager::init_with_extrinsic(Eigen::Matrix3d _ric1, Eigen::Vector3d tic1, 
         Eigen::Matrix3d _ric2, Eigen::Vector3d tic2) {
 
-        Eigen::Vector3d _t01 = tic1 - tic2;
-        auto ric1 = _ric1*t_left*t_rotate; 
-        auto ric2 = _ric2*t_down*t_left*t_rotate;
-        Eigen::Vector3d t01 = ric2.transpose()*_t01;
-        create_depth_estimator(0, ric2.transpose() * ric1, t01);
-        
-        ric1 = _ric1*t_front*t_rotate; 
-        ric2 = _ric2*t_down*t_front*t_rotate;
-        t01 = ric2.transpose()*_t01;
-        create_depth_estimator(1, ric2.transpose() * ric1, t01);
+    Eigen::Vector3d _t01 = tic1 - tic2;
+    auto ric1 = _ric1*t_left*t_rotate; 
+    auto ric2 = _ric2*t_down*t_left*t_rotate;
+    Eigen::Vector3d t01 = ric2.transpose()*_t01;
+    create_depth_estimator(0, ric2.transpose() * ric1, t01);
+    
+    ric1 = _ric1*t_front*t_rotate; 
+    ric2 = _ric2*t_down*t_front*t_rotate;
+    t01 = ric2.transpose()*_t01;
+    create_depth_estimator(1, ric2.transpose() * ric1, t01);
 
-        ric1 = _ric1*t_right*t_rotate; 
-        ric2 = _ric2*t_down*t_right*t_rotate;
-        t01 = ric2.transpose()*_t01;
-        create_depth_estimator(2, ric2.transpose() * ric1, t01);
+    ric1 = _ric1*t_right*t_rotate; 
+    ric2 = _ric2*t_down*t_right*t_rotate;
+    t01 = ric2.transpose()*_t01;
+    create_depth_estimator(2, ric2.transpose() * ric1, t01);
 
-        ric1 = _ric1*t_rear*t_rotate; 
-        ric2 = _ric2*t_down*t_rear*t_rotate;
-        t01 = ric2.transpose()*_t01;
-        create_depth_estimator(3, ric2.transpose() * ric1, t01);
+    ric1 = _ric1*t_rear*t_rotate; 
+    ric2 = _ric2*t_down*t_rear*t_rotate;
+    t01 = ric2.transpose()*_t01;
+    create_depth_estimator(3, ric2.transpose() * ric1, t01);
 }
 
 DepthEstimator * DepthCamManager::create_depth_estimator(int direction, Eigen::Matrix3d r01, Eigen::Vector3d t01) {
+    // ROS_INFO("Creating %d depth generator...", direction);
     DepthEstimator * dep_est;
     
     std::string _output_path;
@@ -193,7 +196,7 @@ void DepthCamManager::update_pcl_depth_from_image(ros::Time stamp, int direction
         pose_stamped.header.stamp = stamp;
         pose_stamped.header.frame_id = "world";
         Eigen::Vector3d t_dep = P + R*tic1;
-        Eigen::Quaterniond q_dep = Eigen::Quaterniond(R*ric_depth);
+        Eigen::Quaterniond q_dep = Eigen::Quaterniond(R*ric_depth).normalized();
         pose_stamped.pose.position.x = t_dep.x();
         pose_stamped.pose.position.y = t_dep.y();
         pose_stamped.pose.position.z = t_dep.z();
@@ -220,8 +223,13 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
     Eigen::Matrix3d ric1, Eigen::Matrix3d ric_depth) {
     cv::cuda::GpuMat up_front, down_front;
 
+    TicToc tic_resize;
     cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
     cv::cuda::resize(_down_front, down_front, cv::Size(), downsample_ratio, downsample_ratio);
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to Resize cost %f", tic_resize.toc());
+    }
 
     //After transpose, we need flip for rotation
 
@@ -231,22 +239,39 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
         cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
         cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
     }
-    
+
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to cvtcolor cost %f", tic_resize.toc());
+    }
+
     cv::cuda::transpose(up_front, tmp);
     cv::cuda::flip(tmp, up_front, 0);
 
     cv::cuda::transpose(down_front, tmp);
     cv::cuda::flip(tmp, down_front, 0);
-    
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to rotate cost %f", tic_resize.toc());
+    }
+
     auto dep_est = deps[direction];
+    // ROS_WARN("Dep est %d from %d", dep_est, direction);
     
     cv::Mat pointcloud_up = dep_est->ComputeDepthCloud(up_front, down_front);
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to ComputeDepthCloud cost %f", tic_resize.toc());
+    }
 
     cv::Mat depthmap;
     if(pub_depth_map) {
         depthmap = generate_depthmap(pointcloud_up, ric1.transpose()*ric_depth);
     }
 
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to generate_depthmap cost %f", tic_resize.toc());
+    }
 
      if (pub_cloud_all && RGB_DEPTH_CLOUD == 1) {
         cv::Mat up_front_cpu, tmp2;
@@ -257,10 +282,17 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
         texture_imgs[direction] = up_front_cpu;
     } 
 
+
+
     if (pub_cloud_all && RGB_DEPTH_CLOUD == 0) {
         cv::Mat up_front_cpu;
         up_front.download(up_front_cpu);
         texture_imgs[direction] = up_front_cpu;
+    }
+
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to save_texture cost %f", tic_resize.toc());
     }
    
     depth_maps[direction] = depthmap;
@@ -361,15 +393,15 @@ void DepthCamManager::pub_depths_from_buf(ros::Time stamp, Eigen::Matrix3d ric1,
         update_pcl_depth_from_image(stamp, 1, ric1*t_front*t_rotate, tic1, R, P, ric1*t_front, point_cloud);
     }
 
-    if (estimate_front_depth) {
+    if (estimate_left_depth) {
         update_pcl_depth_from_image(stamp, 0, ric1*t_left*t_rotate, tic1, R, P, ric1*t_left, point_cloud);
     }
 
-    if (estimate_front_depth) {
+    if (estimate_right_depth) {
         update_pcl_depth_from_image(stamp, 2, ric1*t_right*t_rotate, tic1, R, P, ric1*t_right, point_cloud);
     }
     
-    if (estimate_front_depth) {
+    if (estimate_rear_depth) {
         update_pcl_depth_from_image(stamp, 3, ric1*t_rear*t_rotate, tic1, R, P, ric1*t_rear, point_cloud);
     }
 
