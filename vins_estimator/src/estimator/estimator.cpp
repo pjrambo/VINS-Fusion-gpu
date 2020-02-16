@@ -306,16 +306,21 @@ void Estimator::processMeasurements()
 
             printStatistics(*this, 0);
 
+            ROS_INFO("to print statitcs %fms", t_process.toc());
             std_msgs::Header header;
             header.frame_id = "world";
             header.stamp = ros::Time(feature.first);
 
+
+            //These cost 5ms, ~1/6 percent on manifold2
             pubOdometry(*this, header);
             pubKeyPoses(*this, header);
             pubCameraPose(*this, header);
             pubPointCloud(*this, header);
             pubKeyframe(*this);
             pubTF(*this, header);
+
+            ROS_INFO("to pubTF %fms", t_process.toc());
             
             double dt = t_process.toc();
             mea_sum_time += dt;
@@ -544,6 +549,7 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
                 {
                     pre_integrations[i]->repropagate(Vector3d::Zero(), Bgs[i]);
                 }
+                
                 solver_flag = NON_LINEAR;
                 optimization();
                 slideWindow();
@@ -591,9 +597,17 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
             f_manager.initFramePoseByPnP(frame_count, Ps, Rs, tic, ric);
         TicToc t_ic;
         f_manager.triangulate(frame_count, Ps, Rs, tic, ric);
-        ROS_INFO("Triangulation cost %fms..", t_ic.toc());
         
+        if(ENABLE_PERF_OUTPUT) {        
+            ROS_INFO("Triangulation cost %fms..", t_ic.toc());
+        }
+
         optimization();
+        
+        if(ENABLE_PERF_OUTPUT) {
+            ROS_INFO("to optimization cost %fms..", t_ic.toc());
+        }
+        
         set<int> removeIndex;
         outliersRejection(removeIndex);
         ROS_INFO("Remove %ld outlier", removeIndex.size());
@@ -606,8 +620,10 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
                 predictPtsInNextFrame();
             }
         }
-            
-        ROS_DEBUG("solver costs: %fms", t_solve.toc());
+        
+        if(ENABLE_PERF_OUTPUT) {
+            ROS_INFO("solver costs: %fms", t_solve.toc());
+        }
 
         if (failureDetection())
         {
@@ -622,6 +638,11 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         }
 
         slideWindow();
+
+        if(ENABLE_PERF_OUTPUT) {
+            ROS_INFO("to slideWindow costs: %fms", t_solve.toc());
+        }
+
         f_manager.removeFailures();
         // prepare output of VINS
         key_poses.clear();
@@ -633,7 +654,9 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         last_R0 = Rs[0];
         last_P0 = Ps[0];
         updateLatestStates();
-
+        if(ENABLE_PERF_OUTPUT) {
+            ROS_INFO("to updateLatestStates costs: %fms", t_solve.toc());
+        }
     }  
 }
 
