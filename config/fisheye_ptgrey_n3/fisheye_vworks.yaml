@@ -15,7 +15,7 @@ output_path: "/home/xuhao/output"
 depth_config: "depth.yaml"
 cam0_calib: "up.yaml"
 cam1_calib: "down.yaml"
-image_width: 600 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
+image_width: 400 # For fisheye, this indicate the flattened image width; min 100; 300 - 500 is good for vins
 image_height: 400
 show_width: 1080
 
@@ -81,7 +81,7 @@ use_gpu_acc_flow: 1
 
 use_vxworks: 1
 
-enable_depth: 1 # If estimate depth cloud; only available for dual fisheye now
+enable_depth: 0 # If estimate depth cloud; only available for dual fisheye now
 rgb_depth_cloud: 0 #-1: point no texture, 0 depth cloud will be gray, 1 depth cloud will be colored;
 #Note that colored depth cloud will slow down whole system
 depth_estimate_baseline: 0.05
@@ -90,10 +90,10 @@ side_cnt: 30
 max_solve_cnt: 30 # Max Point for solve; highly influence performace
 
 # min_dist: 20            # min distance between two features, this is for GFTT
-min_dist: 100            # for vworks
+min_dist: 50            # for vworks
 freq: 10                # frequence (Hz) of publish tracking result. At least 10Hz for good estimation. If set 0, the frequence will be same as raw image 
 F_threshold: 1.0        # ransac threshold (pixel)
-show_track: 0           # publish tracking image as topic
+show_track: 1           # publish tracking image as topic
 flow_back: 1            # perform forward and backward optical flow to improve feature tracking accuracy
 enable_perf_output: 1
 #optimization parameters

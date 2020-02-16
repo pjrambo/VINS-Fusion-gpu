@@ -537,6 +537,10 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     reduceVector(cur_pts, status);
     reduceVector(ids, status);
     
+    if (prev_pts.size() == 0) {
+        return vector<cv::Point2f>();
+    }
+
     vector<cv::Point2f> cur_pts;
     TicToc t_og;
     cv::cuda::GpuMat prev_gpu_pts(prev_pts);
@@ -548,7 +552,9 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
     cv::Ptr<cv::cuda::SparsePyrLKOpticalFlow> d_pyrLK_sparse = cv::cuda::SparsePyrLKOpticalFlow::create(
         cv::Size(21, 21), 3, 30, false);
     d_pyrLK_sparse->calc(prev_img, cur_img, prev_gpu_pts, cur_gpu_pts, gpu_status);
-
+    
+    // std::cout << "Prev gpu pts" << prev_gpu_pts.size() << std::endl;    
+    // std::cout << "Cur gpu pts" << cur_gpu_pts.size() << std::endl;
     cur_gpu_pts.download(cur_pts);
 
     gpu_status.download(status);
@@ -797,6 +803,7 @@ void FeatureTracker::init_vworks_tracker(cv::cuda::GpuMat & up_top_img, cv::cuda
     // params.harris_k = 0.04;
     // params.harris_thresh = 10;
     params.array_capacity = TOP_PTS_CNT;
+    params.fast_thresh = 10;
 
     params.lk_win_size = 21;
     params.detector_cell_size = MIN_DIST;

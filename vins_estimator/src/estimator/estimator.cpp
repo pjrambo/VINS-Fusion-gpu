@@ -91,7 +91,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
         {
             mBuf.lock();
             featureBuf.push(make_pair(t, featureFrame));
-            if (FISHEYE) {
+            if (FISHEYE && ENABLE_DEPTH) {
                 fisheye_imgs_upBuf.push(fisheye_imgs_up);
                 fisheye_imgs_downBuf.push(fisheye_imgs_down);
                 fisheye_imgs_stampBuf.push(t);
@@ -103,7 +103,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     {
         mBuf.lock();
         featureBuf.push(make_pair(t, featureFrame));
-        if (FISHEYE) {
+        if (FISHEYE && ENABLE_DEPTH) {
             fisheye_imgs_upBuf.push(fisheye_imgs_up);
             fisheye_imgs_downBuf.push(fisheye_imgs_down);
             fisheye_imgs_stampBuf.push(t);
@@ -229,7 +229,7 @@ void Estimator::processDepthGeneration() {
                     printf("Depth wait for IMU ... \n");
                     if (! MULTIPLE_THREAD)
                         return;
-                    std::chrono::milliseconds dura(10);
+                    std::chrono::milliseconds dura(5);
                     std::this_thread::sleep_for(dura);
                 }
             }
@@ -241,6 +241,9 @@ void Estimator::processDepthGeneration() {
             Eigen::Matrix3d _sync_last_R = last_R;
             depth_cam_manager->pub_depths_from_buf(ros::Time(t), this->ric[0], this->tic[0], _sync_last_R, _sync_last_P);
             ROS_INFO("Depth generation cost %fms", tic.toc());
+        } else {
+            std::chrono::milliseconds dura(5);
+            std::this_thread::sleep_for(dura);
         }
     }
 }
