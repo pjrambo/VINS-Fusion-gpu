@@ -102,7 +102,7 @@ public:
                             cv::cuda::GpuMat imUpSide, 
                             cv::cuda::GpuMat imDownSide);
     
-    void drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, vector<int> track_cnt, map<int, cv::Point2f> prev_pts);
+    void drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, map<int, cv::Point2f> prev_pts);
 
     void setPrediction(map<int, Eigen::Vector3d> &predictPts);
     double distance(cv::Point2f &pt1, cv::Point2f &pt2);
