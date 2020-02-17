@@ -98,7 +98,7 @@ cv::Mat FeatureTracker::setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur
 
     for (auto &it : cnt_pts_id)
     {
-        if (removed_pts.find(it.second.second) == removed_pts.end()) {
+        // if (removed_pts.find(it.second.second) == removed_pts.end()) {
             if (mask.at<uchar>(it.second.first) == 255)
             {
                 cur_pts.push_back(it.second.first);
@@ -106,7 +106,7 @@ cv::Mat FeatureTracker::setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur
                 track_cnt.push_back(it.first);
                 cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
             }
-        }
+        // }
     }
 
     return mask;
@@ -171,13 +171,9 @@ double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
     return sqrt(dx * dx + dy * dy);
 }
 
-void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, vector<int> track_cnt, map<int, cv::Point2f> prev_pts) {
+void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, map<int, cv::Point2f> prev_pts) {
     char idtext[10] = {0};
     for (size_t j = 0; j < pts.size(); j++) {
-        double len = 0;
-        if (track_cnt.size() > 0) {
-            len = std::min(1.0, 1.0 * track_cnt[j] / 20);
-        }
         //Not tri
         //Not solving
         //Just New point yellow
@@ -265,10 +261,10 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     imUpSide_cuda.download(imUpSide);
     imDownSide_cuda.download(imDownSide);
 
-    drawTrackImage(up_camera, cur_up_top_pts, ids_up_top, track_up_top_cnt, up_top_prevLeftPtsMap);
-    drawTrackImage(down_camera, cur_down_top_pts, ids_down_top, track_down_top_cnt, down_top_prevLeftPtsMap);
-    drawTrackImage(imUpSide, cur_up_side_pts, ids_up_side, track_up_side_cnt, up_side_prevLeftPtsMap);
-    drawTrackImage(imDownSide, cur_down_side_pts, ids_down_side, vector<int>(), down_side_prevLeftPtsMap);
+    drawTrackImage(up_camera, cur_up_top_pts, ids_up_top, up_top_prevLeftPtsMap);
+    drawTrackImage(down_camera, cur_down_top_pts, ids_down_top, down_top_prevLeftPtsMap);
+    drawTrackImage(imUpSide, cur_up_side_pts, ids_up_side, up_side_prevLeftPtsMap);
+    drawTrackImage(imDownSide, cur_down_side_pts, ids_down_side, down_side_prevLeftPtsMap);
 
     //Show images
     int side_count = 3;
@@ -1696,15 +1692,17 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
         imTrack = imLeft.clone();
     cv::cvtColor(imTrack, imTrack, CV_GRAY2RGB);
 
-    for (size_t j = 0; j < curLeftPts.size(); j++)
-    {
-        double len = std::min(1.0, 1.0 * track_cnt[j] / 20);
-        if(ENABLE_DOWNSAMPLE) {
-            cv::circle(imTrack, curLeftPts[j]*2, 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
-        } else {
-            cv::circle(imTrack, curLeftPts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
-        }
-    }
+    drawTrackImage(imTrack, curLeftPts, curLeftIds, prevLeftPtsMap);
+
+    // for (size_t j = 0; j < curLeftPts.size(); j++)
+    // {
+    //     double len = std::min(1.0, 1.0 * track_cnt[j] / 20);
+    //     if(ENABLE_DOWNSAMPLE) {
+    //         cv::circle(imTrack, curLeftPts[j]*2, 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+    //     } else {
+    //         cv::circle(imTrack, curLeftPts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+    //     }
+    // }
     if (!imRight.empty() && stereo_cam)
     {
         for (size_t i = 0; i < curRightPts.size(); i++)
@@ -1723,21 +1721,24 @@ void FeatureTracker::drawTrack(const cv::Mat &imLeft, const cv::Mat &imRight,
         }
     }
     
-    map<int, cv::Point2f>::iterator mapIt;
-    for (size_t i = 0; i < curLeftIds.size(); i++)
-    {
-        int id = curLeftIds[i];
-        mapIt = prevLeftPtsMap.find(id);
-        if(mapIt != prevLeftPtsMap.end())
-        {
-            if(ENABLE_DOWNSAMPLE) {
-                cv::arrowedLine(imTrack, curLeftPts[i]*2, mapIt->second*2, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
-            } else {
-                cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
-            }
-        }
-    }
+    // map<int, cv::Point2f>::iterator mapIt;
+    // for (size_t i = 0; i < curLeftIds.size(); i++)
+    // {
+    //     int id = curLeftIds[i];
+    //     mapIt = prevLeftPtsMap.find(id);
+    //     if(mapIt != prevLeftPtsMap.end())
+    //     {
+    //         if(ENABLE_DOWNSAMPLE) {
+    //             cv::arrowedLine(imTrack, curLeftPts[i]*2, mapIt->second*2, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+    //         } else {
+    //             cv::arrowedLine(imTrack, curLeftPts[i], mapIt->second, cv::Scalar(0, 255, 0), 1, 8, 0, 0.2);
+    //         }
+    //     }
+    // }
 
+
+
+    cv::imshow("Track", imTrack);
     cv::waitKey(2);
 }
 
