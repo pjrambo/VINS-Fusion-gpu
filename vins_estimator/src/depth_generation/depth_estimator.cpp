@@ -89,7 +89,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         // sgbm->compute(right_rect, left_rect, disparity);
         sgbm->compute(left_rect, right_rect, disparity);
 
-        ROS_INFO("SGBM time cost %fms", tic.toc());
+        ROS_INFO("CPU SGBM time cost %fms", tic.toc());
         if (show) {
             cv::Mat _show;
             cv::Mat raw_disp_map = disparity.clone();
@@ -174,7 +174,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         auto _cv_disp_cuda = map.getGpuMat();
         _cv_disp_cuda.download(cv_disp);
 
-        ROS_INFO("DISP %d %d!Time %fms", cv_disp.size().width, cv_disp.size().height, tic.toc());
+        ROS_INFO("Visionworks DISP %d %d!Time %fms", cv_disp.size().width, cv_disp.size().height, tic.toc());
         if (show) {
             cv::Mat color_disp;
             color->process();
@@ -239,16 +239,15 @@ cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::Gpu
 
     cv::Mat map3d, imgDisparity32F;
     if (params.use_vworks) {
-        double min_val = 0;
+        double min_val = params.min_disparity;
         double max_val = 0;
         // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
         // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
         dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
         cv::threshold(imgDisparity32F, imgDisparity32F, min_val, 1000, cv::THRESH_TOZERO);
-        // dispartitymap.convertTo(imgDisparity32F, CV_32F, 1.0);
-        cv::minMaxLoc(imgDisparity32F, &min_val, &max_val, NULL, NULL);
     } else {
         dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
+        cv::threshold(imgDisparity32F, imgDisparity32F, params.min_disparity, 1000, cv::THRESH_TOZERO);
     }
     cv::Mat XYZ = cv::Mat::zeros(imgDisparity32F.rows, imgDisparity32F.cols, CV_32FC3);   // Output point cloud
     cv::reprojectImageTo3D(imgDisparity32F, XYZ, Q);    // cv::project

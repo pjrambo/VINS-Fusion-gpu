@@ -276,6 +276,9 @@ void Estimator::processDepthGeneration() {
             std::chrono::milliseconds dura(5);
             std::this_thread::sleep_for(dura);
         }
+
+        if (! MULTIPLE_THREAD)
+            break;
     }
 }
 
@@ -636,13 +639,18 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         optimization();
         
         if(ENABLE_PERF_OUTPUT) {
-            ROS_INFO("to optimization cost %fms..", t_ic.toc());
+            ROS_INFO("after optimization cost %fms..", t_ic.toc());
         }
         
         set<int> removeIndex;
         outliersRejection(removeIndex);
         ROS_INFO("Remove %ld outlier", removeIndex.size());
         f_manager.removeOutlier(removeIndex);
+
+        if(ENABLE_PERF_OUTPUT) {
+            ROS_INFO("after removeOutlier cost %fms..", t_ic.toc());
+        }
+        
         if (! MULTIPLE_THREAD)
         {
             featureTracker.removeOutliers(removeIndex);
@@ -691,7 +699,7 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
 
         updateLatestStates();
         if(ENABLE_PERF_OUTPUT) {
-            ROS_INFO("to updateLatestStates costs: %fms", t_solve.toc());
+            ROS_INFO("after updateLatestStates costs: %fms", t_solve.toc());
         }
     }  
 }
@@ -1492,7 +1500,9 @@ void Estimator::optimization()
             
         }
     }
-    //printf("whole marginalization costs: %f \n", t_whole_marginalization.toc());
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("whole marginalization costs: %fms \n", t_whole_marginalization.toc());
+    }
     //printf("whole time for ceres: %f \n", t_whole.toc());
 }
 
