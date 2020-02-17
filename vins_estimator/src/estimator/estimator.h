@@ -39,6 +39,7 @@
 
 class DepthCamManager;
 
+typedef std::pair<Eigen::Matrix3d, Eigen::Vector3d> EigenPose;
 class Estimator
 {
   public:
@@ -96,6 +97,7 @@ class Estimator
     };
 
     std::mutex mBuf;
+    std::mutex odomBuf;
     queue<pair<double, Eigen::Vector3d>> accBuf;
     queue<pair<double, Eigen::Vector3d>> gyrBuf;
     queue<pair<double,FeatureFrame >> featureBuf;
@@ -186,4 +188,5 @@ class Estimator
     queue<double> fisheye_imgs_stampBuf;
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_upBuf;
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_downBuf;
+    queue<std::pair<double, EigenPose>> odometry_buf;
 };

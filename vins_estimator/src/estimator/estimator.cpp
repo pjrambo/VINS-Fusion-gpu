@@ -237,10 +237,41 @@ void Estimator::processDepthGeneration() {
             TicToc tic;
             depth_cam_manager->update_images_to_buf(fisheye_imgs_up, fisheye_imgs_down);
 
-            Eigen::Vector3d _sync_last_P = last_P;
-            Eigen::Matrix3d _sync_last_R = last_R;
+            if (ENABLE_PERF_OUTPUT) {
+                ROS_INFO("Depth generation cost %fms", tic.toc());
+            }
+            
+            while(odometry_buf.size() == 0) {
+                //wait for odom
+                std::chrono::milliseconds dura(5);
+                std::this_thread::sleep_for(dura);
+            }
+
+            //1e-3 is for avoiding floating error
+            //First is older than this frame
+            while (odometry_buf.size() > 0 && odometry_buf.front().first < t - 1e-3 ) {
+                odomBuf.lock();
+                odometry_buf.pop();
+                odomBuf.unlock();
+            }
+
+            if(odometry_buf.size() == 0 || fabs(odometry_buf.front().first - t) > 1e-3) {
+                ROS_WARN("No suitable odometry find; skiping");
+                continue;
+            } else {
+                if (ENABLE_PERF_OUTPUT) {
+                    ROS_INFO("ODOM dt for depth %fms", (odometry_buf.front().first - t)*1000);
+                }
+            }
+
+            Eigen::Vector3d _sync_last_P = odometry_buf.front().second.second;
+            Eigen::Matrix3d _sync_last_R = odometry_buf.front().second.first;
+            
+            odomBuf.lock();
+            odometry_buf.pop();
+            odomBuf.unlock();
+            
             depth_cam_manager->pub_depths_from_buf(ros::Time(t), this->ric[0], this->tic[0], _sync_last_R, _sync_last_P);
-            ROS_INFO("Depth generation cost %fms", tic.toc());
         } else {
             std::chrono::milliseconds dura(5);
             std::this_thread::sleep_for(dura);
@@ -653,6 +684,11 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
         last_P = Ps[WINDOW_SIZE];
         last_R0 = Rs[0];
         last_P0 = Ps[0];
+
+        odomBuf.lock();
+        odometry_buf.push(make_pair( header, make_pair(last_R, last_P)));
+        odomBuf.unlock();
+
         updateLatestStates();
         if(ENABLE_PERF_OUTPUT) {
             ROS_INFO("to updateLatestStates costs: %fms", t_solve.toc());
