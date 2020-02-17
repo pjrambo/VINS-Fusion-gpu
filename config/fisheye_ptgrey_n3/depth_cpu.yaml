@@ -9,7 +9,7 @@ downsample_ratio: 0.7
 use_vworks: 0
 block_size: 9
 min_disparity: 1
-num_disp: 16
+num_disp: 32
 disp12Maxdiff: 28
 prefilterCap: 39
 prefilterSize: 5
