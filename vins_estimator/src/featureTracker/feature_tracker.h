@@ -27,7 +27,6 @@
 #include "camodocal/camera_models/PinholeCamera.h"
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"
-#include "fisheye_undist.hpp"
 
 #ifndef WITHOUT_VWORKS
 #include "vworks_feature_tracker.hpp"
@@ -47,6 +46,8 @@ typedef pair<int, TrackFeatureNoId> TrackFeature;
 typedef vector<TrackFeature> FeatureFramenoId;
 typedef map<int, FeatureFramenoId> FeatureFrame;
 class Estimator;
+class FisheyeUndist;
+
 class FeatureTracker
 {
 public:

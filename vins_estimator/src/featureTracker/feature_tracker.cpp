@@ -11,6 +11,7 @@
 
 #include "feature_tracker.h"
 #include "../estimator/estimator.h"
+#include "fisheye_undist.hpp"
 
 #ifndef WITHOUT_VWORKS
 #include "vworks_feature_tracker.hpp"

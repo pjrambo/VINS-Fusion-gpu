@@ -94,7 +94,14 @@ public:
             sideVerticalFOV = 0;
         double centerFOV = fov * DEG_TO_RAD - sideVerticalFOV * 2;
         ROS_INFO("Center FOV: %f_center", centerFOV);
-        sideImgHeight = sideVerticalFOV / centerFOV * imgWidth;
+
+        // calculate focal length of fake pinhole cameras (pixel size = 1 unit)
+        f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
+        f_side = (double)imgWidth / 2;
+
+        // sideImgHeight = sideVerticalFOV / centerFOV * imgWidth;
+        int sideImgHeight = 2 * f_side * tan(sideVerticalFOV/2);
+
         ROS_INFO("Side image height: %d", sideImgHeight);
         std::vector<cv::Mat> maps;
         maps.reserve(5);
@@ -116,9 +123,7 @@ public:
         }
         
         auto t = Eigen::Quaterniond::Identity();
-        // calculate focal length of fake pinhole cameras (pixel size = 1 unit)
-        f_center = (double)imgWidth / 2 / tan(centerFOV / 2);
-        f_side = (double)imgWidth / 2;
+
         // ROS_INFO("Pinhole cameras focal length: center %f side %f", f_center, f_side);
 
         cam_top = camodocal::PinholeCameraPtr( new camodocal::PinholeCamera("top",
