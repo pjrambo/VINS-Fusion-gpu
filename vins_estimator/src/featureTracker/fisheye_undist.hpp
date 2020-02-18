@@ -100,7 +100,7 @@ public:
         f_side = (double)imgWidth / 2;
 
         // sideImgHeight = sideVerticalFOV / centerFOV * imgWidth;
-        int sideImgHeight = 2 * f_side * tan(sideVerticalFOV/2);
+        sideImgHeight = 2 * f_side * tan(sideVerticalFOV/2);
 
         ROS_INFO("Side image height: %d", sideImgHeight);
         std::vector<cv::Mat> maps;
