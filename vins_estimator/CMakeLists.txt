@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
     image_transport
     nodelet
     message_filters
+    sensor_msgs
 )
 
 
@@ -72,12 +73,14 @@ message(STATUS "    catkin libraries: ${catkin_LIBRARIES}")
 add_message_files(
     FILES
     VIOKeyframe.msg
+    FlattenImages.msg
 )
 
 generate_messages(
     DEPENDENCIES
     geometry_msgs
     std_msgs
+    sensor_msgs
 )
 
 catkin_package()

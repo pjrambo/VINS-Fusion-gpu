@@ -272,6 +272,16 @@ void Estimator::processDepthGeneration() {
             odomBuf.unlock();
             
             depth_cam_manager->pub_depths_from_buf(ros::Time(t), this->ric[0], this->tic[0], _sync_last_R, _sync_last_P);
+            std_msgs::Header header;
+            header.frame_id = "world";
+            header.stamp = ros::Time(t);
+
+            TicToc tic_pub;
+            pubFlattenImages(*this, header, _sync_last_P, Eigen::Quaterniond(_sync_last_R), fisheye_imgs_up, fisheye_imgs_down);
+            ROS_INFO("Pub flatten images cost %fms", tic_pub.toc());
+
+            fisheye_imgs_up.clear();
+            fisheye_imgs_down.clear();
         } else {
             std::chrono::milliseconds dura(5);
             std::this_thread::sleep_for(dura);

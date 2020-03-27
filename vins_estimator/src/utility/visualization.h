@@ -29,6 +29,7 @@
 #include <fstream>
 
 extern ros::Publisher pub_odometry;
+extern ros::Publisher pub_flatten_images;
 extern ros::Publisher pub_path, pub_pose;
 extern ros::Publisher pub_cloud, pub_map;
 extern ros::Publisher pub_key_poses;
@@ -61,3 +62,7 @@ void pubKeyframe(const Estimator &estimator);
 void pubRelocalization(const Estimator &estimator);
 
 void pubCar(const Estimator & estimator, const std_msgs::Header &header);
+
+void pubFlattenImages(const Estimator &estimator, const std_msgs::Header &header, 
+    const Eigen::Vector3d & P, const Eigen::Quaterniond & Q, 
+    std::vector<cv::cuda::GpuMat> & up_images, std::vector<cv::cuda::GpuMat> & down_images);
