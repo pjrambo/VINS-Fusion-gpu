@@ -1,11 +1,15 @@
 #include "depth_estimator.h"
 #include <opencv2/calib3d.hpp>
+
+#ifdef USE_CUDA
 #include <opencv2/cudawarping.hpp>
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudastereo.hpp>
+#include <opencv2/cudafeatures2d.hpp>
+#endif
+
 #include <opencv2/opencv.hpp>
 #include "../utility/tic_toc.h"
-#include <opencv2/cudafeatures2d.hpp>
 #include "../estimator/parameters.h"
 #include "stereo_online_calib.hpp"
 
