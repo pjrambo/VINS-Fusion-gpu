@@ -206,7 +206,7 @@ void FeatureTracker::drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vect
         cv::circle(img, pts[j], 1, color, 2);
 
         sprintf(idtext, "%d", ids[j]);
-	    cv::putText(img, idtext, pts[j] - cv::Point2f(5, 0), CV_FONT_HERSHEY_SIMPLEX, 1, color, 3);
+	    cv::putText(img, idtext, pts[j] - cv::Point2f(5, 0), cv::FONT_HERSHEY_SIMPLEX, 1, color, 3);
 
     }
 
