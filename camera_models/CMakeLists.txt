@@ -54,7 +54,7 @@ include_directories("include")
 #     src/gpl/EigenQuaternionParameterization.cc)
 
 add_library(camera_models
-    src/calib/CameraCalibration.cc
+    #src/calib/CameraCalibration.cc
     src/camera_models/Camera.cc
     src/camera_models/CameraFactory.cc
     src/camera_models/CostFunctionFactory.cc
