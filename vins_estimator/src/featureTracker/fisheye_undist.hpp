@@ -5,16 +5,16 @@
 #include "opencv2/core/core.hpp"
 #include "opencv2/imgproc.hpp"
 #include "opencv2/highgui.hpp"
-#include <opencv2/cudaimgproc.hpp>
 #include <camodocal/camera_models/CameraFactory.h>
 #include <camodocal/camera_models/PinholeCamera.h>
 #include "cv_bridge/cv_bridge.h"
-#include <experimental/filesystem>
-#include <opencv2/cudawarping.hpp>
 
 #define DEG_TO_RAD (M_PI / 180.0)
 
-
+#ifdef USE_CUDA
+#include <opencv2/cudawarping.hpp>
+#include <opencv2/cudaimgproc.hpp>
+#endif
 
 class FisheyeUndist {
 
@@ -44,6 +44,7 @@ public:
 
         undistMaps = generateAllUndistMap(cam, cameraRotation, imgWidth, fov);
         // ROS_INFO("undismap size %ld", undistMaps.size());
+#ifdef USE_CUDA
         if (enable_cuda) {
             for (auto mat : undistMaps) {
                 cv::Mat xy[2];
@@ -52,8 +53,10 @@ public:
                 undistMapsGPUY.push_back(cv::cuda::GpuMat(xy[1]));
             }
         }
+#endif
     }
 
+#ifdef USE_CUDA
     // 0 TOP or DOWN
     // 1 left 2 front 3 right 4 back
     cv::cuda::GpuMat undist_id_cuda(cv::Mat image, int _id) {
@@ -81,6 +84,7 @@ public:
         }
         return ret;
     }
+#endif
 
     std::vector<cv::Mat> undist_all(const cv::Mat & image, bool use_rgb = false) {
         std::vector<cv::Mat> ret;
