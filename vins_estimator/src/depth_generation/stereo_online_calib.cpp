@@ -293,6 +293,7 @@ void StereoOnlineCalib::filter_points_by_region(std::vector<cv::Point2f> & good_
 
 }
 
+#ifdef USE_CUDA
 bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
 
     std::vector<cv::Point2f> Pts1;
@@ -338,6 +339,98 @@ bool StereoOnlineCalib::calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::G
     return calibrate_extrinsic_optimize(good_left, good_right);
     // return calibrate_extrinsic_opencv(left_pts, right_pts);
 }
+
+void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, 
+    std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2) {
+    TicToc tic;
+    std::vector<cv::KeyPoint> kps1, kps2;
+    std::vector<cv::DMatch> good_matches;
+    // bool use_surf = false;
+
+    // auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
+    std::cout << img1.size() << std::endl;
+    // auto _orb = cv::cuda::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
+    // cv::Mat _mask(img1.size(), CV_8UC1, cv::Scalar(255));
+    // cv::cuda::GpuMat mask(_mask);
+    
+    cv::Mat desc1, desc2;
+    cv::Mat _img1, _img2, mask;
+    
+    img1.download(_img1);
+    img2.download(_img2);
+    // detect_orb_by_region
+
+    auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
+    _orb->detectAndCompute(_img1, mask, kps1, desc1);
+    _orb->detectAndCompute(_img2, mask, kps2, desc2);
+
+    // auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
+    // kps1 = detect_orb_by_region(_img1, 1000);
+    // kps2 = detect_orb_by_region(_img2, 1000);
+    // _orb->compute(_img1, kps1, desc1);
+    // _orb->compute(_img2, kps2, desc2);
+
+    if (desc1.empty() || desc2.empty()) {
+        return;
+    }
+    size_t j = 0;
+
+    cv::BFMatcher bfmatcher(cv::NORM_HAMMING2, true);
+    std::vector<cv::DMatch> matches;
+    bfmatcher.match(desc2, desc1, matches);
+    matches = filter_by_hamming(matches);
+
+    double thres = 0.05;
+    
+    // matches = filter_by_x(matches, kps2, kps1, thres);
+    // matches = filter_by_y(matches, kps2, kps1, thres);
+
+    matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
+
+    vector<cv::Point2f> _pts1, _pts2;
+    vector<uchar> status;
+    for (auto gm : matches) {
+        auto _id1 = gm.trainIdx;
+        auto _id2 = gm.queryIdx;
+        _pts1.push_back(kps1[_id1].pt);
+        _pts2.push_back(kps2[_id2].pt);
+    }
+
+    ROS_INFO("BRIEF MATCH cost %fms", tic.toc());
+
+
+    for(int i = 0; i < _pts1.size(); i ++) {
+        Pts1.push_back(_pts1[i]);
+        Pts2.push_back(_pts2[i]);
+        good_matches.push_back(matches[i]);
+    }
+
+    // if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
+    //     cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.999, 1.0, status);
+    // }
+
+    // for(int i = 0; i < _pts1.size(); i ++) {
+    //     if (i < status.size() && status[i]) {
+    //         Pts1.push_back(_pts1[i]);
+    //         Pts2.push_back(_pts2[i]);
+    //         good_matches.push_back(matches[i]);
+    //     }
+    // }
+    // good_matches = matches;
+
+    // ROS_INFO("Total %ld cost %fms Find Essential cost %fms", Pts1.size(), tic.toc(), tic0.toc());
+    
+    if (show) {
+        cv::Mat img1_cpu, img2_cpu, _show;
+        // img1.download(_img1);
+        // img2.download(_img2);
+        cv::drawMatches(_img2, kps2, _img1, kps1, good_matches, _show);
+        // cv::resize(_show, _show, cv::Size(), VISUALIZE_SCALE, VISUALIZE_SCALE);
+        cv::imshow("KNNMatch", _show);
+        cv::waitKey(2);
+    }
+}
+#endif
 
 std::vector<cv::KeyPoint> StereoOnlineCalib::detect_orb_by_region(cv::Mat & _img, int features, int cols, int rows) {
     int small_width = _img.cols / cols;
@@ -495,93 +588,3 @@ std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,
     return good_matches;
 }
 
-void StereoOnlineCalib::find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, 
-    std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2) {
-    TicToc tic;
-    std::vector<cv::KeyPoint> kps1, kps2;
-    std::vector<cv::DMatch> good_matches;
-    // bool use_surf = false;
-
-    // auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
-    std::cout << img1.size() << std::endl;
-    // auto _orb = cv::cuda::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
-    // cv::Mat _mask(img1.size(), CV_8UC1, cv::Scalar(255));
-    // cv::cuda::GpuMat mask(_mask);
-    
-    cv::Mat desc1, desc2;
-    cv::Mat _img1, _img2, mask;
-    
-    img1.download(_img1);
-    img2.download(_img2);
-    // detect_orb_by_region
-
-    auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
-    _orb->detectAndCompute(_img1, mask, kps1, desc1);
-    _orb->detectAndCompute(_img2, mask, kps2, desc2);
-
-    // auto _orb = cv::ORB::create(1000, 1.2f, 8, 31, 0, 4, cv::ORB::HARRIS_SCORE, 31, 20);
-    // kps1 = detect_orb_by_region(_img1, 1000);
-    // kps2 = detect_orb_by_region(_img2, 1000);
-    // _orb->compute(_img1, kps1, desc1);
-    // _orb->compute(_img2, kps2, desc2);
-
-    if (desc1.empty() || desc2.empty()) {
-        return;
-    }
-    size_t j = 0;
-
-    cv::BFMatcher bfmatcher(cv::NORM_HAMMING2, true);
-    std::vector<cv::DMatch> matches;
-    bfmatcher.match(desc2, desc1, matches);
-    matches = filter_by_hamming(matches);
-
-    double thres = 0.05;
-    
-    // matches = filter_by_x(matches, kps2, kps1, thres);
-    // matches = filter_by_y(matches, kps2, kps1, thres);
-
-    matches = filter_by_E(matches, kps2, kps1, cameraMatrix, E_eig);
-
-    vector<cv::Point2f> _pts1, _pts2;
-    vector<uchar> status;
-    for (auto gm : matches) {
-        auto _id1 = gm.trainIdx;
-        auto _id2 = gm.queryIdx;
-        _pts1.push_back(kps1[_id1].pt);
-        _pts2.push_back(kps2[_id2].pt);
-    }
-
-    ROS_INFO("BRIEF MATCH cost %fms", tic.toc());
-
-
-    for(int i = 0; i < _pts1.size(); i ++) {
-        Pts1.push_back(_pts1[i]);
-        Pts2.push_back(_pts2[i]);
-        good_matches.push_back(matches[i]);
-    }
-
-    // if (_pts1.size() > MINIUM_ESSENTIALMAT_SIZE) {
-    //     cv::findEssentialMat(_pts1, _pts2, cameraMatrix, cv::RANSAC, 0.999, 1.0, status);
-    // }
-
-    // for(int i = 0; i < _pts1.size(); i ++) {
-    //     if (i < status.size() && status[i]) {
-    //         Pts1.push_back(_pts1[i]);
-    //         Pts2.push_back(_pts2[i]);
-    //         good_matches.push_back(matches[i]);
-    //     }
-    // }
-    // good_matches = matches;
-
-    // ROS_INFO("Total %ld cost %fms Find Essential cost %fms", Pts1.size(), tic.toc(), tic0.toc());
-    
-    if (show) {
-        cv::Mat img1_cpu, img2_cpu, _show;
-        // img1.download(_img1);
-        // img2.download(_img2);
-        cv::drawMatches(_img2, kps2, _img1, kps1, good_matches, _show);
-        // cv::resize(_show, _show, cv::Size(), VISUALIZE_SCALE, VISUALIZE_SCALE);
-        cv::imshow("KNNMatch", _show);
-        cv::waitKey(2);
-    }
-}

@@ -186,7 +186,15 @@ class Estimator
     DepthCamManager * depth_cam_manager = nullptr;
 
     queue<double> fisheye_imgs_stampBuf;
+
+#ifdef USE_CUDA
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_upBuf;
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_downBuf;
+#else
+    queue<std::vector<cv::Mat>> fisheye_imgs_upBuf;
+    queue<std::vector<cv::Mat>> fisheye_imgs_downBuf;
+#endif
+
     queue<std::pair<double, EigenPose>> odometry_buf;
+
 };

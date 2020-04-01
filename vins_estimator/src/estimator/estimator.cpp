@@ -62,8 +62,12 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
     inputImageCnt++;
     FeatureFrame featureFrame;
     TicToc featureTrackerTime;
+#ifdef USE_CUDA
     vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
-    
+#else 
+    vector<cv::Mat> fisheye_imgs_up, fisheye_imgs_down;
+#endif
+
     if (FISHEYE) {
         featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, fisheye_imgs_up, fisheye_imgs_down);
     } else {
@@ -206,7 +210,11 @@ void Estimator::processDepthGeneration() {
         ROS_INFO("Launch depth generation thread");
     }
 
+#ifdef USE_CUDA
     std::vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
+#else
+    std::vector<cv::Mat> fisheye_imgs_up, fisheye_imgs_down;
+#endif
 
     while(ros::ok()) {
         if (!fisheye_imgs_upBuf.empty()) {

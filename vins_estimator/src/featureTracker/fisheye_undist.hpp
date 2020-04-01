@@ -82,6 +82,31 @@ public:
         return ret;
     }
 
+    std::vector<cv::Mat> undist_all(const cv::Mat & image, bool use_rgb = false) {
+        std::vector<cv::Mat> ret;
+
+        if (use_rgb) {
+            for (unsigned int i = 0; i < undistMaps.size(); i++) {
+                cv::Mat output;
+                cv::remap(image, output, undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
+                ret.push_back(output);
+            }
+            return ret;
+
+        } else {
+            cv::Mat gray;
+            cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
+            for (unsigned int i = 0; i < undistMaps.size(); i++) {
+                cv::Mat output;
+                cv::remap(gray, output, undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
+                ret.push_back(output);
+            }
+            return ret;
+        }
+
+        return ret;
+    }
+
 
     std::vector<cv::Mat> generateAllUndistMap(camodocal::CameraPtr p_cam,
                                           Eigen::Vector3d rotation,

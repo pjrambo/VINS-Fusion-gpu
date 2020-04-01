@@ -42,7 +42,7 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
     
 
 
-cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
+cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
     // InputArray cameraMatrix2, InputArray distCoeffs2, 
     //Size imageSize, InputArray R, InputArray T, OutputArray R1, OutputArray R2, OutputArray P1, OutputArray P2, 
@@ -62,25 +62,38 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
                                 _map12);
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R2, P2, imgSize, CV_32FC1, _map21,
                                 _map22);
+#ifdef USE_CUDA
         map11.upload(_map11);
         map12.upload(_map12);
         map21.upload(_map21);
         map22.upload(_map22);
+#endif
         _Q.convertTo(Q, CV_32F);
 
         first_init = false;
     } 
 
-    cv::cuda::GpuMat leftRectify, rightRectify, disparity(left.size(), CV_8U);
 
+#ifdef USE_CUDA
+    cv::cuda::GpuMat leftRectify, rightRectify, disparity(left.size(), CV_8U);
     cv::cuda::remap(left, leftRectify, map11, map12, cv::INTER_LINEAR);
     cv::cuda::remap(right, rightRectify, map21, map22, cv::INTER_LINEAR);
-
+#else
+    cv::Mat leftRectify, rightRectify, disparity(left.size(), CV_8U);
+    cv::remap(left, leftRectify, _map11, _map12, cv::INTER_LINEAR);
+    cv::remap(right, rightRectify, _map21, _map22, cv::INTER_LINEAR);
+#endif
     if (!params.use_vworks) {
+#ifdef USE_CUDA
         cv::Mat left_rect, right_rect, disparity;
         leftRectify.download(left_rect);
         rightRectify.download(right_rect);
+#else
+        cv::Mat & left_rect = leftRectify;
+        cv::Mat & right_rect = rightRectify;
+        cv::Mat disparity;
 
+#endif
         
         auto sgbm = cv::StereoSGBM::create(params.min_disparity, params.num_disp, params.block_size,
             params.p1, params.p2, params.disp12Maxdiff, params.prefilterCap, params.uniquenessRatio, params.speckleWindowSize, 
@@ -207,7 +220,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
     }
 }
 
-cv::Mat DepthEstimator::ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
+cv::Mat DepthEstimator::ComputeDepthCloud(cv::Mat & left, cv::Mat & right) {
     static int count = 0;
     int skip = 10/extrinsic_calib_rate;
     if (skip <= 0) {

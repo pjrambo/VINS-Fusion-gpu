@@ -208,10 +208,9 @@ void DepthCamManager::update_pcl_depth_from_image(ros::Time stamp, int direction
     }
 }
 
-void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+void DepthCamManager::update_depth_image(ros::Time stamp, cv::Mat _up_front, cv::Mat _down_front, 
     Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
     Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl, Eigen::Matrix3d ric_depth) {
-    cv::cuda::GpuMat up_front, down_front;
 
     this->update_depth_image(direction, _up_front, _down_front, ric1, ric_depth);
     update_pcl_depth_from_image(stamp, direction, ric1, tic1, R, P, ric_depth, pcl);
@@ -219,13 +218,13 @@ void DepthCamManager::update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_f
 }
 
 
-void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+void DepthCamManager::update_depth_image(int direction, cv::Mat _up_front, cv::Mat _down_front, 
     Eigen::Matrix3d ric1, Eigen::Matrix3d ric_depth) {
-    cv::cuda::GpuMat up_front, down_front;
+    cv::Mat up_front, down_front;
 
     TicToc tic_resize;
-    cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
-    cv::cuda::resize(_down_front, down_front, cv::Size(), downsample_ratio, downsample_ratio);
+    cv::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
+    cv::resize(_down_front, down_front, cv::Size(), downsample_ratio, downsample_ratio);
 
     if(ENABLE_PERF_OUTPUT) {
         ROS_INFO("Up to Resize cost %f", tic_resize.toc());
@@ -233,11 +232,11 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
 
     //After transpose, we need flip for rotation
 
-    cv::cuda::GpuMat tmp;
+    cv::Mat tmp;
     cv::Size size = up_front.size();
     if (_up_front.channels() == 3) {
-        cv::cuda::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
-        cv::cuda::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
     }
 
 
@@ -245,11 +244,11 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
         ROS_INFO("Up to cvtcolor cost %f", tic_resize.toc());
     }
 
-    cv::cuda::transpose(up_front, tmp);
-    cv::cuda::flip(tmp, up_front, 0);
+    cv::transpose(up_front, tmp);
+    cv::flip(tmp, up_front, 0);
 
-    cv::cuda::transpose(down_front, tmp);
-    cv::cuda::flip(tmp, down_front, 0);
+    cv::transpose(down_front, tmp);
+    cv::flip(tmp, down_front, 0);
 
     if(ENABLE_PERF_OUTPUT) {
         ROS_INFO("Up to rotate cost %f", tic_resize.toc());
@@ -275,8 +274,8 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
 
      if (pub_cloud_all && RGB_DEPTH_CLOUD == 1) {
         cv::Mat up_front_cpu, tmp2;
-        _up_front.download(up_front_cpu);
-        cv::transpose(up_front_cpu, tmp2);
+        up_front_cpu = _up_front;
+        cv::transpose(_up_front, tmp2);
         cv::flip(tmp2, up_front_cpu, 0);
         cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
         texture_imgs[direction] = up_front_cpu;
@@ -285,9 +284,7 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
 
 
     if (pub_cloud_all && RGB_DEPTH_CLOUD == 0) {
-        cv::Mat up_front_cpu;
-        up_front.download(up_front_cpu);
-        texture_imgs[direction] = up_front_cpu;
+        texture_imgs[direction] = up_front;
     }
 
 
@@ -301,7 +298,7 @@ void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_fro
 }
 
 
-void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams,
+void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams,
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
         Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
         Eigen::Matrix3d R, Eigen::Vector3d P
@@ -338,17 +335,13 @@ void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::cuda::GpuMa
             tic1, R, P, 3, point_cloud, ric1*t_rear);
     }
 
-    if (publish_raw_image) {
-        publish_front_images_for_external_sbgm(stamp, up_cams[2], down_cams[2], ric1, tic1, ric2, tic2, R, P);
-    }
-
     if (pub_cloud_all) {
         pub_depth_cloud.publish(point_cloud);
     }
 
 }
 
-void DepthCamManager::update_images_to_buf(std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams) {
+void DepthCamManager::update_images_to_buf(std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams) {
     
     if (estimate_front_depth) {
         update_depth_image(1, up_cams[2], down_cams[2], 
@@ -530,100 +523,4 @@ cv::Mat DepthCamManager::generate_depthmap(cv::Mat pts3d, Eigen::Matrix3d rel_ri
     }
 
     return depthmap;
-}
-
-
-
-void DepthCamManager::publish_front_images_for_external_sbgm(ros::Time stamp, const cv::cuda::GpuMat front_up, const cv::cuda::GpuMat front_down,
-        Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
-        Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
-        Eigen::Matrix3d R, Eigen::Vector3d P) {
-
-    sensor_msgs::CameraInfo cam_info_left, cam_info_right;
-    cam_info_left.K[0] = fisheye->f_side*downsample_ratio;
-    cam_info_left.K[1] = 0;
-    // cam_info_left.K[2] = fisheye->cx_side;
-    cam_info_left.K[2] = fisheye->cy_side*downsample_ratio;
-    cam_info_left.K[3] = 0;
-    cam_info_left.K[4] = fisheye->f_side;
-    // cam_info_left.K[5] = fisheye->cy_side;
-    cam_info_left.K[5] = fisheye->cx_side*downsample_ratio;
-    cam_info_left.K[6] = 0;
-    cam_info_left.K[7] = 0;
-    cam_info_left.K[8] = 1;
-
-    cam_info_left.header.stamp = stamp;
-    cam_info_left.header.frame_id = "camera_up_front";
-    // cam_info_left.width = fisheye->imgWidth;
-    // cam_info_left.height = fisheye->sideImgHeight;
-    cam_info_left.width = fisheye->sideImgHeight*downsample_ratio;
-    cam_info_left.height = fisheye->imgWidth*downsample_ratio;
-    // cam_info_left.
-    // cam_info_left.
-    cam_info_left.P[0] = fisheye->f_side*downsample_ratio;
-    cam_info_left.P[1] = 0;
-    cam_info_left.P[2] = cam_info_left.K[2];
-    cam_info_left.P[3] = 0;
-
-    cam_info_left.P[4] = 0;
-    cam_info_left.P[5] = fisheye->f_side*downsample_ratio;
-    cam_info_left.P[6] = cam_info_left.K[5];
-    cam_info_left.P[7] = 0;
-    
-    cam_info_left.P[8] = 0;
-    cam_info_left.P[9] = 0;
-    cam_info_left.P[10] = 1;
-    cam_info_left.P[11] = 0;
-
-    // ric1 = Eigen::Matrix3d::Identity();
-    // ric2 = Eigen::Matrix3d::Identity();
-    ric1 = ric1*t_front*t_rotate;
-    ric2 = ric2*t_down*t_front*t_rotate;
-    Eigen::Vector3d t01 = tic2 - tic1;
-    // t01 = R0.transpose() * t01;
-    t01 = ric1.transpose() * t01;
-    
-    Eigen::Matrix3d R01 = (ric1.transpose() * ric2);
-
-    cam_info_right = cam_info_left;
-    cam_info_right.P[3] = -t01.x()*fisheye->f_side*downsample_ratio;
-    cam_info_right.P[7] = 0;
-    cam_info_right.P[11] = 0;
-
-    Eigen::Matrix3d R_iden = Eigen::Matrix3d::Identity();
-    memcpy(cam_info_left.R.data(), R_iden.data(), 9*sizeof(double));
-    memcpy(cam_info_right.R.data(), R01.data(), 9*sizeof(double));
-
-
-    up_cam_info_pub.publish(cam_info_left);
-    down_cam_info_pub.publish(cam_info_right);
-
-    cv::Mat up_cam, down_cam;
-    front_up.download(up_cam);
-    front_down.download(down_cam);
-
-    cv::transpose(up_cam, up_cam);
-    cv::flip(up_cam, up_cam, 0);
-    cv::transpose(down_cam, down_cam);
-    cv::flip(down_cam, down_cam, 0);
-    cv::resize(up_cam, up_cam, cv::Size(), 0.5, 0.5);
-    cv::resize(down_cam, down_cam, cv::Size(), 0.5, 0.5);
-    sensor_msgs::ImagePtr up_img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", up_cam).toImageMsg();
-    up_img_msg->header.stamp = stamp;
-    up_img_msg->header.frame_id = "camera_up_front";
-    sensor_msgs::ImagePtr down_img_msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", down_cam).toImageMsg();
-    down_img_msg->header.stamp = stamp;
-    down_img_msg->header.frame_id = "camera_up_front";
-    
-
-    pub_camera_up.publish(up_img_msg);
-    pub_camera_down.publish(down_img_msg);
-
-    Eigen::Vector3d cam_pos = tic1 + P;
-    Eigen::Quaterniond cam_quat(ric1);
-    tf::Transform transform;
-    transform.setOrigin( tf::Vector3(cam_pos.x(), cam_pos.y(), cam_pos.z()) );
-    tf::Quaternion q(cam_quat.x(), cam_quat.y(), cam_quat.z(), cam_quat.w());
-    transform.setRotation(q);
-    br.sendTransform(tf::StampedTransform(transform, ros::Time::now(), "world", "camera_up_front"));
 }

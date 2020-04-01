@@ -62,21 +62,20 @@ public:
 
     DepthCamManager(ros::NodeHandle & _nh, FisheyeUndist * _fisheye);
 
-    void update_depth_image(int direction, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+    void update_depth_image(int direction, cv::Mat _up_front, cv::Mat _down_front, 
         Eigen::Matrix3d ric1, Eigen::Matrix3d ric_dept);
     
-    void update_depth_image(ros::Time stamp, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+    void update_depth_image(ros::Time stamp, cv::Mat _up_front, cv::Mat _down_front, 
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
         Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl, Eigen::Matrix3d ric_depth);
 
-    void update_images(ros::Time stamp, std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams,
+    void update_images(ros::Time stamp, std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams,
         Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
         Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
         Eigen::Matrix3d R, Eigen::Vector3d P
     );
 
-
-    void update_images_to_buf(std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams);
+    void update_images_to_buf(std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams);
 
     void update_pcl_depth_from_image(ros::Time stamp, int direction, Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
         Eigen::Matrix3d R, Eigen::Vector3d P, Eigen::Matrix3d ric_depth, sensor_msgs::PointCloud & pcl);
@@ -92,10 +91,5 @@ public:
     void add_pts_point_cloud(cv::Mat pts3d, Eigen::Matrix3d R, Eigen::Vector3d P, ros::Time stamp,
         sensor_msgs::PointCloud & pcl, int step = 3, cv::Mat color = cv::Mat());
 
-    void publish_front_images_for_external_sbgm(ros::Time stamp, const cv::cuda::GpuMat front_up, const cv::cuda::GpuMat front_down,
-            Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
-            Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
-            Eigen::Matrix3d R, Eigen::Vector3d P);
-    
     cv::Mat generate_depthmap(cv::Mat pts3d, Eigen::Matrix3d rel_ric_depth) const;
 };

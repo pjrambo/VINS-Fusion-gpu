@@ -1,10 +1,14 @@
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
+
+#ifdef USE_CUDA
 #include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudastereo.hpp>
+#endif
+
 #include <opencv2/core/eigen.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud.h>
-#include <opencv2/cudastereo.hpp>
 
 #ifndef WITHOUT_VWORKS
 #include <NVX/nvx.h>
@@ -42,7 +46,9 @@ class DepthEstimator {
     cv::Mat cameraMatrix;
     bool show = false;
     cv::Mat _map11, _map12, _map21, _map22;
+#ifdef USE_CUDA
     cv::cuda::GpuMat map11, map12, map21, map22;
+#endif
     bool first_init = true;
     cv::Mat R, T, R1, R2, P1, P2, Q;
     double baseline = 0;
@@ -78,6 +84,6 @@ public:
     DepthEstimator(SGMParams _params, std::string Path, cv::Mat camera_mat,
     bool _show, bool _enable_extrinsic_calib, std::string _output_path);
 
-    cv::Mat ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
-    cv::Mat ComputeDepthCloud(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
+    cv::Mat ComputeDispartiyMap(cv::Mat & left, cv::Mat & right);
+    cv::Mat ComputeDepthCloud(cv::Mat & left, cv::Mat & right);
 };

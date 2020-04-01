@@ -6,8 +6,10 @@ set(CMAKE_CXX_FLAGS "-std=c++11")
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g ")
 
-set(ENABLE_BACKWARD true)
-set(ENABLE_VWORKS true)
+set(ENABLE_BACKWARD false)
+set(ENABLE_VWORKS false)
+set(ENABLE_CUDA false)
+
 
 find_package(catkin REQUIRED COMPONENTS
     message_generation
@@ -26,7 +28,6 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 
-
 if(ENABLE_VWORKS)
     find_package(VisionWorks REQUIRED)
     #Set path to visionworks sample here
@@ -42,10 +43,12 @@ if(ENABLE_BACKWARD)
     add_definitions(-D USE_BACKWARD)
 endif()
 
-SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
-find_package(OpenCV 3.4 REQUIRED)
+if(ENABLE_CUDA)
+    add_definitions(-D USE_CUDA)
+endif()
 
-message(WARNING "OpenCV_VERSION: ${OpenCV_VERSION}")
+#SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
+#find_package(OpenCV 3.4 REQUIRED)
 
 find_package(Ceres REQUIRED)
 

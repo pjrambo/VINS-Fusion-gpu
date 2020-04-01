@@ -80,8 +80,15 @@ public:
 
 
     void filter_points_by_region(std::vector<cv::Point2f> & good_left, std::vector<cv::Point2f> & good_right);
+
+#ifndef USE_CUDA
     void find_corresponding_pts(cv::cuda::GpuMat & img1, cv::cuda::GpuMat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2);
     bool calibrate_extrincic(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
+#endif
+
+    void find_corresponding_pts(cv::Mat & img1, cv::Mat & img2, std::vector<cv::Point2f> & Pts1, std::vector<cv::Point2f> & Pts2) {}
+    bool calibrate_extrincic(cv::Mat & left, cv::Mat & right) {}
+
     static std::vector<cv::KeyPoint> detect_orb_by_region(cv::Mat & _img, int features, int cols = 2, int rows = 4);
     bool calibrate_extrinsic_opencv(const std::vector<cv::Point2f> & left_pts, const std::vector<cv::Point2f> & right_pts);
     bool calibrate_extrinsic_optimize(const std::vector<cv::Point2f> & left_pts, const std::vector<cv::Point2f> & right_pts);
