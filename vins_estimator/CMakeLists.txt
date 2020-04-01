@@ -48,7 +48,7 @@ if(ENABLE_CUDA)
 endif()
 
 #SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
-#find_package(OpenCV 3.4 REQUIRED)
+find_package(OpenCV REQUIRED)
 
 find_package(Ceres REQUIRED)
 

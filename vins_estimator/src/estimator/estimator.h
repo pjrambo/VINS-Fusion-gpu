@@ -35,7 +35,10 @@
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
 #include "../factor/projectionOneFrameTwoCamFactor.h"
 #include "../featureTracker/feature_tracker.h"
+
+#ifdef USE_CUDA
 #include <opencv2/cudaimgproc.hpp>
+#endif
 
 class DepthCamManager;
 
