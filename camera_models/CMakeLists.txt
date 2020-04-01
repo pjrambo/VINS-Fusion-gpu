@@ -35,26 +35,25 @@ include_directories(
 
 include_directories("include")
 
-add_executable(Calibrations 
-    src/intrinsic_calib.cc
-    src/chessboard/Chessboard.cc
-    src/calib/CameraCalibration.cc
-    src/camera_models/Camera.cc
-    src/camera_models/CameraFactory.cc
-    src/camera_models/CostFunctionFactory.cc
-    src/camera_models/PinholeCamera.cc
-    src/camera_models/PinholeFullCamera.cc
-    src/camera_models/CataCamera.cc
-    src/camera_models/EquidistantCamera.cc
-    src/camera_models/ScaramuzzaCamera.cc
-    src/camera_models/PolyFisheyeCamera.cc
-    src/sparse_graph/Transform.cc
-    src/code_utils/math_utils/Polynomial.cpp
-    src/gpl/gpl.cc
-    src/gpl/EigenQuaternionParameterization.cc)
+# add_executable(Calibrations 
+#     src/intrinsic_calib.cc
+#     src/chessboard/Chessboard.cc
+#     src/calib/CameraCalibration.cc
+#     src/camera_models/Camera.cc
+#     src/camera_models/CameraFactory.cc
+#     src/camera_models/CostFunctionFactory.cc
+#     src/camera_models/PinholeCamera.cc
+#     src/camera_models/PinholeFullCamera.cc
+#     src/camera_models/CataCamera.cc
+#     src/camera_models/EquidistantCamera.cc
+#     src/camera_models/ScaramuzzaCamera.cc
+#     src/camera_models/PolyFisheyeCamera.cc
+#     src/sparse_graph/Transform.cc
+#     src/code_utils/math_utils/Polynomial.cpp
+#     src/gpl/gpl.cc
+#     src/gpl/EigenQuaternionParameterization.cc)
 
 add_library(camera_models
-    src/chessboard/Chessboard.cc
     src/calib/CameraCalibration.cc
     src/camera_models/Camera.cc
     src/camera_models/CameraFactory.cc
@@ -70,5 +69,5 @@ add_library(camera_models
     src/code_utils/math_utils/Polynomial.cpp
     src/gpl/EigenQuaternionParameterization.cc)
 
-target_link_libraries(Calibrations ${Boost_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES})
+#target_link_libraries(Calibrations ${Boost_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES})
 target_link_libraries(camera_models ${Boost_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES})
