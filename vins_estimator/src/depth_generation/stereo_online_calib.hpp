@@ -1,12 +1,15 @@
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
-#include <opencv2/cudaimgproc.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud.h>
-#include <opencv2/cudastereo.hpp>
 #include "../utility/tic_toc.h"
 #include "../utility/utility.h"
+
+#ifdef USE_CUDA
+#include <opencv2/cudaimgproc.hpp>
+#include <opencv2/cudastereo.hpp>
+#endif
 
 #define ORB_HAMMING_DISTANCE 40 //Max hamming
 #define ORB_UV_DISTANCE 1.5 //UV distance bigger than mid*this will be removed
