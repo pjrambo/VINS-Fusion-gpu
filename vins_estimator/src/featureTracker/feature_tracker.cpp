@@ -244,8 +244,6 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     cv::Mat imDownSide)
 {
     // ROS_INFO("Up image %d, down %d", imUp.size(), imDown.size());
-    cv::Mat up_camera;
-    cv::Mat down_camera;
     cv::Mat imTrack;
     cv::Mat fisheye_up;
     cv::Mat fisheye_down;
@@ -290,7 +288,7 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     cv::vconcat(imUpSide, imDownSide, imTrack);
 
     cv::Mat top_cam;
-    cv::hconcat(up_camera, down_camera, top_cam);
+    cv::hconcat(imUpTop, imDownTop, top_cam);
     cv::hconcat(fisheye_up, top_cam, top_cam);
     cv::hconcat(top_cam, fisheye_down, top_cam); 
     // ROS_INFO("Imtrack width %d", imUpSide.size().width);
