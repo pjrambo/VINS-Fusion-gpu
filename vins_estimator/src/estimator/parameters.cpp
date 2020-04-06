@@ -200,7 +200,7 @@ void readParameters(std::string config_file)
     configPath = config_file.substr(0, pn);
 
 
-    depth_config = configPath + "/" + fsSettings["depth_config"];
+    depth_config = configPath + "/" +((std::string) fsSettings["depth_config"]);
 
     std::string cam0Calib;
     fsSettings["cam0_calib"] >> cam0Calib;
