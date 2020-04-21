@@ -91,12 +91,14 @@ void pubFlattenImages(const Estimator &estimator, const std_msgs::Header &header
     images.pose_drone.orientation.w = Q.w();
     static Eigen::Quaterniond t_left = Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
     static Eigen::Quaterniond t_front = t_left * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
-    images.pose_up_cams.push_back(
-        pose_from_PQ(P, Eigen::Quaterniond(estimator.ric[0])*t_front)
+    static Eigen::Quaterniond t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
+
+    images.extrinsic_up_cams.push_back(
+        pose_from_PQ(estimator.tic[0], Eigen::Quaterniond(estimator.ric[0])*t_front)
     );
 
-    images.pose_up_cams.push_back(
-        pose_from_PQ(P, Eigen::Quaterniond(estimator.ric[1])*t_front)
+    images.extrinsic_down_cams.push_back(
+        pose_from_PQ(estimator.tic[1], Eigen::Quaterniond(estimator.ric[1])*t_down*t_front)
     );
 
     cv::Mat up, down;
@@ -128,19 +130,26 @@ void pubFlattenImages(const Estimator &estimator, const std_msgs::Header &header
     images.pose_drone.orientation.w = Q.w();
     static Eigen::Quaterniond t_left = Eigen::Quaterniond(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
     static Eigen::Quaterniond t_front = t_left * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
-    images.pose_up_cams.push_back(
-        pose_from_PQ(P, Eigen::Quaterniond(estimator.ric[0])*t_front)
+    static Eigen::Quaterniond t_right = t_front * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0));
+    static Eigen::Quaterniond t_down = Eigen::Quaterniond(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
+
+    Eigen::Quaterniond t_arra[3] = {t_left, t_front, t_right};
+    static int count = 0;
+
+    int pub_index = count++ % 3 + 1;
+    images.extrinsic_up_cams.push_back(
+        pose_from_PQ(estimator.tic[0], Eigen::Quaterniond(estimator.ric[0])*t_arra[pub_index-1])
     );
 
-    images.pose_up_cams.push_back(
-        pose_from_PQ(P, Eigen::Quaterniond(estimator.ric[1])*t_front)
+    images.extrinsic_down_cams.push_back(
+        pose_from_PQ(estimator.tic[1], Eigen::Quaterniond(estimator.ric[1])*t_down*t_arra[pub_index-1])
     );
 
-    cv::Mat &up = up_images[2];
-    cv::Mat &down = down_images[2];
+    cv::Mat &up = up_images[pub_index];
+    cv::Mat &down = down_images[pub_index];
     cv_bridge::CvImage outImg;
     outImg.header = header;
-    outImg.encoding = "BGR8";
+    outImg.encoding = "bgr8";
     outImg.image = up;
     images.up_cams.push_back(*outImg.toImageMsg());
 
