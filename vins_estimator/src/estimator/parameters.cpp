@@ -92,15 +92,21 @@ T readParam(ros::NodeHandle &n, std::string name)
 
 void readParameters(std::string config_file)
 {
+    /*
     FILE *fh = fopen(config_file.c_str(),"r");
     if(fh == NULL){
         ROS_WARN("config_file dosen't exist; wrong config_file path");
         ROS_BREAK();
         return;          
     }
-    fclose(fh);
+    fclose(fh);*/
 
-    cv::FileStorage fsSettings(config_file, cv::FileStorage::READ);
+    cv::FileStorage fsSettings;
+    try {
+        fsSettings.open(config_file.c_str(), cv::FileStorage::READ);
+    } catch(cv::Exception ex) {
+        std::cerr << "ERROR:" << ex.what() << " Can't open config file" << std::endl;
+    }
     if(!fsSettings.isOpened())
     {
         std::cerr << "ERROR: Wrong path to settings" << std::endl;
@@ -259,5 +265,5 @@ void readParameters(std::string config_file)
 
     }
 
-    fsSettings.release();
+    //fsSettings.release();
 }

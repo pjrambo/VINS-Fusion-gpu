@@ -89,21 +89,20 @@ public:
     std::vector<cv::Mat> undist_all(const cv::Mat & image, bool use_rgb = false) {
         std::vector<cv::Mat> ret;
 
+        ret.resize(undistMaps.size());
         if (use_rgb) {
-            for (unsigned int i = 0; i < undistMaps.size(); i++) {
-                cv::Mat output;
-                cv::remap(image, output, undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
-                ret.push_back(output);
+#pragma omp parallel for num_threads(5)
+            for (unsigned int i = 0; i < 5; i++) {
+                cv::remap(image, ret[i], undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
             }
             return ret;
 
         } else {
             cv::Mat gray;
             cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
-            for (unsigned int i = 0; i < undistMaps.size(); i++) {
-                cv::Mat output;
-                cv::remap(gray, output, undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
-                ret.push_back(output);
+#pragma omp parallel for  num_threads(5)
+            for (unsigned int i = 0; i < 5; i++) {
+                cv::remap(gray, ret[i], undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
             }
             return ret;
         }

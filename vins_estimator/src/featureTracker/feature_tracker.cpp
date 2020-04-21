@@ -1867,7 +1867,7 @@ void FeatureTracker::showUndistortion(const string &name)
             //ROS_ERROR("(%f %f) -> (%f %f)", distortedp[i].y, distortedp[i].x, pp.at<float>(1, 0), pp.at<float>(0, 0));
         }
     }
-    cv::imshow(name, undistortedImg);
+    cv::imshow(name.c_str(), undistortedImg);
     cv::waitKey(0);
 }
 

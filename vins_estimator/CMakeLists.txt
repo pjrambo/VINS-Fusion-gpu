@@ -2,14 +2,15 @@ cmake_minimum_required(VERSION 2.8.3)
 project(vins)
 
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-std=c++11 -fopenmp")
 #-DEIGEN_USE_MKL_ALL")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g ")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
 set(ENABLE_BACKWARD false)
 set(ENABLE_VWORKS false)
 set(ENABLE_CUDA false)
 
+find_package(OpenMP REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
     message_generation
@@ -47,8 +48,10 @@ if(ENABLE_CUDA)
     add_definitions(-D USE_CUDA)
 endif()
 
-#SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
-find_package(OpenCV REQUIRED)
+#SET("OpenCV_DIR" "/home/pi/source/opencv_release/share/OpenCV")
+find_package(OpenCV 4.2 REQUIRED)
+#SET("OpenCV_DIR" "/home/pi/source/opencv-3.4.10/release/share/OpenCV")
+#find_package(OpenCV 3.4 REQUIRED)
 
 find_package(Ceres REQUIRED)
 
@@ -96,7 +99,7 @@ add_library(stereo_depth
     src/depth_generation/stereo_online_calib.cpp
 )
 
-add_library(vins_frontend 
+add_library(vins_frontend
     src/featureTracker/feature_tracker.cpp
     src/featureTracker/vworks_feature_tracker.cpp
 )
@@ -128,8 +131,9 @@ add_library(estimator_lib SHARED
 )
 
 target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
+add_dependencies(vins_lib vins_generate_messages_cpp)
 target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
-target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
+target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw OpenMP::OpenMP_CXX)
 
 
 add_executable(vins_node src/rosNodeTest.cpp )
