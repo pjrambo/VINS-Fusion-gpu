@@ -1007,6 +1007,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cv::Mat up_top_img = fisheye_imgs_up[0];
     cv::Mat down_top_img = fisheye_imgs_down[0];
     double concat_cost = t_r.toc() - remap_cost;
+    ROS_INFO("Concat cost %fms", concat_cost);
 
     top_size = up_top_img.size();
     side_size = up_side_img.size();
@@ -1023,37 +1024,70 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_down_side_un_pts.clear();
 
     if (up_top_img.channels() == 3) {
-        if (enable_up_top) {
-            cv::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
-        }
+ #pragma omp parallel sections
+        {
+            {
+                printf("Start cvt up top\n");
+                if (enable_up_top) {
+                    cv::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
+                }
+                printf("Finish cvt up top\n");
+            }
 
-        if(enable_down_top) {
-            cv::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
-        }
-        
-        if(enable_up_side) {
-            cv::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
-        }
+            #pragma omp section 
+            {
+                printf("Start cvt down top\n");
+                if(enable_down_top) {
+                    cv::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
+                }
+                printf("Finish cvt down top\n");
+            }
 
-        if(enable_down_side) {
-            cv::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
+            #pragma omp section 
+            {
+                printf("Start up side top\n");
+                if(enable_up_side) {
+                    cv::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
+                }
+                printf("End up side\n");
+            }
+
+            #pragma omp section 
+            {
+                printf("Start down side\n");
+                if(enable_down_side) {
+                    cv::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
+                }
+                printf("End down side\n");
+            }   
         }
     }
 
     ROS_INFO("CVT Color %fms", t_r.toc());
-    
-    //If has predict;
-    if (enable_up_top) {
-        // ROS_INFO("Tracking top");
-        cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img_cpu, prev_up_top_pts, ids_up_top, track_up_top_cnt, false);
-    }
-    if (enable_up_side) {
-        cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img_cpu, prev_up_side_pts, ids_up_side, track_up_side_cnt, false);
+ #pragma omp parallel sections
+{
+    {
+        //If has predict;
+        if (enable_up_top) {
+            // ROS_INFO("Tracking top");
+            cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img_cpu, prev_up_top_pts, ids_up_top, track_up_top_cnt, false);
+        }
     }
 
-    if (enable_down_top) {
-        cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img_cpu, prev_down_top_pts, ids_down_top, track_down_top_cnt, false);
+    #pragma omp section 
+    {
+        if (enable_up_side) {
+            cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img_cpu, prev_up_side_pts, ids_up_side, track_up_side_cnt, false);
+        }
     }
+
+    #pragma omp section 
+    {
+        if (enable_down_top) {
+            cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img_cpu, prev_down_top_pts, ids_down_top, track_down_top_cnt, false);
+        }
+    }
+}
     
     ROS_INFO("FT %fms", t_r.toc());
 
@@ -1061,18 +1095,30 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
     ROS_INFO("SetMaskFisheye %fms", t_r.toc());
 
-    if (enable_up_top) {
-        // ROS_INFO("Detecting top");
-        detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
-    }
-    if (enable_down_top) {
-        detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
-    }
-
-    if (enable_up_side) {
-        detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
+ #pragma omp parallel sections
+ {
+    {
+        if (enable_up_top) {
+            // ROS_INFO("Detecting top");
+            detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
+        }
     }
 
+    #pragma omp section
+    {
+        if (enable_down_top) {
+            detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
+        }
+    }
+
+    #pragma omp section
+    {
+        if (enable_up_side) {
+            detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
+        }
+    }
+ }
+  
     ROS_INFO("DetectPoints %fms", t_r.toc());
 
     addPointsFisheye();
