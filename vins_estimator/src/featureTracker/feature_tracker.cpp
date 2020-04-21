@@ -1027,43 +1027,43 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
  #pragma omp parallel sections
         {
             {
-                printf("Start cvt up top\n");
+                // printf("Start cvt up top\n");
                 if (enable_up_top) {
                     cv::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
                 }
-                printf("Finish cvt up top\n");
+                // printf("Finish cvt up top\n");
             }
 
             #pragma omp section 
             {
-                printf("Start cvt down top\n");
+                // printf("Start cvt down top\n");
                 if(enable_down_top) {
                     cv::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
                 }
-                printf("Finish cvt down top\n");
+                // printf("Finish cvt down top\n");
             }
 
             #pragma omp section 
             {
-                printf("Start up side top\n");
+                // printf("Start up side top\n");
                 if(enable_up_side) {
                     cv::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
                 }
-                printf("End up side\n");
+                // printf("End up side\n");
             }
 
             #pragma omp section 
             {
-                printf("Start down side\n");
+                // printf("Start down side\n");
                 if(enable_down_side) {
                     cv::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
                 }
-                printf("End down side\n");
+                // printf("End down side\n");
             }   
         }
     }
 
-    ROS_INFO("CVT Color %fms", t_r.toc());
+    ROS_INFO("Up to CVT Color %fms", t_r.toc());
  #pragma omp parallel sections
 {
     {
@@ -1089,11 +1089,11 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     }
 }
     
-    ROS_INFO("FT %fms", t_r.toc());
+    ROS_INFO("Up to FT %fms", t_r.toc());
 
     setMaskFisheye();
 
-    ROS_INFO("SetMaskFisheye %fms", t_r.toc());
+    ROS_INFO("Up to SetMaskFisheye %fms", t_r.toc());
 
  #pragma omp parallel sections
  {
@@ -1119,7 +1119,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     }
  }
   
-    ROS_INFO("DetectPoints %fms", t_r.toc());
+    ROS_INFO("Up to DetectPoints %fms", t_r.toc());
 
     addPointsFisheye();
 
