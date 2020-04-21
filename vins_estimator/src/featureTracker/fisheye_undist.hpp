@@ -20,10 +20,11 @@ class FisheyeUndist {
 
     camodocal::CameraPtr cam;
 
-    std::vector<cv::Mat> undistMaps;
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
 public:
+    std::vector<cv::Mat> undistMaps;
+
     camodocal::CameraPtr cam_top;
     camodocal::CameraPtr cam_side;
     double f_side = 0;
@@ -86,14 +87,19 @@ public:
     }
 #endif
 
-    std::vector<cv::Mat> undist_all(const cv::Mat & image, bool use_rgb = false) {
+    std::vector<cv::Mat> undist_all(const cv::Mat & image, bool use_rgb = false, bool enable_top = true, bool enable_rear = true) {
         std::vector<cv::Mat> ret;
 
         ret.resize(undistMaps.size());
+        bool disable[5] = {0};
+        disable[0] = !enable_top;
+        disable[5] = !enable_rear;
         if (use_rgb) {
 #pragma omp parallel for num_threads(5)
             for (unsigned int i = 0; i < 5; i++) {
-                cv::remap(image, ret[i], undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
+                if (!disable[i]) {
+                    cv::remap(image, ret[i], undistMaps[i], cv::Mat(), cv::INTER_NEAREST);
+                }
             }
             return ret;
 
@@ -102,12 +108,57 @@ public:
             cv::cvtColor(image, gray, cv::COLOR_BGR2GRAY);
 #pragma omp parallel for  num_threads(5)
             for (unsigned int i = 0; i < 5; i++) {
-                cv::remap(gray, ret[i], undistMaps[i], cv::Mat(), cv::INTER_LINEAR);
+                if (!disable[i]) {
+                    cv::remap(gray, ret[i], undistMaps[i], cv::Mat(), cv::INTER_NEAREST);
+                }
             }
             return ret;
         }
 
         return ret;
+    }
+
+
+    void stereo_flatten(const cv::Mat & image1, const cv::Mat & image2, FisheyeUndist * undist2, std::vector<cv::Mat> & lefts, std::vector<cv::Mat> & rights, bool use_rgb = false, 
+        bool enable_up_top = true, bool enable_up_rear = true,
+        bool enable_down_top = true, bool enable_down_rear = true) {
+
+        auto method = cv::INTER_NEAREST;
+        lefts.resize(5);
+        rights.resize(5);
+        bool disable[10] = {0};
+        disable[0] = !enable_up_top;
+        disable[4] = !enable_up_rear;
+
+        disable[5] = !enable_down_top;
+        disable[9] = !enable_down_rear;
+
+        if (use_rgb) {
+#pragma omp parallel for num_threads(5)
+            for (unsigned int i = 0; i < 10; i++) {
+                if (!disable[i]) {
+                    if (i > 4) {
+                        cv::remap(image2, rights[i%5], undist2->undistMaps[i%5], cv::Mat(), method);
+                    } else {
+                        cv::remap(image1, lefts[i], undistMaps[i], cv::Mat(), method);
+                    }
+                }
+            }
+        } else {
+            cv::Mat gray1, gray2;
+            cv::cvtColor(image1, gray1, cv::COLOR_BGR2GRAY);
+            cv::cvtColor(image2, gray2, cv::COLOR_BGR2GRAY);
+#pragma omp parallel for num_threads(5)
+            for (unsigned int i = 0; i < 10; i++) {
+                if (!disable[i]) {
+                    if (i > 4) {
+                        cv::remap(image2, rights[i%5], undist2->undistMaps[i%5], cv::Mat(), method);
+                    } else {
+                        cv::remap(image1, lefts[i], undistMaps[i], cv::Mat(), method);
+                    }
+                }
+            }
+        }
     }
 
 

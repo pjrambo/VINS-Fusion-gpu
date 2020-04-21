@@ -116,9 +116,17 @@ cv::Mat FeatureTracker::setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur
 
 void FeatureTracker::setMaskFisheye() {
     //TODO:Set mask for fisheye
-    mask_up_top = setMaskFisheye(top_size, cur_up_top_pts, track_up_top_cnt, ids_up_top);
-    mask_down_top = setMaskFisheye(top_size, cur_down_top_pts, track_down_top_cnt, ids_down_top);
-    mask_up_side = setMaskFisheye(side_size, cur_up_side_pts, track_up_side_cnt, ids_up_side);
+    if(enable_up_top) {
+        mask_up_top = setMaskFisheye(top_size, cur_up_top_pts, track_up_top_cnt, ids_up_top);
+    }
+
+    if(enable_down_top) {
+        mask_down_top = setMaskFisheye(top_size, cur_down_top_pts, track_down_top_cnt, ids_down_top);
+    }
+
+    if(enable_up_side) {
+        mask_up_side = setMaskFisheye(side_size, cur_up_side_pts, track_up_side_cnt, ids_up_side);
+    }
 }
 
 void FeatureTracker::setMask()
@@ -969,6 +977,7 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     }
     return prevMap;
 }
+
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
         std::vector<cv::Mat> & fisheye_imgs_up,
         std::vector<cv::Mat> & fisheye_imgs_down) {
@@ -977,8 +986,11 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     TicToc t_cvt;
 
     TicToc t_r;
-    fisheye_imgs_up = fisheys_undists[0].undist_all(_img, RGB_DEPTH_CLOUD);
-    fisheye_imgs_down = fisheys_undists[1].undist_all(_img1, RGB_DEPTH_CLOUD);
+    // fisheye_imgs_up = fisheys_undists[0].undist_all(_img, RGB_DEPTH_CLOUD, enable_up_top, enable_rear_side);
+    // fisheye_imgs_down = fisheys_undists[1].undist_all(_img1, RGB_DEPTH_CLOUD, enable_down_top, enable_rear_side);
+
+    fisheys_undists[0].stereo_flatten(_img, _img1, &fisheys_undists[1], fisheye_imgs_up, fisheye_imgs_down, RGB_DEPTH_CLOUD, 
+        enable_up_top, enable_rear_side, enable_down_top, enable_rear_side);
     static double undist_sum = 0;
     static double undist_count = 0;
     undist_sum = t_r.toc() + undist_sum;
@@ -986,6 +998,10 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     ROS_INFO("Undist AVG cost %fms", undist_sum/undist_count);
 
     double remap_cost = t_r.toc();
+    static double remap_cost_sum = 0;
+    static double remap_count = 0;
+    remap_cost_sum = remap_cost_sum + remap_cost;
+    remap_count = remap_count + 1;
     cv::Mat up_side_img = concat_side(fisheye_imgs_up);
     cv::Mat down_side_img = concat_side(fisheye_imgs_down);
     cv::Mat up_top_img = fisheye_imgs_up[0];
@@ -1007,10 +1023,21 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_down_side_un_pts.clear();
 
     if (up_top_img.channels() == 3) {
-        cv::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
-        cv::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
-        cv::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
-        cv::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
+        if (enable_up_top) {
+            cv::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
+        }
+
+        if(enable_down_top) {
+            cv::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
+        }
+        
+        if(enable_up_side) {
+            cv::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
+        }
+
+        if(enable_down_side) {
+            cv::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
+        }
     }
 
     ROS_INFO("CVT Color %fms", t_r.toc());
@@ -1105,7 +1132,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // hasPrediction = false;
     auto ff = setup_feature_frame();
 
-    printf("FT Whole %fms; MainProcess %fms Remap %fms Concat %fms PTS %ld T\n", t_r.toc(), tcost_all, remap_cost, concat_cost, ff.size());
+    printf("FT Whole %fms; MainProcess %fms Remap %fms Concat %fms PTS %ld T\n", t_r.toc(), tcost_all, remap_cost_sum/remap_count, concat_cost, ff.size());
     return ff;
 }
 
