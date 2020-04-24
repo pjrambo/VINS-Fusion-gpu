@@ -134,7 +134,7 @@ public:
         disable[9] = !enable_down_rear;
 
         if (use_rgb) {
-#pragma omp parallel for num_threads(5)
+#pragma omp parallel for num_threads(10)
             for (unsigned int i = 0; i < 10; i++) {
                 if (!disable[i]) {
                     if (i > 4) {
@@ -148,7 +148,7 @@ public:
             cv::Mat gray1, gray2;
             cv::cvtColor(image1, gray1, cv::COLOR_BGR2GRAY);
             cv::cvtColor(image2, gray2, cv::COLOR_BGR2GRAY);
-#pragma omp parallel for num_threads(5)
+#pragma omp parallel for num_threads(10)
             for (unsigned int i = 0; i < 10; i++) {
                 if (!disable[i]) {
                     if (i > 4) {

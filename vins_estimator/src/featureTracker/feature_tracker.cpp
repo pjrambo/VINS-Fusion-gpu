@@ -609,14 +609,14 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::Mat & cur_img,
     TicToc t_og;
     status.clear();
     vector<float> err;
-    cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 3);
+    cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(10, 10), 3);
     // std::cout << "Prev gpu pts" << prev_gpu_pts.size() << std::endl;    
     // std::cout << "Cur gpu pts" << cur_gpu_pts.size() << std::endl;
     if(FLOW_BACK)
     {
         vector<cv::Point2f> reverse_pts;
         vector<uchar> reverse_status;
-        cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(21, 21), 3);
+        cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, cv::Size(10, 10), 3);
 
         for(size_t i = 0; i < status.size(); i++)
         {
@@ -1024,8 +1024,9 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_down_side_un_pts.clear();
 
     if (up_top_img.channels() == 3) {
- #pragma omp parallel sections
+        #pragma omp parallel sections
         {
+            #pragma omp section
             {
                 // printf("Start cvt up top\n");
                 if (enable_up_top) {
@@ -1064,62 +1065,85 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     }
 
     ROS_INFO("Up to CVT Color %fms", t_r.toc());
+
+    TicToc t_t;
  #pragma omp parallel sections
 {
+    #pragma omp section 
     {
         //If has predict;
         if (enable_up_top) {
-            // ROS_INFO("Tracking top");
+            printf("Start track up top\n");
             cur_up_top_pts = opticalflow_track(up_top_img, prev_up_top_img_cpu, prev_up_top_pts, ids_up_top, track_up_top_cnt, false);
+            printf("End track up top\n");
         }
     }
 
     #pragma omp section 
     {
         if (enable_up_side) {
+            printf("Start track up side\n");
             cur_up_side_pts = opticalflow_track(up_side_img, prev_up_side_img_cpu, prev_up_side_pts, ids_up_side, track_up_side_cnt, false);
+            printf("End track up side\n");
         }
     }
 
     #pragma omp section 
     {
         if (enable_down_top) {
+            printf("Start track down top\n");
             cur_down_top_pts = opticalflow_track(down_top_img, prev_down_top_img_cpu, prev_down_top_pts, ids_down_top, track_down_top_cnt, false);
+            printf("End track down top\n");
         }
     }
 }
     
-    ROS_INFO("Up to FT %fms", t_r.toc());
+    ROS_INFO("LK cost %fms", t_t.toc());
 
     setMaskFisheye();
 
     ROS_INFO("Up to SetMaskFisheye %fms", t_r.toc());
 
+    TicToc t_d;
+
  #pragma omp parallel sections
  {
+    #pragma omp section
     {
         if (enable_up_top) {
-            // ROS_INFO("Detecting top");
+            printf("Detect up top\n");
             detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
+            printf("Detect up top\n");
         }
     }
 
     #pragma omp section
     {
         if (enable_down_top) {
+            printf("Detect down top\n");
             detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
+            printf("Detect down top\n");
         }
     }
 
     #pragma omp section
     {
         if (enable_up_side) {
+            printf("Detect up side\n");
             detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
+            printf("Detect up side\n");
         }
     }
  }
-  
-    ROS_INFO("Up to DetectPoints %fms", t_r.toc());
+
+static double detect_sum = 0;
+static double detect_count = 0;
+
+  detect_sum = detect_sum + t_d.toc();
+  detect_count += 1;
+
+
+    ROS_INFO("Detect %fms avg %fms", t_d.toc(), detect_sum/detect_count);
 
     addPointsFisheye();
 
@@ -1178,7 +1202,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // hasPrediction = false;
     auto ff = setup_feature_frame();
 
-    printf("FT Whole %fms; MainProcess %fms Remap %fms Concat %fms PTS %ld T\n", t_r.toc(), tcost_all, remap_cost_sum/remap_count, concat_cost, ff.size());
+    printf("FT Whole %fms; MainProcess %fms RemapAVG %fms DetectAVG %fms Concat %fms PTS %ld T\n", t_r.toc(), tcost_all, remap_cost_sum/remap_count, detect_sum/detect_count, concat_cost, ff.size());
     return ff;
 }
 
@@ -1336,7 +1360,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         setMaskFisheye();
 
         ROS_INFO("SetMaskFisheye %fms", t_r.toc());
-
+        
+        TicToc t_d;
         if (enable_up_top) {
             // ROS_INFO("Detecting top");
             detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
@@ -1349,7 +1374,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
         }
 
-        ROS_INFO("DetectPoints %fms", t_r.toc());
+        ROS_INFO("DetectPoints %fms", t_d.toc());
 
         addPointsFisheye();
 
