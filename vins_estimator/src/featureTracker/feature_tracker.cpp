@@ -29,6 +29,7 @@ Eigen::Quaterniond t4 = t3 * Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d(0, 1, 0
 Eigen::Quaterniond t_down(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
 
 #define PYR_LEVEL 3
+#define WIN_SIZE cv::Size(21, 21)
 
 bool FeatureTracker::inBorder(const cv::Point2f &pt, cv::Size shape)
 {
@@ -632,13 +633,13 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(vector<cv::Mat> & cur_pyr,
     TicToc t_og;
     status.clear();
     vector<float> err;
-    cv::calcOpticalFlowPyrLK(prev_pyr, cur_pyr, prev_pts, cur_pts, status, err, cv::Size(10, 10), PYR_LEVEL);
+    cv::calcOpticalFlowPyrLK(prev_pyr, cur_pyr, prev_pts, cur_pts, status, err, WIN_SIZE, PYR_LEVEL);
     std::cout << "Prev pts" << prev_pts.size() << std::endl;    
     if(FLOW_BACK)
     {
         vector<cv::Point2f> reverse_pts;
         vector<uchar> reverse_status;
-        cv::calcOpticalFlowPyrLK(cur_pyr, prev_pyr, cur_pts, reverse_pts, reverse_status, err, cv::Size(10, 10), PYR_LEVEL);
+        cv::calcOpticalFlowPyrLK(cur_pyr, prev_pyr, cur_pts, reverse_pts, reverse_status, err, WIN_SIZE, PYR_LEVEL);
 
         for(size_t i = 0; i < status.size(); i++)
         {
@@ -1099,7 +1100,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if(enable_up_top) {
                 // printf("Building up top pyr\n");
-                cv::buildOpticalFlowPyramid(up_top_img, up_top_pyr, cv::Size(10, 10), PYR_LEVEL, false);
+                cv::buildOpticalFlowPyramid(up_top_img, up_top_pyr, WIN_SIZE, PYR_LEVEL, false);
             }
         }
         
@@ -1107,7 +1108,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if(enable_down_top) {
                 // printf("Building down top pyr\n");
-                cv::buildOpticalFlowPyramid(down_top_img, down_top_pyr, cv::Size(10, 10), PYR_LEVEL, false);
+                cv::buildOpticalFlowPyramid(down_top_img, down_top_pyr, WIN_SIZE, PYR_LEVEL, false);
             }
         }
         
@@ -1115,7 +1116,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if(enable_up_side) {
                 // printf("Building up side pyr\n");
-                cv::buildOpticalFlowPyramid(up_side_img, up_side_pyr, cv::Size(10, 10), PYR_LEVEL);
+                cv::buildOpticalFlowPyramid(up_side_img, up_side_pyr, WIN_SIZE, PYR_LEVEL);
             }
         }
         
@@ -1123,7 +1124,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if(enable_down_side) {
                 // printf("Building downn side pyr\n");
-                cv::buildOpticalFlowPyramid(down_side_img, down_side_pyr, cv::Size(10, 10), PYR_LEVEL);
+                cv::buildOpticalFlowPyramid(down_side_img, down_side_pyr, WIN_SIZE, PYR_LEVEL);
             }
         }
     }
