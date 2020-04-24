@@ -74,11 +74,12 @@ public:
                         vector<int> & ids, vector<int> & track_cnt,
                         bool is_lr_track, vector<cv::Point2f> prediction_points = vector<cv::Point2f>());
 #endif
-    vector<cv::Point2f> opticalflow_track(cv::Mat & cur_img, 
-                        cv::Mat & prev_img, vector<cv::Point2f> & prev_pts, 
+    
+    vector<cv::Point2f> opticalflow_track(vector<cv::Mat> & cur_pyr, 
+                        vector<cv::Mat> & prev_pyr, vector<cv::Point2f> & prev_pts, 
                         vector<int> & ids, vector<int> & track_cnt,
                         bool is_lr_track, vector<cv::Point2f> prediction_points = vector<cv::Point2f>());
-    
+
     void setMask();
     void setMaskFisheye();
     cv::Mat setMaskFisheye(cv::Size shape, vector<cv::Point2f> & cur_pts, vector<int> & track_cnt, vector<int> & ids);
@@ -160,6 +161,7 @@ public:
     cv::cuda::GpuMat prev_up_top_img, prev_down_top_img, prev_up_side_img;
 #endif
     cv::Mat prev_up_top_img_cpu, prev_down_top_img_cpu, prev_up_side_img_cpu;
+    std::vector<cv::Mat> prev_up_top_pyr, prev_down_top_pyr, prev_up_side_pyr;
 
     vector<cv::Point2f> n_pts;
     vector<cv::Point2f> n_pts_up_top, n_pts_down_top, n_pts_up_side;
