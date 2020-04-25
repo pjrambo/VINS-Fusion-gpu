@@ -41,6 +41,8 @@ using namespace camodocal;
 using namespace Eigen;
 
 bool inBorder(const cv::Point2f &pt);
+bool inBorder(const cv::Point2f &pt, cv::Size shape);
+
 void reduceVector(vector<cv::Point2f> &v, vector<uchar> status);
 void reduceVector(vector<int> &v, vector<uchar> status);
 
@@ -75,10 +77,13 @@ public:
                         bool is_lr_track, vector<cv::Point2f> prediction_points = vector<cv::Point2f>());
 #endif
     
-    vector<cv::Point2f> opticalflow_track(vector<cv::Mat> & cur_pyr, 
-                        vector<cv::Mat> & prev_pyr, vector<cv::Point2f> & prev_pts, 
-                        vector<int> & ids, vector<int> & track_cnt,
-                        bool is_lr_track, vector<cv::Point2f> prediction_points = vector<cv::Point2f>());
+    vector<cv::Point2f> opticalflow_track(vector<cv::Mat> * cur_pyr, 
+                        vector<cv::Mat> * prev_pyr, vector<cv::Point2f> & prev_pts, 
+                        vector<int> & ids, vector<int> & track_cnt, vector<cv::Point2f> prediction_points = vector<cv::Point2f>()) const;
+
+    vector<cv::Point2f> opticalflow_track(cv::Mat & cur_img, vector<cv::Mat> * cur_pyr, 
+                        cv::Mat & prev_img, vector<cv::Mat> * prev_pyr, vector<cv::Point2f> & prev_pts, 
+                        vector<int> & ids, vector<int> & track_cnt, vector<cv::Point2f> prediction_points = vector<cv::Point2f>()) const;
 
     void setMask();
     void setMaskFisheye();
@@ -129,11 +134,12 @@ public:
     void drawTrackImage(cv::Mat & img, vector<cv::Point2f> pts, vector<int> ids, map<int, cv::Point2f> prev_pts);
 
     void setPrediction(map<int, Eigen::Vector3d> &predictPts);
-    double distance(cv::Point2f &pt1, cv::Point2f &pt2);
     void removeOutliers(set<int> &removePtsIds);
     cv::Mat getTrackImage();
     bool inBorder(const cv::Point2f &pt);
-    bool inBorder(const cv::Point2f &pt, cv::Size shape);
+    bool inBorder(const cv::Point2f &pt, cv::Size shape) const;
+
+    static double distance(cv::Point2f pt1, cv::Point2f pt2);
 
     void detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & mask, vector<cv::Point2f> & n_pts, vector<cv::Point2f> & cur_pts, int require_pts);
     void detectPoints(const cv::Mat & img, const cv::Mat & mask, vector<cv::Point2f> & n_pts, vector<cv::Point2f> & cur_pts, int require_pts);
@@ -161,7 +167,7 @@ public:
     cv::cuda::GpuMat prev_up_top_img, prev_down_top_img, prev_up_side_img;
 #endif
     cv::Mat prev_up_top_img_cpu, prev_down_top_img_cpu, prev_up_side_img_cpu;
-    std::vector<cv::Mat> prev_up_top_pyr, prev_down_top_pyr, prev_up_side_pyr;
+    std::vector<cv::Mat> * prev_up_top_pyr = nullptr, * prev_down_top_pyr = nullptr, * prev_up_side_pyr = nullptr;
 
     vector<cv::Point2f> n_pts;
     vector<cv::Point2f> n_pts_up_top, n_pts_down_top, n_pts_up_side;

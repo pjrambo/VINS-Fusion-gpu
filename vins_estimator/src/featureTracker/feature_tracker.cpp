@@ -31,7 +31,7 @@ Eigen::Quaterniond t_down(Eigen::AngleAxisd(M_PI, Eigen::Vector3d(1, 0, 0)));
 #define PYR_LEVEL 3
 #define WIN_SIZE cv::Size(21, 21)
 
-bool FeatureTracker::inBorder(const cv::Point2f &pt, cv::Size shape)
+bool FeatureTracker::inBorder(const cv::Point2f &pt, cv::Size shape) const
 {
     const int BORDER_SIZE = 1;
     int img_x = cvRound(pt.x);
@@ -47,7 +47,7 @@ bool FeatureTracker::inBorder(const cv::Point2f &pt)
     return BORDER_SIZE <= img_x && img_x < col - BORDER_SIZE && BORDER_SIZE <= img_y && img_y < row - BORDER_SIZE;
 }
 
-double distance(cv::Point2f pt1, cv::Point2f pt2)
+double FeatureTracker::distance(cv::Point2f pt1, cv::Point2f pt2)
 {
     //printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
     double dx = pt1.x - pt2.x;
@@ -175,7 +175,7 @@ void FeatureTracker::addPoints()
     }
 }
 
-double FeatureTracker::distance(cv::Point2f &pt1, cv::Point2f &pt2)
+double distance(cv::Point2f &pt1, cv::Point2f &pt2)
 {
     //printf("pt1: %f %f pt2: %f %f\n", pt1.x, pt1.y, pt2.x, pt2.y);
     double dx = pt1.x - pt2.x;
@@ -602,10 +602,9 @@ vector<cv::Point3f> FeatureTracker::undistortedPtsSide(vector<cv::Point2f> &pts,
 }
 
 
-vector<cv::Point2f> FeatureTracker::opticalflow_track(vector<cv::Mat> & cur_pyr, 
-                        vector<cv::Mat> & prev_pyr, vector<cv::Point2f> & prev_pts, 
-                        vector<int> & ids, vector<int> & track_cnt,
-                        bool is_lr_track, vector<cv::Point2f> prediction_points){
+vector<cv::Point2f> FeatureTracker::opticalflow_track(vector<cv::Mat> * cur_pyr, 
+                        vector<cv::Mat> * prev_pyr, vector<cv::Point2f> & prev_pts, 
+                        vector<int> & ids, vector<int> & track_cnt, vector<cv::Point2f> prediction_points) const {
     if (prev_pts.size() == 0) {
         return vector<cv::Point2f>();
     }
@@ -622,7 +621,6 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(vector<cv::Mat> & cur_pyr,
     }
 
     reduceVector(prev_pts, status);
-    reduceVector(cur_pts, status);
     reduceVector(ids, status);
     
     if (prev_pts.size() == 0) {
@@ -633,13 +631,13 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(vector<cv::Mat> & cur_pyr,
     TicToc t_og;
     status.clear();
     vector<float> err;
-    cv::calcOpticalFlowPyrLK(prev_pyr, cur_pyr, prev_pts, cur_pts, status, err, WIN_SIZE, PYR_LEVEL);
+    cv::calcOpticalFlowPyrLK(*prev_pyr, *cur_pyr, prev_pts, cur_pts, status, err, WIN_SIZE, PYR_LEVEL);
     std::cout << "Prev pts" << prev_pts.size() << std::endl;    
     if(FLOW_BACK)
     {
         vector<cv::Point2f> reverse_pts;
         vector<uchar> reverse_status;
-        cv::calcOpticalFlowPyrLK(cur_pyr, prev_pyr, cur_pts, reverse_pts, reverse_status, err, WIN_SIZE, PYR_LEVEL);
+        cv::calcOpticalFlowPyrLK(*cur_pyr, *prev_pyr, cur_pts, reverse_pts, reverse_status, err, WIN_SIZE, PYR_LEVEL);
 
         for(size_t i = 0; i < status.size(); i++)
         {
@@ -680,7 +678,89 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(vector<cv::Mat> & cur_pyr,
 
     return cur_pts;
 }
+
+vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::Mat & cur_img, vector<cv::Mat> * cur_pyr, 
+                        cv::Mat & prev_img, vector<cv::Mat> * prev_pyr, vector<cv::Point2f> & prev_pts, 
+                        vector<int> & ids, vector<int> & track_cnt, vector<cv::Point2f> prediction_points) const {
+    if (prev_pts.size() == 0) {
+        return vector<cv::Point2f>();
+    }
+    TicToc tic;
+    vector<uchar> status;
+
+    for (size_t i = 0; i < ids.size(); i ++) {
+        int _id = ids[i];
+        if (removed_pts.find(_id) == removed_pts.end()) {
+            status.push_back(1);
+        } else {
+            status.push_back(0);
+        }
+    }
+
+    reduceVector(prev_pts, status);
+    reduceVector(ids, status);
     
+    if (prev_pts.size() == 0) {
+        return vector<cv::Point2f>();
+    }
+
+    vector<cv::Point2f> cur_pts;
+    TicToc t_og;
+    status.clear();
+    vector<float> err;
+    
+    TicToc t_build;
+
+    TicToc t_calc;
+    cv::calcOpticalFlowPyrLK(*prev_pyr, *cur_pyr, prev_pts, cur_pts, status, err, WIN_SIZE, PYR_LEVEL);
+    // cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, WIN_SIZE, PYR_LEVEL);
+    // std::cout << "Track img Prev pts" << prev_pts.size() << " TS " << t_calc.toc() << std::endl;    
+    if(FLOW_BACK)
+    {
+        vector<cv::Point2f> reverse_pts;
+        vector<uchar> reverse_status;
+        cv::calcOpticalFlowPyrLK(*cur_pyr, *prev_pyr, cur_pts, reverse_pts, reverse_status, err, WIN_SIZE, PYR_LEVEL);
+        // cv::calcOpticalFlowPyrLK(cur_img, prev_img, cur_pts, reverse_pts, reverse_status, err, WIN_SIZE, PYR_LEVEL);
+
+        for(size_t i = 0; i < status.size(); i++)
+        {
+            if(status[i] && reverse_status[i] && distance(prev_pts[i], reverse_pts[i]) <= 0.5)
+            {
+                status[i] = 1;
+            }
+            else
+                status[i] = 0;
+        }
+    }
+    // printf("gpu temporal optical flow costs: %f ms\n",t_og.toc());
+
+    for (int i = 0; i < int(cur_pts.size()); i++) {
+        if (status[i] && !inBorder(cur_pts[i], cur_img.size())) {
+            status[i] = 0;
+        }
+    }            
+
+    reduceVector(prev_pts, status);
+    reduceVector(cur_pts, status);
+    reduceVector(ids, status);
+    if(track_cnt.size() > 0) {
+        reduceVector(track_cnt, status);
+    }
+
+    std::cout << "Cur pts" << cur_pts.size() << std::endl;
+
+
+#ifdef PERF_OUTPUT
+    ROS_INFO("Optical flow costs: %fms Pts %ld", t_og.toc(), ids.size());
+#endif
+
+    //printf("track cnt %d\n", (int)ids.size());
+
+    for (auto &n : track_cnt)
+        n++;
+
+    return cur_pts;
+} 
 #ifdef USE_CUDA
 vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img, 
                         cv::cuda::GpuMat & prev_img, vector<cv::Point2f> & prev_pts, 
@@ -1028,7 +1108,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cv::Mat up_top_img = fisheye_imgs_up[0];
     cv::Mat down_top_img = fisheye_imgs_down[0];
 
-    std::vector<cv::Mat> up_top_pyr, down_top_pyr, up_side_pyr, down_side_pyr;
+    std::vector<cv::Mat> * up_top_pyr = nullptr, * down_top_pyr = nullptr, * up_side_pyr = nullptr, * down_side_pyr = nullptr;
     double concat_cost = t_r.toc() - remap_cost;
 
     top_size = up_top_img.size();
@@ -1049,7 +1129,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     TicToc t_cvt;
 
     if (up_top_img.channels() == 3) {
-        #pragma omp parallel sections
+        #pragma omp sections
         {
             #pragma omp section
             {
@@ -1094,13 +1174,14 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
 
     TicToc t_pyr;
-    #pragma omp sections 
+    #pragma omp parallel sections 
     {
         #pragma omp section 
         {
             if(enable_up_top) {
                 // printf("Building up top pyr\n");
-                cv::buildOpticalFlowPyramid(up_top_img, up_top_pyr, WIN_SIZE, PYR_LEVEL, false);
+                up_top_pyr = new std::vector<cv::Mat>();
+                cv::buildOpticalFlowPyramid(up_top_img, *up_top_pyr, WIN_SIZE, PYR_LEVEL, true);//, cv::BORDER_REFLECT101, cv::BORDER_CONSTANT, false);
             }
         }
         
@@ -1108,7 +1189,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if(enable_down_top) {
                 // printf("Building down top pyr\n");
-                cv::buildOpticalFlowPyramid(down_top_img, down_top_pyr, WIN_SIZE, PYR_LEVEL, false);
+                down_top_pyr = new std::vector<cv::Mat>();
+                cv::buildOpticalFlowPyramid(down_top_img, *down_top_pyr, WIN_SIZE, PYR_LEVEL, true);
             }
         }
         
@@ -1116,7 +1198,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if(enable_up_side) {
                 // printf("Building up side pyr\n");
-                cv::buildOpticalFlowPyramid(up_side_img, up_side_pyr, WIN_SIZE, PYR_LEVEL);
+                up_side_pyr = new std::vector<cv::Mat>();
+                cv::buildOpticalFlowPyramid(up_side_img, *up_side_pyr, WIN_SIZE, PYR_LEVEL, true);
             }
         }
         
@@ -1124,7 +1207,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if(enable_down_side) {
                 // printf("Building downn side pyr\n");
-                cv::buildOpticalFlowPyramid(down_side_img, down_side_pyr, WIN_SIZE, PYR_LEVEL);
+                down_side_pyr = new std::vector<cv::Mat>();
+                cv::buildOpticalFlowPyramid(down_side_img, *down_side_pyr, WIN_SIZE, PYR_LEVEL, true);
             }
         }
     }
@@ -1140,7 +1224,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
             //If has predict;
             if (enable_up_top) {
                 // printf("Start track up top\n");
-                cur_up_top_pts = opticalflow_track(up_top_pyr, prev_up_top_pyr, prev_up_top_pts, ids_up_top, track_up_top_cnt, false);
+                cur_up_top_pts = opticalflow_track(up_top_img, up_top_pyr, prev_up_top_img_cpu, prev_up_top_pyr, prev_up_top_pts, ids_up_top, track_up_top_cnt);
                 // printf("End track up top\n");
             }
         }
@@ -1149,7 +1233,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if (enable_up_side) {
                 // printf("Start track up side\n");
-                cur_up_side_pts = opticalflow_track(down_side_pyr, prev_up_side_pyr, prev_up_side_pts, ids_up_side, track_up_side_cnt, false);
+                cur_up_side_pts = opticalflow_track(up_side_img, up_side_pyr, prev_up_side_img_cpu, prev_up_side_pyr, prev_up_side_pts, ids_up_side, track_up_side_cnt);
                 // printf("End track up side\n");
             }
         }
@@ -1158,7 +1242,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         {
             if (enable_down_top) {
                 // printf("Start track down top\n");
-                cur_down_top_pts = opticalflow_track(down_top_pyr, prev_down_top_pyr, prev_down_top_pts, ids_down_top, track_down_top_cnt, false);
+                cur_down_top_pts = opticalflow_track(down_top_img, down_top_pyr, prev_down_top_img_cpu, prev_down_top_pyr, prev_down_top_pts, ids_down_top, track_down_top_cnt);
                 // printf("End track down top\n");
             }
         }
@@ -1180,27 +1264,21 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
         #pragma omp section
         {
             if (enable_up_top) {
-                // printf("Detect up top\n");
                 detectPoints(up_top_img, mask_up_top, n_pts_up_top, cur_up_top_pts, TOP_PTS_CNT);
-                // printf("Detect up top\n");
             }
         }
 
         #pragma omp section
         {
             if (enable_down_top) {
-                // printf("Detect down top\n");
                 detectPoints(down_top_img, mask_down_top, n_pts_down_top, cur_down_top_pts, TOP_PTS_CNT);
-                // printf("Detect down top\n");
             }
         }
 
         #pragma omp section
         {
             if (enable_up_side) {
-                // printf("Detect up side\n");
                 detectPoints(up_side_img, mask_up_side, n_pts_up_side, cur_up_side_pts, SIDE_PTS_CNT);
-                // printf("Detect up side\n");
             }
         }
     }
@@ -1211,13 +1289,12 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
 
     addPointsFisheye();
     
-    // #pragma omp section 
     {
         if (enable_down_side) {
             ids_down_side = ids_up_side;
             std::vector<cv::Point2f> down_side_init_pts = cur_up_side_pts;
             if (down_side_init_pts.size() > 0) {
-                cur_down_side_pts = opticalflow_track(down_side_pyr, up_side_pyr, down_side_init_pts, ids_down_side, track_down_side_cnt, true);
+                cur_down_side_pts = opticalflow_track(down_side_img, down_side_pyr, up_side_img, up_side_pyr, down_side_init_pts, ids_down_side, track_down_side_cnt);
             }
         }
     }
@@ -1241,10 +1318,28 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     if (SHOW_TRACK) {
         drawTrackFisheye(_img, _img1, up_top_img, down_top_img, up_side_img, down_side_img);
     }
+
         
-    // prev_up_top_img_cpu = up_top_img;
-    // prev_down_top_img_cpu = down_top_img;
-    // prev_up_side_img_cpu = up_side_img;
+    prev_up_top_img_cpu = up_top_img;
+    prev_down_top_img_cpu = down_top_img;
+    prev_up_side_img_cpu = up_side_img;
+
+    if(prev_down_top_pyr != nullptr) {
+        delete prev_down_top_pyr;
+    }
+
+    if(prev_up_top_pyr != nullptr) {
+        delete prev_up_top_pyr;
+    }
+
+    if (prev_up_side_pyr!=nullptr) {
+        delete prev_up_side_pyr;
+    }
+
+    if (down_side_pyr!=nullptr) {
+        delete down_side_pyr;
+    }
+
     prev_down_top_pyr = down_top_pyr;
     prev_up_top_pyr = up_top_pyr;
     prev_up_side_pyr = up_side_pyr;
