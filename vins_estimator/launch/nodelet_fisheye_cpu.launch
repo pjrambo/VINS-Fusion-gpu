@@ -1,0 +1,13 @@
+<launch>
+    <arg name="manager"     default="swarm_manager"/>
+    <arg name="config_file" default="$(find vins)/../config/fisheye_ptgrey_n3/fisheye_vworks.yaml" />
+    <node pkg="nodelet" type="nodelet" name="$(arg manager)" args="manager" output="screen" />
+    <node pkg="nodelet" type="nodelet" name="vins_fusion_nodelet" 
+        args="load vins_nodelet_pkg/VinsNodeletClass /$(arg manager)" output="screen" ns="vins_estimator">
+        <param name="config_file" type="string" value="$(arg config_file)"/>
+    </node> 
+    <node pkg="nodelet" type="nodelet" name="flatten_node_nodelet" 
+        args="load vins_nodelet_pkg/FlattenNodeletClass /$(arg manager)" output="screen" ns="vins_flatten">
+        <param name="config_file" type="string" value="$(arg config_file)"/>
+    </node> 
+</launch>

@@ -6,7 +6,7 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -fopenmp")
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
-set(ENABLE_BACKWARD false)
+set(ENABLE_BACKWARD true)
 set(ENABLE_VWORKS false)
 set(ENABLE_CUDA false)
 
@@ -49,9 +49,9 @@ if(ENABLE_CUDA)
 endif()
 
 #SET("OpenCV_DIR" "/home/pi/source/opencv_release/share/OpenCV")
-find_package(OpenCV 4.2 REQUIRED)
+# find_package(OpenCV 4.2 REQUIRED)
 #SET("OpenCV_DIR" "/home/pi/source/opencv-3.4.10/release/share/OpenCV")
-#find_package(OpenCV 3.4 REQUIRED)
+find_package(OpenCV 3 REQUIRED)
 
 find_package(Ceres REQUIRED)
 
@@ -113,7 +113,6 @@ add_library(vins_factors_lib
 )
 
 add_library(vins_lib
-    src/estimator/parameters.cpp
     src/estimator/feature_manager.cpp
     src/factor/marginalization_factor.cpp
     src/utility/utility.cpp
@@ -123,28 +122,24 @@ add_library(vins_lib
     src/initial/initial_aligment.cpp
     src/initial/initial_sfm.cpp
     src/initial/initial_ex_rotation.cpp
-
 )
+
+
+add_library(vins_params_lib  src/estimator/parameters.cpp)
 
 add_library(estimator_lib SHARED
     src/estimator/estimator.cpp
 )
 
 target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
+target_link_libraries(vins_params_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
 add_dependencies(vins_lib vins_generate_messages_cpp)
-target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw)
-target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES}  ${VisionWorks_LIBRARIES} dw OpenMP::OpenMP_CXX)
+target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} dw)
+target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} dw OpenMP::OpenMP_CXX)
 
 
 add_executable(vins_node src/rosNodeTest.cpp )
-target_link_libraries(vins_node vins_lib estimator_lib vins_frontend stereo_depth vins_factors_lib)
+target_link_libraries(vins_node vins_lib estimator_lib vins_frontend stereo_depth vins_factors_lib vins_params_lib)
 
-add_library(vins_nodelet_lib src/rosNodelet.cpp)
-target_link_libraries(vins_nodelet_lib vins_lib estimator_lib vins_frontend stereo_depth vins_factors_lib)
-
-# add_executable(kitti_odom_test src/KITTIOdomTest.cpp)
-# target_link_libraries(kitti_odom_test vins_lib estimator_lib)
-
-# add_executable(kitti_gps_test src/KITTIGPSTest.cpp)
-# target_link_libraries(kitti_gps_test vins_lib estimator_lib)
-
+add_library(vins_nodelet_lib src/rosNodelet.cpp src/flattenNodelet.cpp)
+target_link_libraries(vins_nodelet_lib vins_lib estimator_lib vins_frontend stereo_depth vins_factors_lib vins_params_lib OpenMP::OpenMP_CXX)

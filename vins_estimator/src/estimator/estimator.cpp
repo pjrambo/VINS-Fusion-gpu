@@ -54,7 +54,9 @@ void Estimator::setParameter()
     }
 }
 
-void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
+void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1, 
+        const CvImages & up_imgs, 
+        const CvImages & down_imgs)
 {
     static int img_track_count = 0;
     static double sum_time = 0;
@@ -69,7 +71,11 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
 #endif
 
     if (FISHEYE) {
+#ifdef USE_CUDA
         featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, fisheye_imgs_up, fisheye_imgs_down);
+#else
+        featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up, fisheye_imgs_down);
+#endif
     } else {
         if(_img1.empty())
             featureFrame = featureTracker.trackImage(t, _img);
@@ -77,13 +83,6 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1)
             featureFrame = featureTracker.trackImage(t, _img, _img1);
     }
 
-
-
-    // if(begin_time_count--<=0)
-    // {
-    //     sum_t_feature += featureTrackerTime.toc();
-    //     printf("featureTracker time: %f\n", sum_t_feature/(float)inputImageCnt);
-    // }
     double dt = featureTrackerTime.toc();
     sum_time += dt;
     img_track_count ++;

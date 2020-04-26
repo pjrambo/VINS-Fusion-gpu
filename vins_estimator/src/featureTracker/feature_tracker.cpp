@@ -1084,32 +1084,20 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     return prevMap;
 }
 
-FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
-        std::vector<cv::Mat> & fisheye_imgs_up,
-        std::vector<cv::Mat> & fisheye_imgs_down) {
+FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, std::vector<cv::Mat> & fisheye_imgs_up, std::vector<cv::Mat> & fisheye_imgs_down) {
     cur_time = _cur_time;
     static double count = 0;
     count += 1;
 
     TicToc t_r;
 
-    fisheys_undists[0].stereo_flatten(_img, _img1, &fisheys_undists[1], fisheye_imgs_up, fisheye_imgs_down, RGB_DEPTH_CLOUD, 
-        enable_up_top, enable_rear_side, enable_down_top, enable_rear_side);
-    static double undist_sum = 0;
-    undist_sum = t_r.toc() + undist_sum;
-
-    double remap_cost = t_r.toc();
-    static double remap_cost_sum = 0;
-    static double remap_count = 0;
-    remap_cost_sum = remap_cost_sum + remap_cost;
-    remap_count = remap_count + 1;
     cv::Mat up_side_img = concat_side(fisheye_imgs_up);
     cv::Mat down_side_img = concat_side(fisheye_imgs_down);
     cv::Mat up_top_img = fisheye_imgs_up[0];
     cv::Mat down_top_img = fisheye_imgs_down[0];
 
     std::vector<cv::Mat> * up_top_pyr = nullptr, * down_top_pyr = nullptr, * up_side_pyr = nullptr, * down_side_pyr = nullptr;
-    double concat_cost = t_r.toc() - remap_cost;
+    double concat_cost = t_r.toc();
 
     top_size = up_top_img.size();
     side_size = up_side_img.size();
@@ -1124,53 +1112,6 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     cur_up_side_un_pts.clear();
     cur_down_top_un_pts.clear();
     cur_down_side_un_pts.clear();
-
-
-    TicToc t_cvt;
-
-    if (up_top_img.channels() == 3) {
-        #pragma omp sections
-        {
-            #pragma omp section
-            {
-                // printf("Start cvt up top\n");
-                if (enable_up_top) {
-                    cv::cvtColor(up_top_img, up_top_img, cv::COLOR_BGR2GRAY);
-                }
-                // printf("Finish cvt up top\n");
-            }
-
-            #pragma omp section 
-            {
-                // printf("Start cvt down top\n");
-                if(enable_down_top) {
-                    cv::cvtColor(down_top_img, down_top_img, cv::COLOR_BGR2GRAY);
-                }
-                // printf("Finish cvt down top\n");
-            }
-
-            #pragma omp section 
-            {
-                // printf("Start up side top\n");
-                if(enable_up_side) {
-                    cv::cvtColor(up_side_img, up_side_img, cv::COLOR_BGR2GRAY);
-                }
-                // printf("End up side\n");
-            }
-
-            #pragma omp section 
-            {
-                // printf("Start down side\n");
-                if(enable_down_side) {
-                    cv::cvtColor(down_side_img, down_side_img, cv::COLOR_BGR2GRAY);
-                }
-                // printf("End down side\n");
-            }   
-        }
-    }
-
-    static double cvt_color_sum = 0;
-    cvt_color_sum += t_cvt.toc();
 
 
     TicToc t_pyr;
@@ -1316,7 +1257,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // ROS_INFO("Up top VEL %ld", up_top_vel.size());
     double tcost_all = t_r.toc();
     if (SHOW_TRACK) {
-        drawTrackFisheye(_img, _img1, up_top_img, down_top_img, up_side_img, down_side_img);
+        drawTrackFisheye(cv::Mat(), cv::Mat(), up_top_img, down_top_img, up_side_img, down_side_img);
     }
 
         
@@ -1373,7 +1314,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     whole_sum += t_r.toc();
 
     printf("FT Whole %fms; AVG %fms\n RemapAVG %fms DetectAVG %fms PYRAvg %fms LKAvg %fms CvtcolorAVG %fms Concat %fms PTS %ld T\n", 
-        t_r.toc(), whole_sum/count, remap_cost_sum/count, detect_sum/count, pyr_sum/count, lk_sum/count, cvt_color_sum/count, concat_cost, ff.size());
+        t_r.toc(), whole_sum/count, detect_sum/count, pyr_sum/count, lk_sum/count, concat_cost, ff.size());
     return ff;
 }
 

@@ -43,6 +43,7 @@
 class DepthCamManager;
 
 typedef std::pair<Eigen::Matrix3d, Eigen::Vector3d> EigenPose;
+typedef std::vector<cv::Mat> CvImages;
 class Estimator
 {
   public:
@@ -54,7 +55,9 @@ class Estimator
     void initFirstPose(Eigen::Vector3d p, Eigen::Matrix3d r);
     void inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity);
     void inputFeature(double t, const FeatureFrame &featureFrame);
-    void inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat());
+    void inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1 = cv::Mat(), 
+        const CvImages & up_imgs = CvImages(0), 
+        const CvImages & down_imgs = CvImages(0));
     void processIMU(double t, double dt, const Vector3d &linear_acceleration, const Vector3d &angular_velocity);
     void processImage(const FeatureFrame &image, const double header);
     void processMeasurements();

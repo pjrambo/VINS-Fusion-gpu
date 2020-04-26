@@ -17,7 +17,7 @@
 #include <message_filters/subscriber.h>
 #include <message_filters/time_synchronizer.h>
 #include "depth_generation/depth_camera_manager.h"
-
+#include "vins/FlattenImages.h"
 
 
 namespace vins_nodelet_pkg
@@ -29,6 +29,7 @@ namespace vins_nodelet_pkg
         private:
             message_filters::Subscriber<sensor_msgs::Image> * image_sub_l;
             message_filters::Subscriber<sensor_msgs::Image> * image_sub_r;
+
             DepthCamManager * cam_manager = nullptr;
             virtual void onInit()
             {
@@ -58,10 +59,37 @@ namespace vins_nodelet_pkg
                 sub_feature = n.subscribe("/feature_tracker/feature", 2000, &VinsNodeletClass::feature_callback, this);
                 sub_restart = n.subscribe("/vins_restart", 100, &VinsNodeletClass::restart_callback, this);
 
-                image_sub_l = new message_filters::Subscriber<sensor_msgs::Image> (n, IMAGE0_TOPIC, 100);
-                image_sub_r = new message_filters::Subscriber<sensor_msgs::Image> (n, IMAGE1_TOPIC, 100);
-                sync = new message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> (*image_sub_l, *image_sub_r, 10);
-                sync->registerCallback(boost::bind(&VinsNodeletClass::img_callback, this, _1, _2));
+                if(!FISHEYE_EXTERNAL_FLATTEN) {
+                    image_sub_l = new message_filters::Subscriber<sensor_msgs::Image> (n, IMAGE0_TOPIC, 100);
+                    image_sub_r = new message_filters::Subscriber<sensor_msgs::Image> (n, IMAGE1_TOPIC, 100);
+                    sync = new message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> (*image_sub_l, *image_sub_r, 10);
+                    sync->registerCallback(boost::bind(&VinsNodeletClass::img_callback, this, _1, _2));
+                } else {
+                    ROS_INFO("Will directly receive flattened images");
+                    flatten_sub = n.subscribe("/vins_estimator/flattened_raw", 2000, &VinsNodeletClass::flatten_callback, this);
+                }
+            }
+
+            void flatten_callback(const vins::FlattenImagesConstPtr & flattend_raw) {
+                ROS_INFO("Recevied flattened images");
+                TicToc tic;
+                vector<cv::Mat> up_cameras, down_cameras;
+                for (auto & cam : flattend_raw->up_cams) {
+                    ROS_INFO("Decoding up camera");
+                    auto img = getImageFromMsg(cam);
+                    up_cameras.push_back(img->image);
+                }
+
+                for (auto & cam : flattend_raw->down_cams) {
+                    ROS_INFO("Decoding down camera");
+                    auto img = getImageFromMsg(cam);
+                    down_cameras.push_back(img->image);
+                }
+                double decode_time = tic.toc();
+                TicToc tic_input;
+                // estimator.inputImage(flattend_raw->header.stamp.toSec(), cv::Mat(), cv::Mat(), up_cameras, down_cameras);
+
+                ROS_INFO("Decode: %fms. Input Image: %fms", decode_time, tic_input.toc());
             }
 
             void img_callback(const sensor_msgs::ImageConstPtr &img1_msg, const sensor_msgs::ImageConstPtr &img2_msg)
@@ -71,6 +99,18 @@ namespace vins_nodelet_pkg
                 estimator.inputImage(img1_msg->header.stamp.toSec(), img1->image, img2->image);
             }
 
+            cv_bridge::CvImageConstPtr getImageFromMsg(const sensor_msgs::Image &img_msg)
+            {
+                cv_bridge::CvImageConstPtr ptr;
+                if (img_msg.encoding == "8UC1")
+                {
+                    ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+                } else {
+                    ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
+                }
+                return ptr;
+            }
+            
             cv_bridge::CvImageConstPtr getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
             {
                 cv_bridge::CvImageConstPtr ptr;
@@ -175,6 +215,8 @@ namespace vins_nodelet_pkg
             ros::Subscriber sub_imu;
             ros::Subscriber sub_feature;
             ros::Subscriber sub_restart;
+            ros::Subscriber flatten_sub;
+
             message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> * sync;
             double last_time;
             bool last_time_initialized;

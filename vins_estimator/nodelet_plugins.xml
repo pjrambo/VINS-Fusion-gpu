@@ -5,4 +5,9 @@
             Nodelet version of VINS-Fusion for high IO throughput
         </description>
     </class>
+    <class name="vins_nodelet_pkg/FlattenNodeletClass" type="vins_nodelet_pkg::FlattenNodeletClass" base_class_type="nodelet::Nodelet">
+        <description>
+            Nodelet version of FlattenNodeletClass for high IO throughput
+        </description>
+    </class>
 </library>

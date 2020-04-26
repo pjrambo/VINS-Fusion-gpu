@@ -72,6 +72,8 @@ int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
+int FISHEYE_EXTERNAL_FLATTEN;
+
 std::string configPath;
 
 template <typename T>
@@ -129,6 +131,7 @@ void readParameters(std::string config_file)
     THRES_OUTLIER = fsSettings["thres_outlier"];
     triangulate_max_err = fsSettings["tri_max_err"];
     USE_GPU = fsSettings["use_gpu"];
+    FISHEYE_EXTERNAL_FLATTEN = fsSettings["fisheye_external_flatten"];
     FISHEYE = fsSettings["is_fisheye"];
     FISHEYE_FOV = fsSettings["fisheye_fov"];
     USE_VXWORKS = fsSettings["use_vxworks"];
