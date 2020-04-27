@@ -74,7 +74,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
 #ifdef USE_CUDA
         featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, fisheye_imgs_up, fisheye_imgs_down);
 #else
-        featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up, fisheye_imgs_down);
+        featureFrame = featureTracker.trackImage_fisheye(t, up_imgs, down_imgs);
 #endif
     } else {
         if(_img1.empty())

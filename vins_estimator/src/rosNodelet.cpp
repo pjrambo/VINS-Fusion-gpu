@@ -75,19 +75,18 @@ namespace vins_nodelet_pkg
                 TicToc tic;
                 vector<cv::Mat> up_cameras, down_cameras;
                 for (auto & cam : flattend_raw->up_cams) {
-                    ROS_INFO("Decoding up camera");
                     auto img = getImageFromMsg(cam);
                     up_cameras.push_back(img->image);
                 }
 
                 for (auto & cam : flattend_raw->down_cams) {
-                    ROS_INFO("Decoding down camera");
                     auto img = getImageFromMsg(cam);
                     down_cameras.push_back(img->image);
                 }
                 double decode_time = tic.toc();
                 TicToc tic_input;
-                // estimator.inputImage(flattend_raw->header.stamp.toSec(), cv::Mat(), cv::Mat(), up_cameras, down_cameras);
+                ROS_INFO("Will track %ld %ld", up_cameras.size(), down_cameras.size());
+                estimator.inputImage(flattend_raw->header.stamp.toSec(), cv::Mat(), cv::Mat(), up_cameras, down_cameras);
 
                 ROS_INFO("Decode: %fms. Input Image: %fms", decode_time, tic_input.toc());
             }

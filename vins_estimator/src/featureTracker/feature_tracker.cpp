@@ -664,9 +664,6 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(vector<cv::Mat> * cur_pyr,
         reduceVector(track_cnt, status);
     }
 
-    std::cout << "Cur pts" << cur_pts.size() << std::endl;
-
-
 #ifdef PERF_OUTPUT
     ROS_INFO("Optical flow costs: %fms Pts %ld", t_og.toc(), ids.size());
 #endif
@@ -1084,7 +1081,8 @@ map<int, cv::Point2f> pts_map(vector<int> ids, vector<cv::Point2f> cur_pts) {
     return prevMap;
 }
 
-FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, std::vector<cv::Mat> & fisheye_imgs_up, std::vector<cv::Mat> & fisheye_imgs_down) {
+FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const std::vector<cv::Mat> & fisheye_imgs_up, const std::vector<cv::Mat> & fisheye_imgs_down) {
+    ROS_INFO("tracking fisheye cpu %ld:%ld", fisheye_imgs_up.size(), fisheye_imgs_down.size());
     cur_time = _cur_time;
     static double count = 0;
     count += 1;
@@ -1095,6 +1093,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, std::vector<cv
     cv::Mat down_side_img = concat_side(fisheye_imgs_down);
     cv::Mat up_top_img = fisheye_imgs_up[0];
     cv::Mat down_top_img = fisheye_imgs_down[0];
+    printf("Finish Concat\n");
 
     std::vector<cv::Mat> * up_top_pyr = nullptr, * down_top_pyr = nullptr, * up_side_pyr = nullptr, * down_side_pyr = nullptr;
     double concat_cost = t_r.toc();
@@ -1313,7 +1312,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, std::vector<cv
 
     whole_sum += t_r.toc();
 
-    printf("FT Whole %fms; AVG %fms\n RemapAVG %fms DetectAVG %fms PYRAvg %fms LKAvg %fms CvtcolorAVG %fms Concat %fms PTS %ld T\n", 
+    printf("FT Whole %fms; AVG %fms\n DetectAVG %fms PYRAvg %fms LKAvg %fms CvtcolorAVG %fms Concat %fms PTS %ld T\n", 
         t_r.toc(), whole_sum/count, detect_sum/count, pyr_sum/count, lk_sum/count, concat_cost, ff.size());
     return ff;
 }
