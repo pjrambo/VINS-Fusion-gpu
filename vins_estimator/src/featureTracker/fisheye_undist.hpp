@@ -23,7 +23,7 @@ class FisheyeUndist {
     std::vector<cv::cuda::GpuMat> undistMapsGPUX;
     std::vector<cv::cuda::GpuMat> undistMapsGPUY;
 public:
-    std::vector<cv::Mat> undistMaps;
+    std::vector<std::pair<cv::Mat, cv::Mat>> undistMaps;
 
     camodocal::CameraPtr cam_top;
     camodocal::CameraPtr cam_side;
@@ -48,10 +48,8 @@ public:
 #ifdef USE_CUDA
         if (enable_cuda) {
             for (auto mat : undistMaps) {
-                cv::Mat xy[2];
-                cv::split(mat, xy);
-                undistMapsGPUX.push_back(cv::cuda::GpuMat(xy[0]));
-                undistMapsGPUY.push_back(cv::cuda::GpuMat(xy[1]));
+                undistMapsGPUX.push_back(cv::cuda::GpuMat(mat[0]));
+                undistMapsGPUY.push_back(cv::cuda::GpuMat(mat[1]));
             }
         }
 #endif
@@ -98,7 +96,7 @@ public:
 #pragma omp parallel for num_threads(5)
             for (unsigned int i = 0; i < 5; i++) {
                 if (!disable[i]) {
-                    cv::remap(image, ret[i], undistMaps[i], cv::Mat(), cv::INTER_NEAREST);
+                    cv::remap(image, ret[i], undistMaps[i].first, undistMaps[i].second, cv::INTER_NEAREST);
                 }
             }
             return ret;
@@ -109,7 +107,6 @@ public:
 #pragma omp parallel for  num_threads(5)
             for (unsigned int i = 0; i < 5; i++) {
                 if (!disable[i]) {
-                    cv::remap(gray, ret[i], undistMaps[i], cv::Mat(), cv::INTER_NEAREST);
                 }
             }
             return ret;
@@ -138,9 +135,9 @@ public:
             for (unsigned int i = 0; i < 10; i++) {
                 if (!disable[i]) {
                     if (i > 4) {
-                        cv::remap(image2, rights[i%5], undist2->undistMaps[i%5], cv::Mat(), method);
+                        cv::remap(image2, rights[i%5], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
                     } else {
-                        cv::remap(image1, lefts[i], undistMaps[i], cv::Mat(), method);
+                        cv::remap(image1, lefts[i], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
                     }
                 }
             }
@@ -152,9 +149,9 @@ public:
             for (unsigned int i = 0; i < 10; i++) {
                 if (!disable[i]) {
                     if (i > 4) {
-                        cv::remap(image2, rights[i%5], undist2->undistMaps[i%5], cv::Mat(), method);
+                        cv::remap(gray2, rights[i%5], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
                     } else {
-                        cv::remap(image1, lefts[i], undistMaps[i], cv::Mat(), method);
+                        cv::remap(gray1, lefts[i], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
                     }
                 }
             }
@@ -162,7 +159,7 @@ public:
     }
 
 
-    std::vector<cv::Mat> generateAllUndistMap(camodocal::CameraPtr p_cam,
+    std::vector<std::pair<cv::Mat, cv::Mat>> generateAllUndistMap(camodocal::CameraPtr p_cam,
                                           Eigen::Vector3d rotation,
                                           const unsigned &imgWidth,
                                           const double &fov //degree
@@ -182,7 +179,7 @@ public:
         sideImgHeight = 2 * f_side * tan(sideVerticalFOV/2);
 
         ROS_INFO("Side image height: %d", sideImgHeight);
-        std::vector<cv::Mat> maps;
+        std::vector<std::pair<cv::Mat, cv:: Mat>> maps;
         maps.reserve(5);
 
         // test points
@@ -238,7 +235,7 @@ public:
         return maps;
     }
 
-    cv::Mat genOneUndistMap(
+    std::pair<cv::Mat, cv::Mat> genOneUndistMap(
         camodocal::CameraPtr p_cam,
         Eigen::Quaterniond rotation,
         const unsigned &imgWidth,
@@ -285,8 +282,9 @@ public:
                 ((double)0 - (double)imgHeight / 2),
                 f_center);
         // std::cout << objPoint << std::endl;
-
-        return map;
+        cv::Mat map1, map2;
+        cv::convertMaps(map, cv::Mat(), map1, map2);
+        return std::make_pair(map1, map2);
     }
 
 };

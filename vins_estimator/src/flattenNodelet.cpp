@@ -61,7 +61,7 @@ namespace vins_nodelet_pkg
                 auto img1 = getImageFromMsg(img1_msg);
                 auto img2 = getImageFromMsg(img2_msg);
 
-                ROS_INFO("Imgs recived, start flatten");
+                // ROS_INFO("Imgs recived, start flatten");
                 vector<cv::Mat> fisheye_imgs_up;
                 vector<cv::Mat> fisheye_imgs_down;
 
@@ -71,14 +71,14 @@ namespace vins_nodelet_pkg
                 count += 1;
 
                 TicToc t_f;
-                fisheys_undists[0].stereo_flatten(img1->image, img2->image, &fisheys_undists[1], fisheye_imgs_up, fisheye_imgs_down, false, 
+                fisheys_undists[0].stereo_flatten(img1->image, img2->image, &fisheys_undists[1], 
+                    fisheye_imgs_up, fisheye_imgs_down, false, 
                     enable_up_top, enable_rear_side, enable_down_top, enable_rear_side);
                 flatten_time_sum += t_f.toc();
 
                 TicToc t_p;
                 vins::FlattenImages images;
                 images.header = img1_msg->header;
-
 
                 for (int i = 0; i < fisheye_imgs_up.size(); i++) {
                     cv_bridge::CvImage outImg;

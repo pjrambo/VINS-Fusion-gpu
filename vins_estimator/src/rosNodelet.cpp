@@ -71,7 +71,7 @@ namespace vins_nodelet_pkg
             }
 
             void flatten_callback(const vins::FlattenImagesConstPtr & flattend_raw) {
-                ROS_INFO("Recevied flattened images");
+                // ROS_INFO("Recevied flattened images");
                 TicToc tic;
                 vector<cv::Mat> up_cameras, down_cameras;
                 for (auto & cam : flattend_raw->up_cams) {
@@ -83,9 +83,15 @@ namespace vins_nodelet_pkg
                     auto img = getImageFromMsg(cam);
                     down_cameras.push_back(img->image);
                 }
+
+                auto img = getImageFromMsg(flattend_raw->up_cams[0]);
+
+                // cv::imshow("Up", img->image);
+                // cv::waitKey(10);
+
                 double decode_time = tic.toc();
                 TicToc tic_input;
-                ROS_INFO("Will track %ld %ld", up_cameras.size(), down_cameras.size());
+                // ROS_INFO("Will track %ld %ld", up_cameras.size(), down_cameras.size());
                 estimator.inputImage(flattend_raw->header.stamp.toSec(), cv::Mat(), cv::Mat(), up_cameras, down_cameras);
 
                 ROS_INFO("Decode: %fms. Input Image: %fms", decode_time, tic_input.toc());
@@ -101,6 +107,7 @@ namespace vins_nodelet_pkg
             cv_bridge::CvImageConstPtr getImageFromMsg(const sensor_msgs::Image &img_msg)
             {
                 cv_bridge::CvImageConstPtr ptr;
+                // std::cout << "Msg encoding" << img_msg.encoding << std::endl;
                 if (img_msg.encoding == "8UC1")
                 {
                     ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);
@@ -113,7 +120,7 @@ namespace vins_nodelet_pkg
             cv_bridge::CvImageConstPtr getImageFromMsg(const sensor_msgs::ImageConstPtr &img_msg)
             {
                 cv_bridge::CvImageConstPtr ptr;
-                std::cout << img_msg->encoding << std::endl;
+                // std::cout << img_msg->encoding << std::endl;
                 if (img_msg->encoding == "8UC1")
                 {
                     sensor_msgs::Image img;
@@ -128,10 +135,10 @@ namespace vins_nodelet_pkg
                 }
                 else
                 {
-                    if (FISHEYE) {
-                        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::BGR8);
+                    if (img_msg->encoding == "mono8") {
+                        ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
                     } else {
-                        ptr = cv_bridge::toCvCopy(img_msg, sensor_msgs::image_encodings::MONO8);        
+                        ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::BGR8);        
                     }
                 }
                 return ptr;
