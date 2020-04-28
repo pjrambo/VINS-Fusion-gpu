@@ -283,7 +283,7 @@ public:
                 f_center);
         // std::cout << objPoint << std::endl;
         cv::Mat map1, map2;
-        cv::convertMaps(map, cv::Mat(), map1, map2);
+        cv::convertMaps(map, cv::Mat(), map1, map2, CV_16SC2);
         return std::make_pair(map1, map2);
     }
 
