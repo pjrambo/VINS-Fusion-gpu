@@ -110,7 +110,7 @@ namespace vins_nodelet_pkg
                 for (size_t i = 0; i < calib_file.size(); i++)
                 {
                     if (FISHEYE) {
-                        ROS_INFO("Use as fisheye %s", calib_file[i].c_str());
+                        ROS_INFO("Flatten read fisheye %s, id %d", calib_file[i].c_str(), i);
                         FisheyeUndist un(calib_file[i].c_str(), i, FISHEYE_FOV, true, COL);
                         fisheys_undists.push_back(un);
                     }

@@ -120,7 +120,7 @@ public:
         bool enable_up_top = true, bool enable_up_rear = true,
         bool enable_down_top = true, bool enable_down_rear = true) {
 
-        auto method = cv::INTER_NEAREST;
+        auto method = cv::INTER_LINEAR;
         lefts.resize(5);
         rights.resize(5);
         bool disable[10] = {0};
@@ -137,7 +137,7 @@ public:
                     if (i > 4) {
                         cv::remap(image2, rights[i%5], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
                     } else {
-                        cv::remap(image1, lefts[i], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
+                        cv::remap(image1, lefts[i], undistMaps[i%5].first, undistMaps[i%5].second, method);
                     }
                 }
             }
@@ -151,7 +151,7 @@ public:
                     if (i > 4) {
                         cv::remap(gray2, rights[i%5], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
                     } else {
-                        cv::remap(gray1, lefts[i], undist2->undistMaps[i%5].first, undist2->undistMaps[i%5].second, method);
+                        cv::remap(gray1, lefts[i], undistMaps[i%5].first, undistMaps[i%5].second, method);
                     }
                 }
             }
@@ -169,6 +169,7 @@ public:
         if (sideVerticalFOV < 0)
             sideVerticalFOV = 0;
         double centerFOV = fov * DEG_TO_RAD - sideVerticalFOV * 2;
+        ROS_INFO("Build for camera %d", cam_id);
         ROS_INFO("Center FOV: %f_center", centerFOV);
 
         // calculate focal length of fake pinhole cameras (pixel size = 1 unit)
@@ -284,6 +285,7 @@ public:
         // std::cout << objPoint << std::endl;
         cv::Mat map1, map2;
         cv::convertMaps(map, cv::Mat(), map1, map2, CV_16SC2);
+        // return std::make_pair(map, cv::Mat());
         return std::make_pair(map1, map2);
     }
 

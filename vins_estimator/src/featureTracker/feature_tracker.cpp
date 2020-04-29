@@ -456,6 +456,32 @@ void FeatureTracker::detectPoints(const cv::cuda::GpuMat & img, const cv::Mat & 
 
 #endif
 
+std::vector<cv::Point2f> detect_orb_by_region(const cv::Mat & _img, const cv::Mat & _mask, int features, int cols = 4, int rows = 4) {
+    int small_width = _img.cols / cols;
+    int small_height = _img.rows / rows;
+    
+    auto _orb = cv::ORB::create(10);
+    std::vector<cv::Point2f> ret;
+    for (int i = 0; i < cols; i ++) {
+        for (int j = 0; j < rows; j ++) {
+            std::vector<cv::KeyPoint> kpts;
+            cv::Rect roi(small_width*i, small_height*j, small_width, small_height);
+            std::cout << "ROI " << roi << "Img " << _img.size() << std::endl;
+            _orb->detect(_img(roi), kpts, _mask(roi));
+            printf("Detected %ld features in reigion (%d, %d)\n", kpts.size(), i, j);
+
+            for (auto kp : kpts) {
+                kp.pt.x = kp.pt.x + small_width*i;
+                kp.pt.y = kp.pt.y + small_width*j;
+                ret.push_back(kp.pt);
+            }
+        }
+    }
+
+    return ret;
+}
+
+
 void FeatureTracker::detectPoints(const cv::Mat & img, const cv::Mat & mask, vector<cv::Point2f> & n_pts, vector<cv::Point2f> & cur_pts, int require_pts) {
     int lack_up_top_pts = require_pts - static_cast<int>(cur_pts.size());
 
@@ -468,16 +494,23 @@ void FeatureTracker::detectPoints(const cv::Mat & img, const cv::Mat & mask, vec
         if (mask.type() != CV_8UC1)
             cout << "mask type wrong " << endl;
         
-        //Detect top img
-        cv::Mat d_prevPts;
-        cv::goodFeaturesToTrack(img, d_prevPts, lack_up_top_pts, 0.01, MIN_DIST, mask);
-        // std::cout << "d_prevPts size: "<< d_prevPts.size()<<std::endl;
-        if(!d_prevPts.empty()) {
-            n_pts = cv::Mat_<cv::Point2f>(cv::Mat(d_prevPts));
+        if (!USE_ORB) {
+            cv::Mat d_prevPts;
+            cv::goodFeaturesToTrack(img, d_prevPts, lack_up_top_pts, 0.01, MIN_DIST, mask);
+            if(!d_prevPts.empty()) {
+                n_pts = cv::Mat_<cv::Point2f>(cv::Mat(d_prevPts));
+            }
+            else {
+                n_pts.clear();
+            }
+        } else {
+            if (img.cols == img.rows) {
+                n_pts = detect_orb_by_region(img, mask, lack_up_top_pts, 4, 4);
+            } else {
+                n_pts = detect_orb_by_region(img, mask, lack_up_top_pts, 4, 1);
+            }
         }
-        else {
-            n_pts.clear();
-        }
+
     }
     else {
         n_pts.clear();

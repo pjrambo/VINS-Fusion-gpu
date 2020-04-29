@@ -9,6 +9,7 @@
 
 #include "estimator.h"
 #include "../utility/visualization.h"
+#include "../featureTracker/fisheye_undist.hpp"
 #include "../depth_generation/depth_camera_manager.h"
 
 Estimator::Estimator(): f_manager{Rs}

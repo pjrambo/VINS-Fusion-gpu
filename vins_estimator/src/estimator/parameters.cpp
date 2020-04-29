@@ -54,6 +54,7 @@ int USE_GPU;
 int USE_GPU_ACC_FLOW;
 int ENABLE_DOWNSAMPLE;
 int PUB_RECTIFY;
+int USE_ORB;
 Eigen::Matrix3d rectify_R_left;
 Eigen::Matrix3d rectify_R_right;
 map<int, Eigen::Vector3d> pts_gt;
@@ -121,6 +122,9 @@ void readParameters(std::string config_file)
     SIDE_PTS_CNT = fsSettings["side_cnt"];
     MAX_SOLVE_CNT = fsSettings["max_solve_cnt"];
     MIN_DIST = fsSettings["min_dist"];
+
+    USE_ORB = fsSettings["use_orb"];
+
     F_THRESHOLD = fsSettings["F_threshold"];
     SHOW_TRACK = fsSettings["show_track"];
     FLOW_BACK = fsSettings["flow_back"];
@@ -169,12 +173,15 @@ void readParameters(std::string config_file)
     std::ofstream fout(VINS_RESULT_PATH, std::ios::out);
     fout.close();
 
+    RIC.resize(2);
+    TIC.resize(2);
+
     ESTIMATE_EXTRINSIC = fsSettings["estimate_extrinsic"];
     if (ESTIMATE_EXTRINSIC == 2)
     {
         ROS_WARN("have no prior about extrinsic param, calibrate extrinsic param");
-        RIC.push_back(Eigen::Matrix3d::Identity());
-        TIC.push_back(Eigen::Vector3d::Zero());
+        RIC[0] = Eigen::Matrix3d::Identity();
+        TIC[1] = Eigen::Vector3d::Zero();
         EX_CALIB_RESULT_PATH = OUTPUT_FOLDER + "/extrinsic_parameter.csv";
     }
     else 
@@ -191,8 +198,8 @@ void readParameters(std::string config_file)
         fsSettings["body_T_cam0"] >> cv_T;
         Eigen::Matrix4d T;
         cv::cv2eigen(cv_T, T);
-        RIC.push_back(T.block<3, 3>(0, 0));
-        TIC.push_back(T.block<3, 1>(0, 3));
+        RIC[0] = T.block<3, 3>(0, 0);
+        TIC[1] = T.block<3, 1>(0, 3);
     } 
     
     NUM_OF_CAM = fsSettings["num_of_cam"];
@@ -214,7 +221,9 @@ void readParameters(std::string config_file)
     std::string cam0Calib;
     fsSettings["cam0_calib"] >> cam0Calib;
     std::string cam0Path = configPath + "/" + cam0Calib;
-    CAM_NAMES.push_back(cam0Path);
+    CAM_NAMES.resize(2);
+
+    CAM_NAMES[0] = cam0Path;
 
     if(NUM_OF_CAM == 2)
     {
@@ -223,15 +232,14 @@ void readParameters(std::string config_file)
         fsSettings["cam1_calib"] >> cam1Calib;
         std::string cam1Path = configPath + "/" + cam1Calib; 
         
-        //printf("%s cam1 path\n", cam1Path.c_str() );
-        CAM_NAMES.push_back(cam1Path);
-        
+        CAM_NAMES[1] = cam1Path;
+
         cv::Mat cv_T;
         fsSettings["body_T_cam1"] >> cv_T;
         Eigen::Matrix4d T;
         cv::cv2eigen(cv_T, T);
-        RIC.push_back(T.block<3, 3>(0, 0));
-        TIC.push_back(T.block<3, 1>(0, 3));
+        RIC[1] = T.block<3, 3>(0, 0);
+        TIC[1] = T.block<3, 1>(0, 3);
         fsSettings["publish_rectify"] >> PUB_RECTIFY;
     }
 

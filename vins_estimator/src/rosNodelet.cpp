@@ -18,6 +18,7 @@
 #include <message_filters/time_synchronizer.h>
 #include "depth_generation/depth_camera_manager.h"
 #include "vins/FlattenImages.h"
+#include "featureTracker/fisheye_undist.hpp"
 
 
 namespace vins_nodelet_pkg

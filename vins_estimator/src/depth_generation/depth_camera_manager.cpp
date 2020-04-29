@@ -2,6 +2,7 @@
 #include "../estimator/parameters.h"
 #include <geometry_msgs/PoseStamped.h>
 #include "../utility/tic_toc.h"
+#include "../featureTracker/fisheye_undist.hpp"
 
 using namespace Eigen;
 

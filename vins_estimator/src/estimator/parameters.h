@@ -75,6 +75,7 @@ extern int USE_GPU;
 extern int USE_GPU_ACC_FLOW;
 extern int ENABLE_DOWNSAMPLE;
 extern int PUB_RECTIFY;
+extern int USE_ORB;
 extern Eigen::Matrix3d rectify_R_left;
 extern Eigen::Matrix3d rectify_R_right;
 // pts_gt for debug purpose;

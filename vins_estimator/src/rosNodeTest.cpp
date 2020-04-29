@@ -21,6 +21,7 @@
 #include "estimator/parameters.h"
 #include "utility/visualization.h"
 #include "depth_generation/depth_camera_manager.h"
+#include "featureTracker/fisheye_undist.hpp"
 
 #ifdef USE_BACKWARD
 #define BACKWARD_HAS_DW 1

@@ -5,10 +5,13 @@
 #include <eigen3/Eigen/Eigen>
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/CameraInfo.h>
-#include "../featureTracker/fisheye_undist.hpp"
 #include <tf/transform_broadcaster.h>
 #include "depth_estimator.h"
 #include "color_disparity_graph.hpp"
+#include <camodocal/camera_models/CameraFactory.h>
+#include <camodocal/camera_models/PinholeCamera.h>
+
+class FisheyeUndist;
 
 class DepthCamManager {
     std::vector<ros::Publisher> pub_depth_clouds;
