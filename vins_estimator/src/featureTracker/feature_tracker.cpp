@@ -487,7 +487,7 @@ void FeatureTracker::detectPoints(const cv::Mat & img, const cv::Mat & mask, vec
 
     //Add Points Top
     TicToc tic;
-    ROS_INFO("Lack %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
+    ROS_INFO("Lost %d pts; Require %d will detect %d", lack_up_top_pts, require_pts, lack_up_top_pts > require_pts/4);
     if (lack_up_top_pts > require_pts/4) {
         if(mask.empty())
             cout << "mask is empty " << endl;

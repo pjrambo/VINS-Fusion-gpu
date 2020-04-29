@@ -181,7 +181,7 @@ void readParameters(std::string config_file)
     {
         ROS_WARN("have no prior about extrinsic param, calibrate extrinsic param");
         RIC[0] = Eigen::Matrix3d::Identity();
-        TIC[1] = Eigen::Vector3d::Zero();
+        TIC[0] = Eigen::Vector3d::Zero();
         EX_CALIB_RESULT_PATH = OUTPUT_FOLDER + "/extrinsic_parameter.csv";
     }
     else 
@@ -199,7 +199,7 @@ void readParameters(std::string config_file)
         Eigen::Matrix4d T;
         cv::cv2eigen(cv_T, T);
         RIC[0] = T.block<3, 3>(0, 0);
-        TIC[1] = T.block<3, 1>(0, 3);
+        TIC[0] = T.block<3, 1>(0, 3);
     } 
     
     NUM_OF_CAM = fsSettings["num_of_cam"];
