@@ -8,6 +8,12 @@ Eigen::Vector3d undist(const cv::Point2f & pt, const cv::Mat & cameraMatrix) {
     return Eigen::Vector3d(x, y, 1);
 }
 
+std::vector<cv::DMatch> filter_by_hamming(const std::vector<cv::DMatch> & matches);
+std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,     
+    std::vector<cv::KeyPoint> query_pts, 
+    std::vector<cv::KeyPoint> train_pts, 
+    cv::Mat cameraMatrix, Eigen::Matrix3d E);
+
 using namespace ceres;
 struct StereoCostFunctor {
 

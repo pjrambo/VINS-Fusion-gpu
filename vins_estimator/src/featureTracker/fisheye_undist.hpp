@@ -48,8 +48,8 @@ public:
 #ifdef USE_CUDA
         if (enable_cuda) {
             for (auto mat : undistMaps) {
-                undistMapsGPUX.push_back(cv::cuda::GpuMat(mat[0]));
-                undistMapsGPUY.push_back(cv::cuda::GpuMat(mat[1]));
+                undistMapsGPUX.push_back(cv::cuda::GpuMat(mat.first));
+                undistMapsGPUY.push_back(cv::cuda::GpuMat(mat.second));
             }
         }
 #endif

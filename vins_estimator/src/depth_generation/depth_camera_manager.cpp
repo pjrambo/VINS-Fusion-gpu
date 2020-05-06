@@ -342,6 +342,11 @@ void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::Mat> & up_c
 
 }
 
+#ifdef USE_CUDA
+void DepthCamManager::update_images_to_buf(std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams) {
+}
+#endif
+
 void DepthCamManager::update_images_to_buf(std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams) {
     
     if (estimate_front_depth) {

@@ -80,6 +80,10 @@ public:
 
     void update_images_to_buf(std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams);
 
+#ifdef USE_CUDA
+    void update_images_to_buf(std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams);
+#endif
+
     void update_pcl_depth_from_image(ros::Time stamp, int direction, Eigen::Matrix3d ric1, Eigen::Vector3d tic1, 
         Eigen::Matrix3d R, Eigen::Vector3d P, Eigen::Matrix3d ric_depth, sensor_msgs::PointCloud & pcl);
 
