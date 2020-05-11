@@ -106,7 +106,7 @@ void pubFlattenImages(const Estimator &estimator, const std_msgs::Header &header
     down_images[2].download(down);
     cv_bridge::CvImage outImg;
     outImg.header = header;
-    outImg.encoding = "BGR8";
+    outImg.encoding = "bgr8";
     outImg.image = up;
     images.up_cams.push_back(*outImg.toImageMsg());
 

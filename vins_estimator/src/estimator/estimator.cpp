@@ -56,8 +56,8 @@ void Estimator::setParameter()
 }
 
 void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1, 
-        const CvImages & fisheye_imgs_up, 
-        const CvImages & fisheye_imgs_down)
+        const CvImages & fisheye_imgs_up_cpu, 
+        const CvImages & fisheye_imgs_down_cpu)
 {
     static int img_track_count = 0;
     static double sum_time = 0;
@@ -67,6 +67,9 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
     TicToc featureTrackerTime;
 #ifdef USE_CUDA
     vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
+#else
+    const CvImages & fisheye_imgs_up = fisheye_imgs_up_cpu;
+    const CvImages & fisheye_imgs_down = fisheye_imgs_down_cpu;
 #endif
 
     if (FISHEYE) {

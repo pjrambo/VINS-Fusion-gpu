@@ -80,7 +80,7 @@ namespace vins_nodelet_pkg
                 vins::FlattenImages images;
                 images.header = img1_msg->header;
 
-                for (int i = 0; i < fisheye_imgs_up.size(); i++) {
+                for (unsigned int i = 0; i < fisheye_imgs_up.size(); i++) {
                     cv_bridge::CvImage outImg;
                     outImg.header = img1_msg->header;
                     outImg.encoding = "mono8";
@@ -89,7 +89,7 @@ namespace vins_nodelet_pkg
                     images.up_cams.push_back(*outImg.toImageMsg());
                 }
 
-                for (int i = 0; i < fisheye_imgs_down.size(); i++) {
+                for (unsigned int i = 0; i < fisheye_imgs_down.size(); i++) {
                     cv_bridge::CvImage outImg;
                     outImg.header = img1_msg->header;
                     outImg.encoding = "mono8";

@@ -48,8 +48,10 @@ public:
 #ifdef USE_CUDA
         if (enable_cuda) {
             for (auto mat : undistMaps) {
-                undistMapsGPUX.push_back(cv::cuda::GpuMat(mat.first));
-                undistMapsGPUY.push_back(cv::cuda::GpuMat(mat.second));
+                cv::Mat maps[2];
+                cv::split(mat.first, maps);
+                undistMapsGPUX.push_back(cv::cuda::GpuMat(maps[0]));
+                undistMapsGPUY.push_back(cv::cuda::GpuMat(maps[1]));
             }
         }
 #endif
@@ -285,8 +287,8 @@ public:
         // std::cout << objPoint << std::endl;
         cv::Mat map1, map2;
         cv::convertMaps(map, cv::Mat(), map1, map2, CV_16SC2);
-        // return std::make_pair(map, cv::Mat());
-        return std::make_pair(map1, map2);
+        return std::make_pair(map, cv::Mat());
+        // return std::make_pair(map1, map2);
     }
 
 };
