@@ -16,8 +16,8 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 #SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 #SET("OpenCV_DIR" "/home/pi/source/opencv-3.4.10/release/share/OpenCV")
+SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 find_package(OpenCV 3 REQUIRED)
-# find_package(OpenCV 4.2 REQUIRED)
 
 # set(EIGEN_INCLUDE_DIR "/usr/local/include/eigen3")
 find_package(Ceres REQUIRED)

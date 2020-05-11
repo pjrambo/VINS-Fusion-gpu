@@ -8,7 +8,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
 set(ENABLE_BACKWARD true)
 set(ENABLE_VWORKS false)
-set(ENABLE_CUDA false)
+set(ENABLE_CUDA true)
 
 find_package(OpenMP REQUIRED)
 
@@ -51,6 +51,7 @@ endif()
 #SET("OpenCV_DIR" "/home/pi/source/opencv_release/share/OpenCV")
 # find_package(OpenCV 4.2 REQUIRED)
 #SET("OpenCV_DIR" "/home/pi/source/opencv-3.4.10/release/share/OpenCV")
+SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 find_package(OpenCV 3 REQUIRED)
 
 find_package(Ceres REQUIRED)
