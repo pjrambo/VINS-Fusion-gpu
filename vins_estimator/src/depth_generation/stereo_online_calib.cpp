@@ -14,7 +14,7 @@ std::vector<cv::DMatch> filter_by_E(const std::vector<cv::DMatch> & matches,
     std::vector<cv::KeyPoint> train_pts, 
     cv::Mat cameraMatrix, Eigen::Matrix3d E);
 
-using namespace ceres;
+// using namespace ceres;
 struct StereoCostFunctor {
 
     template <typename T>
@@ -40,7 +40,7 @@ struct StereoCostFunctor {
     bool operator()(T const *const * _x, T* residual) const {
         // residual[0] = T(10.0) - x[0];
         T R[9];
-        EulerAnglesToRotationMatrix(_x[0], 3, R);
+        ceres::EulerAnglesToRotationMatrix(_x[0], 3, R);
         // std::cerr << "R" << R << std::endl;
         
         T tx = T(-1);
@@ -66,7 +66,7 @@ struct StereoCostFunctor {
     bool Evalute(T const * _x) const {
         // residual[0] = T(10.0) - x[0];
         T R[9];
-        EulerAnglesToRotationMatrix(_x, 3, R);
+        ceres::EulerAnglesToRotationMatrix(_x, 3, R);
         T tx = -1;
         T ty = _x[3];
         T tz = _x[4];
@@ -138,7 +138,7 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     const std::vector<cv::Point2f> & right_pts) {
     
     auto stereo_func = new StereoCostFunctor(left_pts, right_pts, cameraMatrix);
-    auto cost_function = new DynamicAutoDiffCostFunction<StereoCostFunctor, 7>(stereo_func);
+    auto cost_function = new ceres::DynamicAutoDiffCostFunction<StereoCostFunctor, 7>(stereo_func);
     cost_function->AddParameterBlock(5);
     cost_function->SetNumResiduals(left_pts.size());
 
@@ -163,15 +163,15 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     x.push_back(t_init.z());
     
     stereo_func->Evalute<double>(x.data());
-    Problem problem;
+    ceres::Problem problem;
     problem.AddResidualBlock(cost_function, NULL, x.data());
-    Solver::Options options;
+    ceres::Solver::Options options;
 
     options.trust_region_strategy_type = ceres::DOGLEG;
     options.max_num_iterations = 100;
     options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
-    Solver::Summary summary;
-    Solve(options, &problem, &summary);
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
     std::cerr << summary.BriefReport() << " time " << summary.minimizer_time_in_seconds*1000 << "ms\n";
 
     Eigen::Vector3d _t_eig(-1, x[3], x[4]);
@@ -183,8 +183,8 @@ bool StereoOnlineCalib::calibrate_extrinsic_optimize(const std::vector<cv::Point
     cv::eigen2cv(_R_eig, _R);
     cv::eigen2cv(_t_eig, _T);
 
-    Covariance::Options covoptions;
-    Covariance covariance(covoptions);
+    ceres::Covariance::Options covoptions;
+    ceres::Covariance covariance(covoptions);
 
     vector<pair<const double*, const double*> > covariance_blocks;
     covariance_blocks.push_back(make_pair(x.data(), x.data()));
