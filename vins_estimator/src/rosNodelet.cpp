@@ -38,6 +38,8 @@ namespace vins_nodelet_pkg
                 auto private_n = getPrivateNodeHandle();
                 std::string config_file;
                 private_n.getParam("config_file", config_file);
+                bool fisheye_external_flatten;
+                private_n.getParam("fisheye_external_flatten", fisheye_external_flatten);
                 
                 std::cout << "config file is " << config_file << '\n';
                 readParameters(config_file);
@@ -57,10 +59,10 @@ namespace vins_nodelet_pkg
                 registerPub(n);
 
                 sub_imu = n.subscribe(IMU_TOPIC, 2000, &VinsNodeletClass::imu_callback, this);
-                sub_feature = n.subscribe("/feature_tracker/feature", 2000, &VinsNodeletClass::feature_callback, this);
                 sub_restart = n.subscribe("/vins_restart", 100, &VinsNodeletClass::restart_callback, this);
 
-                if(!FISHEYE_EXTERNAL_FLATTEN) {
+                if(!fisheye_external_flatten) {
+                    ROS_INFO("Will directly receive raw images");
                     image_sub_l = new message_filters::Subscriber<sensor_msgs::Image> (n, IMAGE0_TOPIC, 100);
                     image_sub_r = new message_filters::Subscriber<sensor_msgs::Image> (n, IMAGE1_TOPIC, 100);
                     sync = new message_filters::TimeSynchronizer<sensor_msgs::Image, sensor_msgs::Image> (*image_sub_l, *image_sub_r, 10);
@@ -122,7 +124,7 @@ namespace vins_nodelet_pkg
             {
                 cv_bridge::CvImageConstPtr ptr;
                 // std::cout << img_msg->encoding << std::endl;
-                if (img_msg->encoding == "8UC1")
+                if (img_msg->encoding == "8UC1" || img_msg->encoding == "mono8")
                 {
                     sensor_msgs::Image img;
                     img.header = img_msg->header;
@@ -133,14 +135,9 @@ namespace vins_nodelet_pkg
                     img.data = img_msg->data;
                     img.encoding = "mono8";
                     ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
-                }
-                else
+                } else
                 {
-                    if (img_msg->encoding == "mono8") {
-                        ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::MONO8);
-                    } else {
-                        ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::BGR8);        
-                    }
+                    ptr = cv_bridge::toCvShare(img_msg, sensor_msgs::image_encodings::BGR8);        
                 }
                 return ptr;
             }
@@ -172,38 +169,6 @@ namespace vins_nodelet_pkg
                     last_time = now_time;
                 }
                 // test end
-            }
-
-            void feature_callback(const sensor_msgs::PointCloudConstPtr &feature_msg)
-            {
-                FeatureFrame featureFrame;
-                for (unsigned int i = 0; i < feature_msg->points.size(); i++)
-                {
-                    int feature_id = feature_msg->channels[0].values[i];
-                    int camera_id = feature_msg->channels[1].values[i];
-                    double x = feature_msg->points[i].x;
-                    double y = feature_msg->points[i].y;
-                    double z = feature_msg->points[i].z;
-                    double p_u = feature_msg->channels[2].values[i];
-                    double p_v = feature_msg->channels[3].values[i];
-                    double velocity_x = feature_msg->channels[4].values[i];
-                    double velocity_y = feature_msg->channels[5].values[i];
-                    if(feature_msg->channels.size() > 5)
-                    {
-                        double gx = feature_msg->channels[6].values[i];
-                        double gy = feature_msg->channels[7].values[i];
-                        double gz = feature_msg->channels[8].values[i];
-                        pts_gt[feature_id] = Eigen::Vector3d(gx, gy, gz);
-                        //printf("receive pts gt %d %f %f %f\n", feature_id, gx, gy, gz);
-                    }
-                    ROS_ASSERT(z == 1);
-                    TrackFeatureNoId xyz_uv_velocity;
-                    xyz_uv_velocity << x, y, z, p_u, p_v, velocity_x, velocity_y, 0;
-                    featureFrame[feature_id].emplace_back(camera_id,  xyz_uv_velocity);
-                }
-                double t = feature_msg->header.stamp.toSec();
-                estimator.inputFeature(t, featureFrame);
-                return;
             }
 
             void restart_callback(const std_msgs::BoolConstPtr &restart_msg)

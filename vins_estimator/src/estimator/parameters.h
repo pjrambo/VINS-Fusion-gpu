@@ -70,9 +70,7 @@ extern int enable_down_side;
 extern int enable_rear_side;
 
 extern int USE_IMU;
-extern int MULTIPLE_THREAD;
 extern int USE_GPU;
-extern int USE_GPU_ACC_FLOW;
 extern int ENABLE_DOWNSAMPLE;
 extern int PUB_RECTIFY;
 extern int USE_ORB;
@@ -93,8 +91,6 @@ extern int MIN_DIST;
 extern double F_THRESHOLD;
 extern int SHOW_TRACK;
 extern int FLOW_BACK;
-
-extern int FISHEYE_EXTERNAL_FLATTEN;
 
 void readParameters(std::string config_file);
 

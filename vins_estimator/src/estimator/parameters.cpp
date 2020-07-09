@@ -49,9 +49,7 @@ int USE_VXWORKS;
 double depth_estimate_baseline;
 
 int USE_IMU;
-int MULTIPLE_THREAD;
 int USE_GPU;
-int USE_GPU_ACC_FLOW;
 int ENABLE_DOWNSAMPLE;
 int PUB_RECTIFY;
 int USE_ORB;
@@ -73,7 +71,6 @@ int MIN_DIST;
 double F_THRESHOLD;
 int SHOW_TRACK;
 int FLOW_BACK;
-int FISHEYE_EXTERNAL_FLATTEN;
 
 std::string configPath;
 
@@ -131,11 +128,9 @@ void readParameters(std::string config_file)
     RGB_DEPTH_CLOUD = fsSettings["rgb_depth_cloud"];
     ENABLE_DEPTH = fsSettings["enable_depth"];
     ENABLE_DOWNSAMPLE = fsSettings["enable_downsample"];
-    MULTIPLE_THREAD = fsSettings["multiple_thread"];
     THRES_OUTLIER = fsSettings["thres_outlier"];
     triangulate_max_err = fsSettings["tri_max_err"];
     USE_GPU = fsSettings["use_gpu"];
-    FISHEYE_EXTERNAL_FLATTEN = fsSettings["fisheye_external_flatten"];
     FISHEYE = fsSettings["is_fisheye"];
     FISHEYE_FOV = fsSettings["fisheye_fov"];
     USE_VXWORKS = fsSettings["use_vxworks"];
@@ -146,8 +141,6 @@ void readParameters(std::string config_file)
     enable_rear_side = fsSettings["enable_rear_side"];
     depth_estimate_baseline = fsSettings["depth_estimate_baseline"];
     ENABLE_PERF_OUTPUT = fsSettings["enable_perf_output"];
-
-    USE_GPU_ACC_FLOW = fsSettings["use_gpu_acc_flow"];
 
     USE_IMU = fsSettings["imu"];
     printf("USE_IMU: %d\n", USE_IMU);

@@ -5,6 +5,7 @@
     <node pkg="nodelet" type="nodelet" name="vins_fusion_nodelet" 
         args="load vins_nodelet_pkg/VinsNodeletClass /$(arg manager)" output="screen" ns="vins_estimator">
         <param name="config_file" type="string" value="$(arg config_file)"/>
+        <param name="fisheye_external_flatten" type="bool" value="true"/>
     </node> 
     <node pkg="nodelet" type="nodelet" name="flatten_node_nodelet" 
         args="load vins_nodelet_pkg/FlattenNodeletClass /$(arg manager)" output="screen" ns="vins_flatten">

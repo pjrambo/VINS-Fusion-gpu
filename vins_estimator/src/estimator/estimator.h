@@ -194,13 +194,12 @@ class Estimator
     queue<double> fisheye_imgs_stampBuf;
 
 #ifdef USE_CUDA
-    queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_upBuf;
-    queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_downBuf;
-#else
-    queue<std::vector<cv::Mat>> fisheye_imgs_upBuf;
-    queue<std::vector<cv::Mat>> fisheye_imgs_downBuf;
+    queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_upBuf_cuda;
+    queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_downBuf_cuda;
 #endif
 
+    queue<std::vector<cv::Mat>> fisheye_imgs_upBuf;
+    queue<std::vector<cv::Mat>> fisheye_imgs_downBuf;
     queue<std::pair<double, EigenPose>> odometry_buf;
 
 };

@@ -45,13 +45,9 @@ void Estimator::setParameter()
     cout << "set g " << g.transpose() << endl;
     featureTracker.readIntrinsicParameter(CAM_NAMES);
 
-    std::cout << "MULTIPLE_THREAD is " << MULTIPLE_THREAD << '\n';
-    if (MULTIPLE_THREAD)
-    {
-        processThread   = std::thread(&Estimator::processMeasurements, this);
-        if (FISHEYE && ENABLE_DEPTH) {
-            depthThread   = std::thread(&Estimator::processDepthGeneration, this);
-        }
+    processThread   = std::thread(&Estimator::processMeasurements, this);
+    if (FISHEYE && ENABLE_DEPTH) {
+        depthThread   = std::thread(&Estimator::processDepthGeneration, this);
     }
 }
 
@@ -61,23 +57,36 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
 {
     static int img_track_count = 0;
     static double sum_time = 0;
-//     if(begin_time_count<=0)
     inputImageCnt++;
     FeatureFrame featureFrame;
     TicToc featureTrackerTime;
 #ifdef USE_CUDA
-    vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
-#else
+    vector<cv::cuda::GpuMat> fisheye_imgs_up_cuda, fisheye_imgs_down_cuda;
+#endif
     const CvImages & fisheye_imgs_up = fisheye_imgs_up_cpu;
     const CvImages & fisheye_imgs_down = fisheye_imgs_down_cpu;
-#endif
 
     if (FISHEYE) {
+        if (USE_GPU) {
 #ifdef USE_CUDA
-        featureFrame = featureTracker.trackImage_fisheye(t, _img, _img1, fisheye_imgs_up, fisheye_imgs_down);
-#else
-        featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up, fisheye_imgs_down);
+            for (auto & mat: fisheye_imgs_up_cpu) {
+                if(!mat.empty()) {
+                    fisheye_imgs_up_cuda.push_back(cv::cuda::GpuMat(mat));
+                }
+            }
+
+            for (auto & mat: fisheye_imgs_down_cpu) {
+                if(!mat.empty()) {
+                    fisheye_imgs_down_cuda.push_back(cv::cuda::GpuMat(mat));
+                }
+            }
+
+            ROS_INFO("Tracking cuda images");
+            featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up_cuda, fisheye_imgs_down_cuda);
 #endif
+        } else {
+            featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up, fisheye_imgs_down);
+        }
     } else {
         if(_img1.empty())
             featureFrame = featureTracker.trackImage(t, _img);
@@ -90,43 +99,26 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
     img_track_count ++;
 
     printf("featureTracker time: AVG %f NOW %f\n", sum_time/img_track_count, dt );
-    if(MULTIPLE_THREAD)  
-    {     
-        if(inputImageCnt % 2 == 0)
-        {
-            mBuf.lock();
-            featureBuf.push(make_pair(t, featureFrame));
-            if (FISHEYE && ENABLE_DEPTH) {
-                fisheye_imgs_upBuf.push(fisheye_imgs_up);
-                fisheye_imgs_downBuf.push(fisheye_imgs_down);
-                fisheye_imgs_stampBuf.push(t);
-            }
-            mBuf.unlock();
-        }
-    }
-    else
+    if(inputImageCnt % 2 == 0)
     {
         mBuf.lock();
         featureBuf.push(make_pair(t, featureFrame));
         if (FISHEYE && ENABLE_DEPTH) {
-            fisheye_imgs_upBuf.push(fisheye_imgs_up);
-            fisheye_imgs_downBuf.push(fisheye_imgs_down);
+            if (USE_GPU) {
+#ifdef USE_CUDA
+                fisheye_imgs_upBuf_cuda.push(fisheye_imgs_up_cuda);
+                fisheye_imgs_downBuf_cuda.push(fisheye_imgs_down_cuda);
+#endif
+            } else {
+                fisheye_imgs_upBuf.push(fisheye_imgs_up);
+                fisheye_imgs_downBuf.push(fisheye_imgs_down);
+            }
             fisheye_imgs_stampBuf.push(t);
         }
         mBuf.unlock();
-        TicToc processTime;
-        processMeasurements();
-        printf("process time: %f\n", processTime.toc());
-
-        if(FISHEYE && ENABLE_DEPTH) {
-            TicToc processDepthTime;
-            processDepthGeneration();
-            printf("process depth time: %f\n", processDepthTime.toc());
-        }
-
     }
-    
 }
+
 double base = 0;
 
 void Estimator::inputIMU(double t, const Vector3d &linearAcceleration, const Vector3d &angularVelocity)
@@ -154,9 +146,6 @@ void Estimator::inputFeature(double t, const FeatureFrame &featureFrame)
     mBuf.lock();
     featureBuf.push(make_pair(t, featureFrame));
     mBuf.unlock();
-
-    if(!MULTIPLE_THREAD)
-        processMeasurements();
 }
 
 
@@ -212,23 +201,34 @@ void Estimator::processDepthGeneration() {
     }
 
 #ifdef USE_CUDA
-    std::vector<cv::cuda::GpuMat> fisheye_imgs_up, fisheye_imgs_down;
-#else
-    std::vector<cv::Mat> fisheye_imgs_up, fisheye_imgs_down;
+    std::vector<cv::cuda::GpuMat> fisheye_imgs_up_cuda, fisheye_imgs_down_cuda;
 #endif
+    std::vector<cv::Mat> fisheye_imgs_up, fisheye_imgs_down;
 
     while(ros::ok()) {
         if (!fisheye_imgs_upBuf.empty()) {
-            fisheye_imgs_up = fisheye_imgs_upBuf.front();
-            fisheye_imgs_down = fisheye_imgs_downBuf.front();
             double t = fisheye_imgs_stampBuf.front();
+            if (USE_CUDA) {
+#ifdef USE_CUDA
+                fisheye_imgs_up_cuda = fisheye_imgs_upBuf_cuda.front();
+                fisheye_imgs_down_cuda = fisheye_imgs_downBuf_cuda.front();
 
-            mBuf.lock();
-            fisheye_imgs_upBuf.pop();
-            fisheye_imgs_downBuf.pop();
-            fisheye_imgs_stampBuf.pop();
-            mBuf.unlock();
+                mBuf.lock();
+                fisheye_imgs_upBuf_cuda.pop();
+                fisheye_imgs_downBuf_cuda.pop();
+                fisheye_imgs_stampBuf.pop();
+                mBuf.unlock();
+#endif
+            } else {
+                fisheye_imgs_up = fisheye_imgs_upBuf.front();
+                fisheye_imgs_down = fisheye_imgs_downBuf.front();
 
+                mBuf.lock();
+                fisheye_imgs_upBuf.pop();
+                fisheye_imgs_downBuf.pop();
+                fisheye_imgs_stampBuf.pop();
+                mBuf.unlock();
+            }
             //Use imu propaget for depth cloud, this is for realtime peformance;
             while(1) {
                 if (IMUAvailable(t + td))
@@ -236,15 +236,17 @@ void Estimator::processDepthGeneration() {
                 else
                 {
                     printf("Depth wait for IMU ... \n");
-                    if (! MULTIPLE_THREAD)
-                        return;
                     std::chrono::milliseconds dura(5);
                     std::this_thread::sleep_for(dura);
                 }
             }
 
             TicToc tic;
-            depth_cam_manager->update_images_to_buf(fisheye_imgs_up, fisheye_imgs_down);
+            if (USE_CUDA) {
+                depth_cam_manager->update_images_to_buf(fisheye_imgs_up_cuda, fisheye_imgs_down_cuda);
+            } else {
+                depth_cam_manager->update_images_to_buf(fisheye_imgs_up, fisheye_imgs_down);
+            }
 
             if (ENABLE_PERF_OUTPUT) {
                 ROS_INFO("Depth generation cost %fms", tic.toc());
@@ -286,7 +288,7 @@ void Estimator::processDepthGeneration() {
             header.stamp = ros::Time(t);
 
             TicToc tic_pub;
-            pubFlattenImages(*this, header, _sync_last_P, Eigen::Quaterniond(_sync_last_R), fisheye_imgs_up, fisheye_imgs_down);
+            // pubFlattenImages(*this, header, _sync_last_P, Eigen::Quaterniond(_sync_last_R), fisheye_imgs_up, fisheye_imgs_down);
             ROS_INFO("Pub flatten images cost %fms", tic_pub.toc());
 
             fisheye_imgs_up.clear();
@@ -295,9 +297,6 @@ void Estimator::processDepthGeneration() {
             std::chrono::milliseconds dura(5);
             std::this_thread::sleep_for(dura);
         }
-
-        if (! MULTIPLE_THREAD)
-            break;
     }
 }
 
@@ -324,8 +323,6 @@ void Estimator::processMeasurements()
                 else
                 {
                     printf("wait for imu ... \n");
-                    if (! MULTIPLE_THREAD)
-                        return;
                     std::chrono::milliseconds dura(5);
                     std::this_thread::sleep_for(dura);
                 }
@@ -380,9 +377,6 @@ void Estimator::processMeasurements()
             mea_track_count ++;
             printf("process measurement time: AVG %f NOW %f\n", mea_sum_time/mea_track_count, dt );
         }
-
-        if (! MULTIPLE_THREAD)
-            break;
 
         std::chrono::milliseconds dura(2);
         std::this_thread::sleep_for(dura);
@@ -668,15 +662,6 @@ void Estimator::processImage(const FeatureFrame &image, const double header)
 
         if(ENABLE_PERF_OUTPUT) {
             ROS_INFO("after removeOutlier cost %fms..", t_ic.toc());
-        }
-        
-        if (! MULTIPLE_THREAD)
-        {
-            featureTracker.removeOutliers(removeIndex);
-
-            if (!FISHEYE) {
-                predictPtsInNextFrame();
-            }
         }
         
         if(ENABLE_PERF_OUTPUT) {

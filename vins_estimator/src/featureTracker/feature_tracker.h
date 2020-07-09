@@ -63,7 +63,7 @@ public:
     FeatureFrame trackImage_fisheye(double _cur_time, const std::vector<cv::Mat> & fisheye_imgs_up, const std::vector<cv::Mat> & fisheye_imgs_down);
 
 #ifdef USE_CUDA
-    FeatureFrame trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,        
+    FeatureFrame trackImage_fisheye(double _cur_time,       
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_down
     );

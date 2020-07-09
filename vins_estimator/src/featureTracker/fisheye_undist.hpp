@@ -57,18 +57,48 @@ public:
 #endif
     }
 
+    cv::cuda::GpuMat undist_id_cuda(cv::Mat image, int _id) {
 #ifdef USE_CUDA
     // 0 TOP or DOWN
     // 1 left 2 front 3 right 4 back
-    cv::cuda::GpuMat undist_id_cuda(cv::Mat image, int _id) {
+
         cv::cuda::GpuMat img_cuda(image);
         cv::cuda::GpuMat output;
         cv::cuda::remap(img_cuda, output, undistMapsGPUX[_id], undistMapsGPUY[_id], cv::INTER_LINEAR);
         return output;
+#endif
     }
 
-    std::vector<cv::cuda::GpuMat> undist_all_cuda(const cv::Mat & image, bool use_rgb = false) {
+    std::vector<cv::Mat> undist_all_cuda_cpu(const cv::Mat & image, bool use_rgb = false, std::vector<bool> mask = std::vector<bool>(0)) {
+#ifdef USE_CUDA
         cv::cuda::GpuMat img_cuda;
+        bool has_mask = mask.size() == undistMaps.size();
+        if (use_rgb) {
+            img_cuda.upload(image);
+        } else {
+            cv::Mat _tmp;
+            cv::cvtColor(image, _tmp, cv::COLOR_BGR2GRAY);
+            img_cuda.upload(_tmp);
+        }
+
+        std::vector<cv::Mat> ret;
+        for (unsigned int i = 0; i < undistMaps.size(); i++) {
+            cv::Mat tmp;
+            if (!has_mask || (has_mask && mask[i]) ) {
+                cv::cuda::GpuMat output;
+                cv::cuda::remap(img_cuda, output, undistMapsGPUX[i], undistMapsGPUY[i], cv::INTER_LINEAR);
+                output.download(tmp);
+            }
+            ret.push_back(tmp);
+        }
+        return ret;
+#endif
+    }
+
+    std::vector<cv::cuda::GpuMat> undist_all_cuda(const cv::Mat & image, bool use_rgb = false, std::vector<bool> mask = std::vector<bool>(0)) {
+#ifdef USE_CUDA
+        cv::cuda::GpuMat img_cuda;
+        bool has_mask = mask.size() == undistMaps.size();
         if (use_rgb) {
             img_cuda.upload(image);
         } else {
@@ -80,12 +110,14 @@ public:
         std::vector<cv::cuda::GpuMat> ret;
         for (unsigned int i = 0; i < undistMaps.size(); i++) {
             cv::cuda::GpuMat output;
-            cv::cuda::remap(img_cuda, output, undistMapsGPUX[i], undistMapsGPUY[i], cv::INTER_LINEAR);
+            if (!has_mask || (has_mask && mask[i]) ) {
+                cv::cuda::remap(img_cuda, output, undistMapsGPUX[i], undistMapsGPUY[i], cv::INTER_LINEAR);
+            }
             ret.push_back(output);
         }
         return ret;
-    }
 #endif
+    }
 
     std::vector<cv::Mat> undist_all(const cv::Mat & image, bool use_rgb = false, bool enable_top = true, bool enable_rear = true) {
         std::vector<cv::Mat> ret;

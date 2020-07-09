@@ -261,7 +261,6 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     
     int side_height = imUpSide.size().height;
     int width = imUpTop.size().width;
-
     //128
     if (img_up.size().width == 1024) {
         fisheye_up = img_up(cv::Rect(190, 62, 900, 900));
@@ -279,19 +278,19 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     }
 
     if (imUpTop.channels() != 3) {
-        if (enable_up_top) {
+        if (!imUpTop.empty()) {
             cv::cvtColor(imUpTop, imUpTop, cv::COLOR_GRAY2BGR);
         }
     
-        if(enable_down_top) {
+        if(!imDownTop.empty()) {
             cv::cvtColor(imDownTop, imDownTop, cv::COLOR_GRAY2BGR);
         }
         
-        if(enable_up_side) {
+        if(!imUpSide.empty()) {
             cv::cvtColor(imUpSide, imUpSide, cv::COLOR_GRAY2BGR);
         }
 
-        if(enable_down_side) {
+        if(!imDownSide.empty()) {
             cv::cvtColor(imDownSide, imDownSide, cv::COLOR_GRAY2BGR);
         }
     }
@@ -326,6 +325,8 @@ void FeatureTracker::drawTrackFisheye(const cv::Mat & img_up,
     cv::vconcat(imUpSide, imDownSide, imTrack);
 
     cv::Mat top_cam;
+
+
     cv::hconcat(imUpTop, imDownTop, top_cam);
     cv::hconcat(fisheye_up, top_cam, top_cam);
     cv::hconcat(top_cam, fisheye_down, top_cam); 
@@ -1361,34 +1362,17 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const std::vec
 
 
 #ifdef USE_CUDA
-FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat &_img, const cv::Mat &_img1,         
+FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time,   
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
         std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
     cur_time = _cur_time;
 
-    TicToc t_cvt;
-
-    // cv::Mat __img = _img;
-    // cv::Mat __img1 = _img1;
-    // cv::cvtColor(_img1, __img1, cv::COLOR_BGR2GRAY);
-    // cv::cvtColor(_img, __img, cv::COLOR_BGR2GRAY);
-    // ROS_INFO("CVT cost %fms", t_cvt.toc());
-
     TicToc t_r;
-    fisheye_imgs_up = fisheys_undists[0].undist_all_cuda(_img, RGB_DEPTH_CLOUD);
-    fisheye_imgs_down = fisheys_undists[1].undist_all_cuda(_img1, RGB_DEPTH_CLOUD);
-    static double undist_sum = 0;
-    static double undist_count = 0;
-    undist_sum = t_r.toc() + undist_sum;
-    undist_count = undist_count + 1;
-    ROS_INFO("Undist AVG cost %fms", undist_sum/undist_count);
-
-    double remap_cost = t_r.toc();
     cv::cuda::GpuMat up_side_img = concat_side(fisheye_imgs_up);
     cv::cuda::GpuMat down_side_img = concat_side(fisheye_imgs_down);
     cv::cuda::GpuMat up_top_img = fisheye_imgs_up[0];
     cv::cuda::GpuMat down_top_img = fisheye_imgs_down[0];
-    double concat_cost = t_r.toc() - remap_cost;
+    double concat_cost = t_r.toc();
 
     top_size = up_top_img.size();
     side_size = up_side_img.size();
@@ -1556,7 +1540,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // ROS_INFO("Up top VEL %ld", up_top_vel.size());
     double tcost_all = t_r.toc();
     if (SHOW_TRACK) {
-        drawTrackFisheye(_img, _img1, up_top_img, down_top_img, up_side_img, down_side_img);
+        drawTrackFisheye(cv::Mat(), cv::Mat(), up_top_img, down_top_img, up_side_img, down_side_img);
     }
         
     prev_up_top_img = up_top_img;
@@ -1587,7 +1571,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const cv::Mat 
     // hasPrediction = false;
     auto ff = setup_feature_frame();
 
-    printf("FT Whole %fms; MainProcess %fms Remap %fms Concat %fms PTS %ld T\n", t_r.toc(), tcost_all, remap_cost, concat_cost, ff.size());
+    printf("FT Whole %fms; MainProcess %fms concat %fms PTS %ld T\n", t_r.toc(), tcost_all, concat_cost, ff.size());
     return ff;
 }
 
@@ -1600,7 +1584,7 @@ FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, c
     cv::Mat rightImg;
     cv::cuda::GpuMat right_gpu_img;
 
-    if (USE_GPU_ACC_FLOW) {
+    if (USE_GPU) {
 #ifdef USE_CUDA
         TicToc t_g;
         cur_gpu_img = cv::cuda::GpuMat(_img);
@@ -1648,7 +1632,7 @@ FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, c
     if (prev_pts.size() > 0)
     {
         vector<uchar> status;
-        if(!USE_GPU_ACC_FLOW)
+        if(!USE_GPU)
         {
             TicToc t_o;
             
@@ -1869,7 +1853,7 @@ FeatureFrame FeatureTracker::trackImage(double _cur_time, const cv::Mat &_img, c
             
             vector<cv::Point2f> reverseLeftPts;
             vector<uchar> status, statusRightLeft;
-            if(!USE_GPU_ACC_FLOW)
+            if(!USE_GPU)
             {
                 TicToc t_check;
                 vector<float> err;

@@ -71,9 +71,19 @@ namespace vins_nodelet_pkg
                 count += 1;
 
                 TicToc t_f;
-                fisheys_undists[0].stereo_flatten(img1->image, img2->image, &fisheys_undists[1], 
-                    fisheye_imgs_up, fisheye_imgs_down, false, 
-                    enable_up_top, enable_rear_side, enable_down_top, enable_rear_side);
+
+                bool is_color = false;
+
+                if (USE_GPU) {
+                    is_color = true;
+                    fisheye_imgs_up = fisheys_undists[0].undist_all_cuda_cpu(img1->image, is_color); 
+                    fisheye_imgs_down = fisheys_undists[1].undist_all_cuda_cpu(img2->image, is_color);
+                } else {
+                    fisheys_undists[0].stereo_flatten(img1->image, img2->image, &fisheys_undists[1], 
+                        fisheye_imgs_up, fisheye_imgs_down, false, 
+                        enable_up_top, enable_rear_side, enable_down_top, enable_rear_side);
+                }
+
                 flatten_time_sum += t_f.toc();
 
                 TicToc t_p;
@@ -83,7 +93,11 @@ namespace vins_nodelet_pkg
                 for (unsigned int i = 0; i < fisheye_imgs_up.size(); i++) {
                     cv_bridge::CvImage outImg;
                     outImg.header = img1_msg->header;
-                    outImg.encoding = "mono8";
+                    if (is_color) {
+                        outImg.encoding = "bgr8";
+                    } else {
+                        outImg.encoding = "mono8";
+                    }
 
                     outImg.image = fisheye_imgs_up[i];
                     images.up_cams.push_back(*outImg.toImageMsg());
@@ -92,7 +106,11 @@ namespace vins_nodelet_pkg
                 for (unsigned int i = 0; i < fisheye_imgs_down.size(); i++) {
                     cv_bridge::CvImage outImg;
                     outImg.header = img1_msg->header;
-                    outImg.encoding = "mono8";
+                    if (is_color) {
+                        outImg.encoding = "bgr8";
+                    } else {
+                        outImg.encoding = "mono8";
+                    }
 
                     outImg.image = fisheye_imgs_down[i];
                     images.down_cams.push_back(*outImg.toImageMsg());
