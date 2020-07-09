@@ -86,7 +86,7 @@ public:
     bool _show, bool _enable_extrinsic_calib, std::string _output_path);
 
     cv::Mat ComputeDispartiyMap(cv::Mat & left, cv::Mat & right);
-    cv::Mat ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {}
+    cv::Mat ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right);
 
     template<typename cvMat>
     cv::Mat ComputeDepthCloud(cvMat & left, cvMat & right) {

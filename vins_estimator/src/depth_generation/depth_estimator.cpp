@@ -44,8 +44,7 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
 }
     
 
-
-cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {
+cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
     // InputArray cameraMatrix2, InputArray distCoeffs2, 
     //Size imageSize, InputArray R, InputArray T, OutputArray R1, OutputArray R2, OutputArray P1, OutputArray P2, 
@@ -65,50 +64,32 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {
                                 _map12);
         initUndistortRectifyMap(cameraMatrix, cv::Mat(), R2, P2, imgSize, CV_32FC1, _map21,
                                 _map22);
-#ifdef USE_CUDA
         map11.upload(_map11);
         map12.upload(_map12);
         map21.upload(_map21);
         map22.upload(_map22);
-#endif
+
         _Q.convertTo(Q, CV_32F);
 
         first_init = false;
     } 
 
 
-#ifdef USE_CUDA
     cv::cuda::GpuMat leftRectify, rightRectify, disparity(left.size(), CV_8U);
     cv::cuda::remap(left, leftRectify, map11, map12, cv::INTER_LINEAR);
     cv::cuda::remap(right, rightRectify, map21, map22, cv::INTER_LINEAR);
-#else
-    cv::Mat leftRectify, rightRectify, disparity(left.size(), CV_8U);
-    cv::remap(left, leftRectify, _map11, _map12, cv::INTER_LINEAR);
-    cv::remap(right, rightRectify, _map21, _map22, cv::INTER_LINEAR);
-#endif
     if (!params.use_vworks) {
-#ifdef USE_CUDA
-        cv::Mat left_rect, right_rect, disparity;
-        leftRectify.download(left_rect);
-        rightRectify.download(right_rect);
-#else
-        cv::Mat & left_rect = leftRectify;
-        cv::Mat & right_rect = rightRectify;
-        cv::Mat disparity;
-
-#endif
-        
-        auto sgbm = cv::StereoSGBM::create(params.min_disparity, params.num_disp, params.block_size,
-            params.p1, params.p2, params.disp12Maxdiff, params.prefilterCap, params.uniquenessRatio, params.speckleWindowSize, 
-            params.speckleRange, params.mode);
-
-        // sgbm->compute(right_rect, left_rect, disparity);
-        sgbm->compute(left_rect, right_rect, disparity);
-
         ROS_INFO("CPU SGBM time cost %fms", tic.toc());
+        cv::cuda::GpuMat disparity;
+
+        cv::Mat raw_disp_map;
+        disparity.download(raw_disp_map);
+
         if (show) {
+            cv::Mat left_rect, right_rect;
+            leftRectify.download(left_rect);
+            rightRectify.download(right_rect);
             cv::Mat _show;
-            cv::Mat raw_disp_map = disparity.clone();
             cv::Mat scaled_disp_map;
             double min_val, max_val;
             cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
@@ -121,7 +102,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {
             cv::imshow("raw_disp_map", _show);
             cv::waitKey(2);
         }
-        return disparity;
+        return raw_disp_map;
     } else {
 #ifdef WITHOUT_VWORKS
         ROS_ERROR("You must set enable_vworks to true or disable vworks in depth config file");
@@ -220,6 +201,68 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {
         }            
         return cv_disp;
 #endif  
+    }
+}
+
+cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {
+    // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
+    // InputArray cameraMatrix2, InputArray distCoeffs2, 
+    //Size imageSize, InputArray R, InputArray T, OutputArray R1, OutputArray R2, OutputArray P1, OutputArray P2, 
+    //OutputArray Q,
+    //  int flags=CALIB_ZERO_DISPARITY, double alpha=-1, 
+    // Size newImageSize=Size(), Rect* validPixROI1=0, Rect* validPixROI2=0 )¶
+    TicToc tic;
+    if (first_init) {
+        cv::Mat _Q;
+        cv::Size imgSize = left.size();
+
+        // std::cout << "ImgSize" << imgSize << "\nR" << R << "\nT" << T << std::endl;
+        cv::stereoRectify(cameraMatrix, cv::Mat(), cameraMatrix, cv::Mat(), imgSize, 
+            R, T, R1, R2, P1, P2, _Q, 0);
+        std::cout << Q << std::endl;
+        initUndistortRectifyMap(cameraMatrix, cv::Mat(), R1, P1, imgSize, CV_32FC1, _map11,
+                                _map12);
+        initUndistortRectifyMap(cameraMatrix, cv::Mat(), R2, P2, imgSize, CV_32FC1, _map21,
+                                _map22);
+        _Q.convertTo(Q, CV_32F);
+
+        first_init = false;
+    } 
+
+
+    cv::Mat leftRectify, rightRectify, disparity(left.size(), CV_8U);
+    cv::remap(left, leftRectify, _map11, _map12, cv::INTER_LINEAR);
+    cv::remap(right, rightRectify, _map21, _map22, cv::INTER_LINEAR);
+
+    if (!params.use_vworks) {
+        cv::Mat & left_rect = leftRectify;
+        cv::Mat & right_rect = rightRectify;
+        cv::Mat disparity;
+        
+        auto sgbm = cv::StereoSGBM::create(params.min_disparity, params.num_disp, params.block_size,
+            params.p1, params.p2, params.disp12Maxdiff, params.prefilterCap, params.uniquenessRatio, params.speckleWindowSize, 
+            params.speckleRange, params.mode);
+
+        // sgbm->compute(right_rect, left_rect, disparity);
+        sgbm->compute(left_rect, right_rect, disparity);
+
+        ROS_INFO("CPU SGBM time cost %fms", tic.toc());
+        if (show) {
+            cv::Mat _show;
+            cv::Mat raw_disp_map = disparity.clone();
+            cv::Mat scaled_disp_map;
+            double min_val, max_val;
+            cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
+            raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+
+            cv::hconcat(left_rect, right_rect, _show);
+            cv::hconcat(_show, scaled_disp_map, _show);
+            // cv::hconcat(left_rect, right_rect, _show);
+            // cv::hconcat(_show, scaled_disp_map, _show);
+            cv::imshow("raw_disp_map", _show);
+            cv::waitKey(2);
+        }
+        return disparity;
     }
 }
 
