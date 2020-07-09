@@ -1,3 +1,4 @@
+#pragma once
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
 
@@ -19,6 +20,8 @@
 #include <NVX/nvx_opencv_interop.hpp>
 #endif
 
+#include "stereo_online_calib.hpp"
+
 struct SGMParams {
     bool use_vworks = true;
     int num_disp = 32;
@@ -39,8 +42,6 @@ struct SGMParams {
     int scanlines_mask = 85;
     int flags = 1;
 };
-
-class StereoOnlineCalib;
 
 class DepthEstimator {
     cv::Mat cameraMatrix;
@@ -85,5 +86,54 @@ public:
     bool _show, bool _enable_extrinsic_calib, std::string _output_path);
 
     cv::Mat ComputeDispartiyMap(cv::Mat & left, cv::Mat & right);
-    cv::Mat ComputeDepthCloud(cv::Mat & left, cv::Mat & right);
+    cv::Mat ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {}
+
+    template<typename cvMat>
+    cv::Mat ComputeDepthCloud(cvMat & left, cvMat & right) {
+        static int count = 0;
+        int skip = 10/extrinsic_calib_rate;
+        if (skip <= 0) {
+            skip = 1;
+        }
+        if (count ++ % 5 == 0) {
+            if(enable_extrinsic_calib) {
+
+                if (online_calib == nullptr) {
+                    online_calib = new StereoOnlineCalib(R, T, cameraMatrix, left.cols, left.rows, show);
+                }
+                
+                bool success = online_calib->calibrate_extrincic(left, right);
+                if (success) {
+                    R = online_calib->get_rotation();
+                    T = online_calib->get_translation();
+                    cv::FileStorage fs(output_path, cv::FileStorage::WRITE);
+                    fs << "R" << R;
+                    fs << "T" << T;
+                    fs.release();
+                    first_init = true;
+                }
+            }
+        }
+        
+        cv::Mat dispartitymap = ComputeDispartiyMap(left, right);
+        int width = left.size().width;
+        int height = left.size().height;
+
+        cv::Mat map3d, imgDisparity32F;
+        if (params.use_vworks) {
+            double min_val = params.min_disparity;
+            double max_val = 0;
+            // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
+            // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
+            dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
+            cv::threshold(imgDisparity32F, imgDisparity32F, min_val, 1000, cv::THRESH_TOZERO);
+        } else {
+            dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
+            cv::threshold(imgDisparity32F, imgDisparity32F, params.min_disparity, 1000, cv::THRESH_TOZERO);
+        }
+        cv::Mat XYZ = cv::Mat::zeros(imgDisparity32F.rows, imgDisparity32F.cols, CV_32FC3);   // Output point cloud
+        cv::reprojectImageTo3D(imgDisparity32F, XYZ, Q);    // cv::project
+
+        return XYZ;
+    }
 };

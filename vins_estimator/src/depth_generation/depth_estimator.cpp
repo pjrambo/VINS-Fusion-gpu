@@ -11,7 +11,6 @@
 #include <opencv2/opencv.hpp>
 #include "../utility/tic_toc.h"
 #include "../estimator/parameters.h"
-#include "stereo_online_calib.hpp"
 
 #ifndef WITHOUT_VWORKS
 #ifdef OVX
@@ -224,51 +223,5 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {
     }
 }
 
-cv::Mat DepthEstimator::ComputeDepthCloud(cv::Mat & left, cv::Mat & right) {
-    static int count = 0;
-    int skip = 10/extrinsic_calib_rate;
-    if (skip <= 0) {
-        skip = 1;
-    }
-    if (count ++ % 5 == 0) {
-        if(enable_extrinsic_calib) {
 
-            if (online_calib == nullptr) {
-                online_calib = new StereoOnlineCalib(R, T, cameraMatrix, left.cols, left.rows, show);
-            }
-            
-            bool success = online_calib->calibrate_extrincic(left, right);
-            if (success) {
-                R = online_calib->get_rotation();
-                T = online_calib->get_translation();
-                cv::FileStorage fs(output_path, cv::FileStorage::WRITE);
-                fs << "R" << R;
-                fs << "T" << T;
-                fs.release();
-                first_init = true;
-            }
-        }
-    }
-    
-    cv::Mat dispartitymap = ComputeDispartiyMap(left, right);
-    int width = left.size().width;
-    int height = left.size().height;
-
-    cv::Mat map3d, imgDisparity32F;
-    if (params.use_vworks) {
-        double min_val = params.min_disparity;
-        double max_val = 0;
-        // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
-        // dispartitymap.convertTo(imgDisparity32F, CV_32F, (params.num_disp-params.min_disparity)/255.0);
-        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
-        cv::threshold(imgDisparity32F, imgDisparity32F, min_val, 1000, cv::THRESH_TOZERO);
-    } else {
-        dispartitymap.convertTo(imgDisparity32F, CV_32F, 1./16);
-        cv::threshold(imgDisparity32F, imgDisparity32F, params.min_disparity, 1000, cv::THRESH_TOZERO);
-    }
-    cv::Mat XYZ = cv::Mat::zeros(imgDisparity32F.rows, imgDisparity32F.cols, CV_32FC3);   // Output point cloud
-    cv::reprojectImageTo3D(imgDisparity32F, XYZ, Q);    // cv::project
-
-    return XYZ;
-}
 

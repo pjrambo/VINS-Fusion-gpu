@@ -209,15 +209,83 @@ void DepthCamManager::update_pcl_depth_from_image(ros::Time stamp, int direction
     }
 }
 
-void DepthCamManager::update_depth_image(ros::Time stamp, cv::Mat _up_front, cv::Mat _down_front, 
-    Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
-    Eigen::Matrix3d R, Eigen::Vector3d P, int direction, sensor_msgs::PointCloud & pcl, Eigen::Matrix3d ric_depth) {
 
-    this->update_depth_image(direction, _up_front, _down_front, ric1, ric_depth);
-    update_pcl_depth_from_image(stamp, direction, ric1, tic1, R, P, ric_depth, pcl);
+void DepthCamManager::update_depth_image(int direction, cv::cuda::GpuMat _up_front, cv::cuda::GpuMat _down_front, 
+    Eigen::Matrix3d ric1, Eigen::Matrix3d ric_depth) {
+    cv::cuda::GpuMat  up_front, down_front;
+    TicToc tic_resize;
+    cv::cuda::resize(_up_front, up_front, cv::Size(), downsample_ratio, downsample_ratio);
+    cv::cuda::resize(_down_front, down_front, cv::Size(), downsample_ratio, downsample_ratio);
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to Resize cost %f", tic_resize.toc());
+    }
+
+    //After transpose, we need flip for rotation
+
+    cv::Mat tmp;
+    cv::Size size = up_front.size();
+    if (_up_front.channels() == 3) {
+        cv::cvtColor(up_front, up_front, cv::COLOR_BGR2GRAY);
+        cv::cvtColor(down_front, down_front, cv::COLOR_BGR2GRAY);
+    }
+
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to cvtcolor cost %f", tic_resize.toc());
+    }
+
+    cv::cuda::transpose(up_front, tmp);
+    cv::cuda::flip(tmp, up_front, 0);
+
+    cv::cuda::transpose(down_front, tmp);
+    cv::cuda::flip(tmp, down_front, 0);
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to rotate cost %f", tic_resize.toc());
+    }
+
+    auto dep_est = deps[direction];
+    // ROS_WARN("Dep est %d from %d", dep_est, direction);
     
-}
+    cv::Mat pointcloud_up = dep_est->ComputeDepthCloud<cv::cuda::GpuMat>(up_front, down_front);
 
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to ComputeDepthCloud cost %f", tic_resize.toc());
+    }
+
+    cv::Mat depthmap;
+    if(pub_depth_map) {
+        depthmap = generate_depthmap(pointcloud_up, ric1.transpose()*ric_depth);
+    }
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to generate_depthmap cost %f", tic_resize.toc());
+    }
+
+    //  if (pub_cloud_all && RGB_DEPTH_CLOUD == 1) {
+    //     cv::Mat up_front_cpu, tmp2;
+    //     up_front_cpu = _up_front;
+    //     cv::transpose(_up_front, tmp2);
+    //     cv::flip(tmp2, up_front_cpu, 0);
+    //     cv::resize(up_front_cpu, up_front_cpu, cv::Size(), downsample_ratio, downsample_ratio);
+    //     texture_imgs[direction] = up_front_cpu;
+    // } 
+
+
+
+    if (pub_cloud_all && RGB_DEPTH_CLOUD == 0) {
+        up_front.download(texture_imgs[direction]);
+    }
+
+
+    if(ENABLE_PERF_OUTPUT) {
+        ROS_INFO("Up to save_texture cost %f", tic_resize.toc());
+    }
+   
+    depth_maps[direction] = depthmap;
+    pts_3ds[direction] = pointcloud_up;
+}
 
 void DepthCamManager::update_depth_image(int direction, cv::Mat _up_front, cv::Mat _down_front, 
     Eigen::Matrix3d ric1, Eigen::Matrix3d ric_depth) {
@@ -258,7 +326,7 @@ void DepthCamManager::update_depth_image(int direction, cv::Mat _up_front, cv::M
     auto dep_est = deps[direction];
     // ROS_WARN("Dep est %d from %d", dep_est, direction);
     
-    cv::Mat pointcloud_up = dep_est->ComputeDepthCloud(up_front, down_front);
+    cv::Mat pointcloud_up = dep_est->ComputeDepthCloud<cv::Mat>(up_front, down_front);
 
     if(ENABLE_PERF_OUTPUT) {
         ROS_INFO("Up to ComputeDepthCloud cost %f", tic_resize.toc());
@@ -296,78 +364,6 @@ void DepthCamManager::update_depth_image(int direction, cv::Mat _up_front, cv::M
     depth_maps[direction] = depthmap;
     pts_3ds[direction] = pointcloud_up;
 
-}
-
-
-void DepthCamManager::update_images(ros::Time stamp, std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams,
-        Eigen::Matrix3d ric1, Eigen::Vector3d tic1,
-        Eigen::Matrix3d ric2, Eigen::Vector3d tic2, 
-        Eigen::Matrix3d R, Eigen::Vector3d P
-    ) {
-    
-    sensor_msgs::PointCloud point_cloud;
-    point_cloud.header.stamp = stamp;
-    point_cloud.header.frame_id = "world";
-    point_cloud.channels.resize(3);
-    point_cloud.channels[0].name = "rgb";
-    point_cloud.channels[0].values.resize(0);
-    point_cloud.channels[1].name = "u";
-    point_cloud.channels[1].values.resize(0);
-    point_cloud.channels[2].name = "v";
-    point_cloud.channels[2].values.resize(0);
-
-    if (estimate_front_depth) {
-        update_depth_image(stamp, up_cams[2], down_cams[2], ric1*t_front*t_rotate, 
-            tic1, R, P, 1, point_cloud, ric1*t_front);
-    }
-
-    if (estimate_left_depth) {
-        update_depth_image(stamp, up_cams[1], down_cams[1], ric1*t_left*t_rotate, 
-            tic1, R, P, 0, point_cloud, ric1*t_left);
-    }
-
-    if (estimate_right_depth) {
-        update_depth_image(stamp, up_cams[3], down_cams[3], ric1*t_right*t_rotate, 
-            tic1, R, P, 2, point_cloud, ric1*t_right);
-    }
-
-    if (estimate_rear_depth) {
-        update_depth_image(stamp, up_cams[4], down_cams[4], ric1*t_rear*t_rotate, 
-            tic1, R, P, 3, point_cloud, ric1*t_rear);
-    }
-
-    if (pub_cloud_all) {
-        pub_depth_cloud.publish(point_cloud);
-    }
-
-}
-
-#ifdef USE_CUDA
-void DepthCamManager::update_images_to_buf(std::vector<cv::cuda::GpuMat> & up_cams, std::vector<cv::cuda::GpuMat> & down_cams) {
-}
-#endif
-
-void DepthCamManager::update_images_to_buf(std::vector<cv::Mat> & up_cams, std::vector<cv::Mat> & down_cams) {
-    
-    if (estimate_front_depth) {
-        update_depth_image(1, up_cams[2], down_cams[2], 
-            (t_front*t_rotate).toRotationMatrix(), t_front.toRotationMatrix());
-    }
-
-    if (estimate_left_depth) {
-        update_depth_image(0, up_cams[1], down_cams[1], 
-            (t_left*t_rotate).toRotationMatrix(), t_left.toRotationMatrix());
-    }
-
-    if (estimate_right_depth) {
-        update_depth_image(2, up_cams[3], down_cams[3], 
-            (t_right*t_rotate).toRotationMatrix(), t_right.toRotationMatrix());
-    }
-
-    if (estimate_rear_depth) {
-        update_depth_image(3, up_cams[4], down_cams[4], 
-            (t_rear*t_rotate).toRotationMatrix(), t_rear.toRotationMatrix());
-    }
 }
 
 
