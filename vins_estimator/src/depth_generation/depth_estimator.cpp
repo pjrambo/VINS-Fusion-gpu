@@ -6,6 +6,7 @@
 #include <opencv2/cudaimgproc.hpp>
 #include <opencv2/cudastereo.hpp>
 #include <opencv2/cudafeatures2d.hpp>
+#include <libsgm.h>
 #endif
 
 #include <opencv2/opencv.hpp>
@@ -82,14 +83,19 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         ROS_INFO("CPU SGBM time cost %fms", tic.toc());
         cv::cuda::GpuMat disparity;
 
-        cv::Mat raw_disp_map;
-        disparity.download(raw_disp_map);
+    	sgm::LibSGMWrapper sgm(params.num_disp, params.p1, params.p2, params.uniquenessRatio, true, 
+            sgm::PathType::SCAN_8PATH, params.min_disparity, params.disp12Maxdiff);
+        
+        cv::Mat disp;
+		sgm.execute(leftRectify, rightRectify, disparity);
+        disparity.download(disp);
 
         if (show) {
-            cv::Mat left_rect, right_rect;
+            cv::Mat _show, left_rect, right_rect;
             leftRectify.download(left_rect);
             rightRectify.download(right_rect);
-            cv::Mat _show;
+
+            cv::Mat raw_disp_map = disp.clone();
             cv::Mat scaled_disp_map;
             double min_val, max_val;
             cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
@@ -97,16 +103,18 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
 
             cv::hconcat(left_rect, right_rect, _show);
             cv::hconcat(_show, scaled_disp_map, _show);
-            // cv::hconcat(left_rect, right_rect, _show);
-            // cv::hconcat(_show, scaled_disp_map, _show);
-            cv::imshow("raw_disp_map", _show);
-            cv::waitKey(2);
-        }
-        return raw_disp_map;
+            cv::imshow("RAW DISP", _show);
+        }            
+            
+        ROS_INFO("SGBM time cost %fms", tic.toc());
+
+        return disp;
+
     } else {
 #ifdef WITHOUT_VWORKS
         ROS_ERROR("You must set enable_vworks to true or disable vworks in depth config file");
         exit(-1);
+        return cv::Mat();
 #else
         leftRectify.copyTo(leftRectify_fix);
         rightRectify.copyTo(rightRectify_fix);

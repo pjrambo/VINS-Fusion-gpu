@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 set(ENABLE_BACKWARD true)
 set(ENABLE_VWORKS false)
 set(ENABLE_CUDA true)
+set(LIBSGM "")
 
 find_package(OpenMP REQUIRED)
 
@@ -46,6 +47,7 @@ endif()
 
 if(ENABLE_CUDA)
     add_definitions(-D USE_CUDA)
+    set(LIBSGM "sgm")
 endif()
 
 #SET("OpenCV_DIR" "/home/pi/source/opencv_release/share/OpenCV")
@@ -135,7 +137,7 @@ add_library(estimator_lib SHARED
 target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
 target_link_libraries(vins_params_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
 add_dependencies(vins_lib vins_generate_messages_cpp)
-target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} dw)
+target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} ${LIBSGM} dw)
 target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} dw OpenMP::OpenMP_CXX)
 
 
