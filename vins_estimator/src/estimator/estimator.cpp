@@ -208,7 +208,7 @@ void Estimator::processDepthGeneration() {
     while(ros::ok()) {
         if (!fisheye_imgs_upBuf.empty()) {
             double t = fisheye_imgs_stampBuf.front();
-            if (USE_CUDA) {
+            if (USE_GPU) {
 #ifdef USE_CUDA
                 fisheye_imgs_up_cuda = fisheye_imgs_upBuf_cuda.front();
                 fisheye_imgs_down_cuda = fisheye_imgs_downBuf_cuda.front();
@@ -242,9 +242,11 @@ void Estimator::processDepthGeneration() {
             }
 
             TicToc tic;
-            if (USE_CUDA) {
+            if (USE_GPU) {
+                std::cout << "Using CUDA Mat for depth" << fisheye_imgs_up_cuda.size() << ":" << fisheye_imgs_down_cuda.size() << std::endl;
                 depth_cam_manager->update_images_to_buf(fisheye_imgs_up_cuda, fisheye_imgs_down_cuda);
             } else {
+                std::cout << "Using cvMat for depth" << fisheye_imgs_up_cuda.size() << ":" << fisheye_imgs_down_cuda.size() << std::endl;
                 depth_cam_manager->update_images_to_buf(fisheye_imgs_up, fisheye_imgs_down);
             }
 

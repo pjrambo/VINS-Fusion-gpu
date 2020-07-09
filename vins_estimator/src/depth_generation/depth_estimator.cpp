@@ -46,6 +46,7 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
     
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
+    std::cout << "Computing disp for cuda" << std::endl;
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
     // InputArray cameraMatrix2, InputArray distCoeffs2, 
     //Size imageSize, InputArray R, InputArray T, OutputArray R1, OutputArray R2, OutputArray P1, OutputArray P2, 
@@ -80,7 +81,6 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
     cv::cuda::remap(left, leftRectify, map11, map12, cv::INTER_LINEAR);
     cv::cuda::remap(right, rightRectify, map21, map22, cv::INTER_LINEAR);
     if (!params.use_vworks) {
-        ROS_INFO("CPU SGBM time cost %fms", tic.toc());
         cv::cuda::GpuMat disparity;
 
     	sgm::LibSGMWrapper sgm(params.num_disp, params.p1, params.p2, params.uniquenessRatio, true, 

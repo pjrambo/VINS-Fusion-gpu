@@ -90,28 +90,26 @@ public:
 
     template<typename cvMat>
     cv::Mat ComputeDepthCloud(cvMat & left, cvMat & right) {
+        std::cout << "Computing depth cloud" << std::endl;
         static int count = 0;
         int skip = 10/extrinsic_calib_rate;
         if (skip <= 0) {
             skip = 1;
         }
-        if (count ++ % 5 == 0) {
-            if(enable_extrinsic_calib) {
-
-                if (online_calib == nullptr) {
-                    online_calib = new StereoOnlineCalib(R, T, cameraMatrix, left.cols, left.rows, show);
-                }
-                
-                bool success = online_calib->calibrate_extrincic(left, right);
-                if (success) {
-                    R = online_calib->get_rotation();
-                    T = online_calib->get_translation();
-                    cv::FileStorage fs(output_path, cv::FileStorage::WRITE);
-                    fs << "R" << R;
-                    fs << "T" << T;
-                    fs.release();
-                    first_init = true;
-                }
+        if (count ++ % 5 == 0 && enable_extrinsic_calib) {
+            if (online_calib == nullptr) {
+                online_calib = new StereoOnlineCalib(R, T, cameraMatrix, left.cols, left.rows, show);
+            }
+            
+            bool success = online_calib->calibrate_extrincic(left, right);
+            if (success) {
+                R = online_calib->get_rotation();
+                T = online_calib->get_translation();
+                cv::FileStorage fs(output_path, cv::FileStorage::WRITE);
+                fs << "R" << R;
+                fs << "T" << T;
+                fs.release();
+                first_init = true;
             }
         }
         
