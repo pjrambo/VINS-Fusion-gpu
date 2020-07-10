@@ -32,7 +32,7 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
     cv::eigen2cv(t01, T);
 
     if (!params.use_vworks) {
-    	sgmp = new sgm::LibSGMWrapper(params.num_disp, params.p1, params.p2, params.uniquenessRatio, false, 
+    	sgmp = new sgm::LibSGMWrapper(params.num_disp, params.p1, params.p2, params.uniquenessRatio, true, 
             sgm::PathType::SCAN_8PATH, params.min_disparity, params.disp12Maxdiff);
     }
 }
