@@ -91,17 +91,17 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         cv::Mat disparity;
         cv::cuda::GpuMat d_disparity;
 
-        cv::Mat disp;
 		sgmp->execute(leftRectify, rightRectify, d_disparity);
         d_disparity.download(disparity);
         
         cv::Mat mask = disparity == sgmp->getInvalidDisparity();
 
-	    cv::Mat disparity_color;
-	    disparity.convertTo(disparity, CV_8U, 255. / params.num_disp);
 
         if (show) {
-            cv::applyColorMap(disparity, disparity_color, cv::COLORMAP_JET);
+            cv::Mat disparity_color, disp;
+    	    disparity.convertTo(disp, CV_8U, 255. / params.num_disp);
+
+            cv::applyColorMap(disp, disparity_color, cv::COLORMAP_JET);
 	        disparity.setTo(0, mask);
 	        disparity_color.setTo(cv::Scalar(0, 0, 0), mask);
 
@@ -121,7 +121,7 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             
         ROS_INFO("SGBM time cost %fms", tic.toc());
 
-        return disp;
+        return disparity;
 
     } else {
 #ifdef WITHOUT_VWORKS
