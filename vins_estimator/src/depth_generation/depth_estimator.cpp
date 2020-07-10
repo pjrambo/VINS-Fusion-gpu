@@ -30,6 +30,11 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
 {
     cv::eigen2cv(R01, R);
     cv::eigen2cv(t01, T);
+
+    if (!params.use_vworks) {
+    	sgmp = new sgm::LibSGMWrapper(params.num_disp, params.p1, params.p2, params.uniquenessRatio, false, 
+            sgm::PathType::SCAN_8PATH, params.min_disparity, params.disp12Maxdiff);
+    }
 }
 
 DepthEstimator::DepthEstimator(SGMParams _params, std::string Path, cv::Mat camera_mat,
@@ -77,33 +82,41 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
     } 
 
 
-    cv::cuda::GpuMat leftRectify, rightRectify, disparity(left.size(), CV_8U);
+    cv::cuda::GpuMat leftRectify, rightRectify;
     cv::cuda::remap(left, leftRectify, map11, map12, cv::INTER_LINEAR);
     cv::cuda::remap(right, rightRectify, map21, map22, cv::INTER_LINEAR);
-    if (!params.use_vworks) {
-        cv::cuda::GpuMat disparity;
 
-    	sgm::LibSGMWrapper sgm(params.num_disp, params.p1, params.p2, params.uniquenessRatio, true, 
-            sgm::PathType::SCAN_8PATH, params.min_disparity, params.disp12Maxdiff);
-        
+    cv::cuda::GpuMat disparity(leftRectify.size(), CV_8U);
+    if (!params.use_vworks) {
+        cv::Mat disparity;
+        cv::cuda::GpuMat d_disparity;
+
         cv::Mat disp;
-		sgm.execute(leftRectify, rightRectify, disparity);
-        disparity.download(disp);
+		sgmp->execute(leftRectify, rightRectify, d_disparity);
+        d_disparity.download(disparity);
+        
+        cv::Mat mask = disparity == sgmp->getInvalidDisparity();
+
+	    cv::Mat disparity_color;
+	    disparity.convertTo(disparity, CV_8U, 255. / params.num_disp);
 
         if (show) {
+            cv::applyColorMap(disparity, disparity_color, cv::COLORMAP_JET);
+	        disparity.setTo(0, mask);
+	        disparity_color.setTo(cv::Scalar(0, 0, 0), mask);
+
             cv::Mat _show, left_rect, right_rect;
             leftRectify.download(left_rect);
             rightRectify.download(right_rect);
 
-            cv::Mat raw_disp_map = disp.clone();
-            cv::Mat scaled_disp_map;
-            double min_val, max_val;
-            cv::minMaxLoc(raw_disp_map, &min_val, &max_val, NULL, NULL);
-            raw_disp_map.convertTo(scaled_disp_map, CV_8U, 255/(max_val-min_val), -min_val/(max_val-min_val));
+            std::cout << "Size L" << left_rect.size() << " R" << right_rect.size() << "D" << disparity_color.size() << std::endl;
 
             cv::hconcat(left_rect, right_rect, _show);
-            cv::hconcat(_show, scaled_disp_map, _show);
+            cv::cvtColor(_show, _show, cv::COLOR_GRAY2BGR);
+            cv::hconcat(_show, disparity_color, _show);
+
             cv::imshow("RAW DISP", _show);
+            cv::waitKey(2);
         }            
             
         ROS_INFO("SGBM time cost %fms", tic.toc());

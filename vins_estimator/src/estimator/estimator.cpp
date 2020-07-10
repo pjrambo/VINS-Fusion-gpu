@@ -98,7 +98,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
     sum_time += dt;
     img_track_count ++;
 
-    printf("featureTracker time: AVG %f NOW %f\n", sum_time/img_track_count, dt );
+    printf("featureTracker time: AVG %f NOW %f inputImageCnt %d\n", sum_time/img_track_count, dt, inputImageCnt);
     if(inputImageCnt % 2 == 0)
     {
         mBuf.lock();
@@ -206,7 +206,8 @@ void Estimator::processDepthGeneration() {
     std::vector<cv::Mat> fisheye_imgs_up, fisheye_imgs_down;
 
     while(ros::ok()) {
-        if (!fisheye_imgs_upBuf.empty()) {
+        if (!fisheye_imgs_upBuf.empty() || !fisheye_imgs_upBuf_cuda.empty()) {
+            printf("Depth getting imgs\n");
             double t = fisheye_imgs_stampBuf.front();
             if (USE_GPU) {
 #ifdef USE_CUDA
@@ -230,15 +231,10 @@ void Estimator::processDepthGeneration() {
                 mBuf.unlock();
             }
             //Use imu propaget for depth cloud, this is for realtime peformance;
-            while(1) {
-                if (IMUAvailable(t + td))
-                    break;
-                else
-                {
-                    printf("Depth wait for IMU ... \n");
-                    std::chrono::milliseconds dura(5);
-                    std::this_thread::sleep_for(dura);
-                }
+            while(!IMUAvailable(t + td)) {
+                printf("Depth wait for IMU ... \n");
+                std::chrono::milliseconds dura(5);
+                std::this_thread::sleep_for(dura);
             }
 
             TicToc tic;

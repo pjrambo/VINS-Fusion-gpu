@@ -22,6 +22,10 @@
 
 #include "stereo_online_calib.hpp"
 
+namespace sgm {
+    class LibSGMWrapper;
+};
+
 struct SGMParams {
     bool use_vworks = true;
     int num_disp = 32;
@@ -49,6 +53,7 @@ class DepthEstimator {
     cv::Mat _map11, _map12, _map21, _map22;
 #ifdef USE_CUDA
     cv::cuda::GpuMat map11, map12, map21, map22;
+    sgm::LibSGMWrapper * sgmp;
 #endif
     bool first_init = true;
     cv::Mat R, T, R1, R2, P1, P2, Q;
