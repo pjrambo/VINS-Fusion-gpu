@@ -27,7 +27,7 @@
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"
 
-#ifndef WITHOUT_VWORKS
+#ifndef WITH_VWORKS
 #include "vworks_feature_tracker.hpp"
 #include "NVX/nvx_opencv_interop.hpp"
 #endif
@@ -216,7 +216,7 @@ public:
     int n_id;
     bool hasPrediction;
 
-#ifndef WITHOUT_VWORKS
+#ifdef WITH_VWORKS
     cv::cuda::GpuMat up_side_img_fix;
     cv::cuda::GpuMat down_side_img_fix;
     cv::cuda::GpuMat up_top_img_fix;

@@ -26,7 +26,7 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef WITHOUT_VWORKS
+#ifdef WITH_VWORKS
 
 #include "stereo_matching.hpp"
 

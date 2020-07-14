@@ -13,13 +13,8 @@
 #include "../estimator/estimator.h"
 #include "fisheye_undist.hpp"
 
-#ifndef WITHOUT_VWORKS
+#ifdef WITH_VWORKS
 #include "vworks_feature_tracker.hpp"
-#ifdef OVX
-ovxio::ContextGuard context;
-#else 
-vx_context context;
-#endif
 #endif
 // #define PERF_OUTPUT
 Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));
@@ -895,7 +890,7 @@ vector<cv::Point2f> FeatureTracker::opticalflow_track(cv::cuda::GpuMat & cur_img
 }
 #endif
 
-#ifndef WITHOUT_VWORKS
+#ifdef WITH_VWORKS
 
 pair<vector<cv::Point2f>, vector<int>> vxarray2cv_pts(vx_array fVx, bool output=false) {
     std::vector<cv::Point2f> fPts;
@@ -1389,7 +1384,7 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time,
     cur_down_side_un_pts.clear();
 
     if(USE_VXWORKS) {
-#ifdef WITHOUT_VWORKS
+#ifndef WITH_VWORKS
         ROS_ERROR("You must set enable_vworks to true or disable vworks in VINS config file");
         exit(-1);
 #else

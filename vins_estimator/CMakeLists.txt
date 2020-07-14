@@ -6,10 +6,10 @@ set(CMAKE_CXX_FLAGS "-std=c++11 -fopenmp")
 #-DEIGEN_USE_MKL_ALL")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
-set(ENABLE_BACKWARD true)
+set(ENABLE_BACKWARD false)
 set(ENABLE_VWORKS false)
-set(ENABLE_CUDA true)
-set(LIBSGM "")
+set(DETECT_CUDA true)
+# SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 
 find_package(OpenMP REQUIRED)
 
@@ -29,6 +29,31 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
 )
 
+if(ENABLE_BACKWARD)
+    add_definitions(-D USE_BACKWARD)
+    set(LIBDW "dw")
+else()
+    set(LIBDW "")
+endif()
+
+if(DETECT_CUDA)
+    find_package(CUDA) 
+    if (CUDA_FOUND) 
+        message("CUDA detected, automatically USE OpenCV with CUDA support")
+        add_definitions(-D USE_CUDA)
+        set(LIBSGM "sgm")
+        find_package(OpenCV 3 REQUIRED cudaimgproc)
+    else()
+        message(WARNING "CUDA not detected, automatically USE OpenCV with CUDA support")
+        set(LIBSGM "")
+        find_package(OpenCV 3 REQUIRED )
+    endif()
+else()
+    message(WARNING "CUDA not detected, automatically USE OpenCV with CUDA support")
+    set(LIBSGM "")
+    find_package(OpenCV 3 REQUIRED )
+endif()
+
 
 if(ENABLE_VWORKS)
     find_package(VisionWorks REQUIRED)
@@ -37,24 +62,9 @@ if(ENABLE_VWORKS)
         # /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
     # )
     # link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
+    add_definitions(-DWITH_VWORKS)
 else()
-    add_definitions(-DWITHOUT_VWORKS)
-endif(ENABLE_VWORKS)
-
-if(ENABLE_BACKWARD)
-    add_definitions(-D USE_BACKWARD)
 endif()
-
-if(ENABLE_CUDA)
-    add_definitions(-D USE_CUDA)
-    set(LIBSGM "sgm")
-endif()
-
-#SET("OpenCV_DIR" "/home/pi/source/opencv_release/share/OpenCV")
-# find_package(OpenCV 4.2 REQUIRED)
-#SET("OpenCV_DIR" "/home/pi/source/opencv-3.4.10/release/share/OpenCV")
-SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
-find_package(OpenCV 3 REQUIRED)
 
 find_package(Ceres REQUIRED)
 
@@ -134,11 +144,11 @@ add_library(estimator_lib SHARED
     src/estimator/estimator.cpp
 )
 
-target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
-target_link_libraries(vins_params_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} dw)
+target_link_libraries(vins_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} ${LIBDW})
+target_link_libraries(vins_params_lib ${catkin_LIBRARIES} ${OpenCV_LIBS} ${CERES_LIBRARIES} ${LIBDW})
 add_dependencies(vins_lib vins_generate_messages_cpp)
-target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} ${LIBSGM} dw)
-target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} dw OpenMP::OpenMP_CXX)
+target_link_libraries(stereo_depth ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} ${LIBSGM} ${LIBDW})
+target_link_libraries(vins_frontend ${catkin_LIBRARIES} ${OpenCV_LIBS} ${VisionWorks_LIBRARIES} ${LIBDW} OpenMP::OpenMP_CXX)
 
 
 add_executable(vins_node src/rosNodeTest.cpp )

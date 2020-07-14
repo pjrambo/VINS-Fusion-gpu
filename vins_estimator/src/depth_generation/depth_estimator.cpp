@@ -7,16 +7,6 @@
 #include "../utility/tic_toc.h"
 #include "../estimator/parameters.h"
 
-#ifndef WITHOUT_VWORKS
-#ifdef OVX
-extern ovxio::ContextGuard context;
-#else 
-extern vx_context context;
-#endif
-#endif
-
-
-
 DepthEstimator::DepthEstimator(SGMParams _params, Eigen::Vector3d t01, Eigen::Matrix3d R01, cv::Mat camera_mat,
 bool _show, bool _enable_extrinsic_calib, std::string _output_path):
     cameraMatrix(camera_mat.clone()),show(_show),params(_params),
@@ -121,25 +111,15 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
         return disparity;
 
     } else {
-#ifdef WITHOUT_VWORKS
-        ROS_ERROR("You must set enable_vworks to true or disable vworks in depth config file");
-        exit(-1);
-        return cv::Mat();
-#else
+#ifdef WITH_VWORKS
         leftRectify.copyTo(leftRectify_fix);
         rightRectify.copyTo(rightRectify_fix);
         if (first_use_vworks) {
             auto lsize = leftRectify_fix.size();
-            // disparity_fix = cv::cuda::GpuMat(leftRectify_fix.size(), CV_8U);
-            // disparity_fix_cpu = cv::Mat(leftRectify_fix.size(), CV_8U);
 #ifdef OVX
             vxDirective(context, VX_DIRECTIVE_ENABLE_PERFORMANCE);
             vxRegisterLogCallback(context, &ovxio::stdoutLogCallback, vx_false_e);
 #endif
-            //
-            // Create a NVXIO-based frame source
-            //
-
             StereoMatching::ImplementationType implementationType = StereoMatching::HIGH_LEVEL_API;
             StereoMatching::StereoMatchingParams _params;
             _params.min_disparity = 0;
@@ -218,9 +198,14 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::waitKey(2);
         }            
         return cv_disp;
-#endif
 #else
-    printf("Must set USE_CUDA on in CMake to enable cuda!!!\n");
+    std::cerr << "Must set USE_VWORKS on in CMake to enable visionworks!!!" << std::endl;
+    exit(-1);
+    return cv::Mat();
+#endif
+    }
+#else
+    std::cerr << "Must set USE_CUDA on in CMake to enable cuda!!!" << std::endl;
     exit(-1);
 #endif
 }

@@ -131,6 +131,12 @@ void readParameters(std::string config_file)
     THRES_OUTLIER = fsSettings["thres_outlier"];
     triangulate_max_err = fsSettings["tri_max_err"];
     USE_GPU = fsSettings["use_gpu"];
+#ifndef USE_CUDA
+        if (USE_GPU) {
+            std::cerr << "Must set USE_CUDA on in CMake to enable cuda!!!" << std::endl;
+            exit(-1);
+        }
+#endif
     FISHEYE = fsSettings["is_fisheye"];
     FISHEYE_FOV = fsSettings["fisheye_fov"];
     USE_VXWORKS = fsSettings["use_vxworks"];

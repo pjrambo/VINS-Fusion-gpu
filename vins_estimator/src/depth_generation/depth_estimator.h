@@ -5,16 +5,6 @@
 #include <opencv2/core/eigen.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud.h>
-
-#ifndef WITHOUT_VWORKS
-#include <NVX/nvx.h>
-#include <NVX/nvx_opencv_interop.hpp>
-#include "stereo_matching.hpp"
-#include "color_disparity_graph.hpp"
-#include <NVX/nvx.h>
-#include <NVX/nvx_opencv_interop.hpp>
-#endif
-
 #include "stereo_online_calib.hpp"
 
 namespace sgm {
@@ -61,7 +51,7 @@ class DepthEstimator {
 
     std::string output_path;
     double extrinsic_calib_rate = 1;
-#ifndef WITHOUT_VWORKS
+#ifdef WITH_VWORKS
     vx_image vx_img_l;
     vx_image vx_img_r;
     vx_image vx_disparity;

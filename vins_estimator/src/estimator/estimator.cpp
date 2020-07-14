@@ -82,7 +82,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
             ROS_INFO("Tracking cuda images");
             featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up_cuda, fisheye_imgs_down_cuda);
 #else
-        printf("Must set USE_CUDA on in CMake to enable cuda!!!\n");
+        std::cerr << "Must set USE_CUDA on in CMake to enable cuda!!!" << std::endl;
         exit(-1);
 #endif
         } else {

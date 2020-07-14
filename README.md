@@ -16,14 +16,26 @@ This repository is a version of VINS-Fusion with Dual Fisheye and GPU and Vision
 The essential software environment is same as VINS-Fusion. Besides, it requires OpenCV cuda version.(Only test it on OpenCV 3.4.1).
 Visionworks: Optional
 
+If you want to CUDA mode of this package, [libSGM](https://github.com/fixstars/libSGM) is required for depth estimation.
+
 ## 2. Usage
 ### 2.1 Change the opencv path in the CMakeLists
-Compile and install opencv 3.4 with CUDA to /usr/local/
+This package support CUDA mode and CPU mode with OpenMP enabled. If you are using on embedded device, I strongly recommend you to use this package with CUDA to achieve best performance.
+
+By default, CUDA is automatically detected, however you can disable it by set
+
+>set(DETECT_CUDA false)
+
+When using OpenCV, I recommend that you to compile and install opencv 3.4 with CUDA to /usr/local/
+
+If your opencv with CUDA is installed in other localization, modify the
+
+>SET("OpenCV_DIR"  "/usr/local/share/OpenCV/")
 
 If you don't have visionworks, please 
 >set(ENABLE_VWORKS false)
 
-If you are using visionworks, please config the visionworks sample path
+NVIDIA VisionWorks gives slightly better performance, however, the VisionWorks support for this package is not stable yet. If you are using visionworks, please config the visionworks sample path
 
 ```cmake
     include_directories(
@@ -47,7 +59,7 @@ Term 2
 Term 3(for visuallization only)
 >roslaunch vins vins_rviz.launch
 
-For rosbag, you can download from https://www.dropbox.com/s/oukwohva7ba381d/fishey_vins_2020-01-30-10-38-14.bag?dl=0
+For rosbag, you can download from https://www.dropbox.com/s/kmakksca3ns6cav/fisheye_vins_2020-01-30-10-38-14.bag?dl=0
 ### Parameters for fisheye
 ```yaml
 depth_config: "depth_cpu.yaml" # config path for depth estimation, depth_cpu.yaml uses opencv SGBM, depth.yaml uses visionworks SGM, you must install visionworks before use visionworks sgm
