@@ -15,6 +15,11 @@
 
 #ifdef WITH_VWORKS
 #include "vworks_feature_tracker.hpp"
+#ifdef OVX
+ovxio::ContextGuard context;
+#else 
+vx_context context;
+#endif
 #endif
 // #define PERF_OUTPUT
 Eigen::Quaterniond t1(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d(1, 0, 0)));

@@ -35,16 +35,7 @@ If your opencv with CUDA is installed in other localization, modify the
 If you don't have visionworks, please 
 >set(ENABLE_VWORKS false)
 
-NVIDIA VisionWorks gives slightly better performance, however, the VisionWorks support for this package is not stable yet. If you are using visionworks, please config the visionworks sample path
-
-```cmake
-    include_directories(
-        /home/xuhao/VisionWorks-1.6-Samples/nvxio/include
-    )
-    link_directories(/home/xuhao/VisionWorks-1.6-Samples/libs/x86_64/linux/release/)
-```
-
-in file vins_estimator/CMakeLists.txt
+NVIDIA VisionWorks gives slightly better performance, however, the VisionWorks support for this package is not stable yet.
 
 ### Fisheye usage
 Term 0

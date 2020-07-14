@@ -21,10 +21,6 @@ typedef cv::Mat GpuMat;
 #ifdef WITH_VWORKS
 #include <NVX/nvx.h>
 #include <NVX/nvx_opencv_interop.hpp>
-#include "stereo_matching.hpp"
-#include "color_disparity_graph.hpp"
-#include <NVX/nvx.h>
-#include <NVX/nvx_opencv_interop.hpp>
 #ifdef OVX
 extern ovxio::ContextGuard context;
 #else 

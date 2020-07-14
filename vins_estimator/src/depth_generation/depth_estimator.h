@@ -7,6 +7,8 @@
 #include <sensor_msgs/PointCloud.h>
 #include "stereo_online_calib.hpp"
 
+#include "color_disparity_graph.hpp"
+#include "stereo_matching.hpp"
 namespace sgm {
     class LibSGMWrapper;
 };

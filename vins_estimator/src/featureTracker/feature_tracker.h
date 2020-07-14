@@ -27,9 +27,8 @@
 #include "../estimator/parameters.h"
 #include "../utility/tic_toc.h"
 
-#ifndef WITH_VWORKS
+#ifdef WITH_VWORKS
 #include "vworks_feature_tracker.hpp"
-#include "NVX/nvx_opencv_interop.hpp"
 #endif
 
 using namespace std;
