@@ -8,13 +8,9 @@
 #include <camodocal/camera_models/CameraFactory.h>
 #include <camodocal/camera_models/PinholeCamera.h>
 #include "cv_bridge/cv_bridge.h"
+#include "../utility/opencv_cuda.h"
 
 #define DEG_TO_RAD (M_PI / 180.0)
-
-#ifdef USE_CUDA
-#include <opencv2/cudawarping.hpp>
-#include <opencv2/cudaimgproc.hpp>
-#endif
 
 class FisheyeUndist {
 
@@ -45,7 +41,6 @@ public:
 
         undistMaps = generateAllUndistMap(cam, cameraRotation, imgWidth, fov);
         // ROS_INFO("undismap size %ld", undistMaps.size());
-#ifdef USE_CUDA
         if (enable_cuda) {
             for (auto mat : undistMaps) {
                 cv::Mat maps[2];
@@ -54,7 +49,6 @@ public:
                 undistMapsGPUY.push_back(cv::cuda::GpuMat(maps[1]));
             }
         }
-#endif
     }
 
     cv::cuda::GpuMat undist_id_cuda(cv::Mat image, int _id) {

@@ -35,10 +35,8 @@
 #include "../factor/projectionTwoFrameTwoCamFactor.h"
 #include "../factor/projectionOneFrameTwoCamFactor.h"
 #include "../featureTracker/feature_tracker.h"
+#include "../utility/opencv_cuda.h"
 
-#ifdef USE_CUDA
-#include <opencv2/cudaimgproc.hpp>
-#endif
 
 class DepthCamManager;
 
@@ -193,10 +191,8 @@ class Estimator
 
     queue<double> fisheye_imgs_stampBuf;
 
-#ifdef USE_CUDA
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_upBuf_cuda;
     queue<std::vector<cv::cuda::GpuMat>> fisheye_imgs_downBuf_cuda;
-#endif
 
     queue<std::vector<cv::Mat>> fisheye_imgs_upBuf;
     queue<std::vector<cv::Mat>> fisheye_imgs_downBuf;

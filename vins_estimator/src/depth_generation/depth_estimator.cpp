@@ -1,13 +1,7 @@
 #include "depth_estimator.h"
 #include <opencv2/calib3d.hpp>
 
-#ifdef USE_CUDA
-#include <opencv2/cudawarping.hpp>
-#include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudastereo.hpp>
-#include <opencv2/cudafeatures2d.hpp>
-#include <libsgm.h>
-#endif
+#include "../utility/opencv_cuda.h"
 
 #include <opencv2/opencv.hpp>
 #include "../utility/tic_toc.h"
@@ -31,10 +25,12 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
     cv::eigen2cv(R01, R);
     cv::eigen2cv(t01, T);
 
+#ifdef USE_CUDA
     if (!params.use_vworks) {
     	sgmp = new sgm::LibSGMWrapper(params.num_disp, params.p1, params.p2, params.uniquenessRatio, true, 
             sgm::PathType::SCAN_8PATH, params.min_disparity, params.disp12Maxdiff);
     }
+#endif
 }
 
 DepthEstimator::DepthEstimator(SGMParams _params, std::string Path, cv::Mat camera_mat,
@@ -51,6 +47,7 @@ bool _show, bool _enable_extrinsic_calib, std::string _output_path):
     
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::GpuMat & right) {
+#ifdef USE_CUDA
     std::cout << "Computing disp for cuda" << std::endl;
     // stereoRectify(InputArray cameraMatrix1, InputArray distCoeffs1, 
     // InputArray cameraMatrix2, InputArray distCoeffs2, 
@@ -221,8 +218,11 @@ cv::Mat DepthEstimator::ComputeDispartiyMap(cv::cuda::GpuMat & left, cv::cuda::G
             cv::waitKey(2);
         }            
         return cv_disp;
-#endif  
-    }
+#endif
+#else
+    printf("Must set USE_CUDA on in CMake to enable cuda!!!\n");
+    exit(-1);
+#endif
 }
 
 cv::Mat DepthEstimator::ComputeDispartiyMap(cv::Mat & left, cv::Mat & right) {

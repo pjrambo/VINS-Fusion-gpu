@@ -60,9 +60,7 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
     inputImageCnt++;
     FeatureFrame featureFrame;
     TicToc featureTrackerTime;
-#ifdef USE_CUDA
     vector<cv::cuda::GpuMat> fisheye_imgs_up_cuda, fisheye_imgs_down_cuda;
-#endif
     const CvImages & fisheye_imgs_up = fisheye_imgs_up_cpu;
     const CvImages & fisheye_imgs_down = fisheye_imgs_down_cpu;
 
@@ -83,6 +81,9 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
 
             ROS_INFO("Tracking cuda images");
             featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up_cuda, fisheye_imgs_down_cuda);
+#else
+        printf("Must set USE_CUDA on in CMake to enable cuda!!!\n");
+        exit(-1);
 #endif
         } else {
             featureFrame = featureTracker.trackImage_fisheye(t, fisheye_imgs_up, fisheye_imgs_down);
@@ -105,10 +106,8 @@ void Estimator::inputImage(double t, const cv::Mat &_img, const cv::Mat &_img1,
         featureBuf.push(make_pair(t, featureFrame));
         if (FISHEYE && ENABLE_DEPTH) {
             if (USE_GPU) {
-#ifdef USE_CUDA
                 fisheye_imgs_upBuf_cuda.push(fisheye_imgs_up_cuda);
                 fisheye_imgs_downBuf_cuda.push(fisheye_imgs_down_cuda);
-#endif
             } else {
                 fisheye_imgs_upBuf.push(fisheye_imgs_up);
                 fisheye_imgs_downBuf.push(fisheye_imgs_down);
@@ -200,9 +199,7 @@ void Estimator::processDepthGeneration() {
         ROS_INFO("Launch depth generation thread");
     }
 
-#ifdef USE_CUDA
     std::vector<cv::cuda::GpuMat> fisheye_imgs_up_cuda, fisheye_imgs_down_cuda;
-#endif
     std::vector<cv::Mat> fisheye_imgs_up, fisheye_imgs_down;
 
     while(ros::ok()) {
@@ -210,7 +207,6 @@ void Estimator::processDepthGeneration() {
             printf("Depth getting imgs\n");
             double t = fisheye_imgs_stampBuf.front();
             if (USE_GPU) {
-#ifdef USE_CUDA
                 fisheye_imgs_up_cuda = fisheye_imgs_upBuf_cuda.front();
                 fisheye_imgs_down_cuda = fisheye_imgs_downBuf_cuda.front();
 
@@ -219,7 +215,6 @@ void Estimator::processDepthGeneration() {
                 fisheye_imgs_downBuf_cuda.pop();
                 fisheye_imgs_stampBuf.pop();
                 mBuf.unlock();
-#endif
             } else {
                 fisheye_imgs_up = fisheye_imgs_upBuf.front();
                 fisheye_imgs_down = fisheye_imgs_downBuf.front();

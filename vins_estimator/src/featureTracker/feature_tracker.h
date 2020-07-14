@@ -19,11 +19,7 @@
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
 
-#ifdef USE_CUDA
-#include <opencv2/cudaoptflow.hpp>
-#include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudaarithm.hpp>
-#endif
+#include "../utility/opencv_cuda.h"
 
 #include "camodocal/camera_models/CameraFactory.h"
 #include "camodocal/camera_models/CataCamera.h"
@@ -63,10 +59,7 @@ public:
     FeatureFrame trackImage_fisheye(double _cur_time, const std::vector<cv::Mat> & fisheye_imgs_up, const std::vector<cv::Mat> & fisheye_imgs_down);
 
 #ifdef USE_CUDA
-    FeatureFrame trackImage_fisheye(double _cur_time,       
-        std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
-        std::vector<cv::cuda::GpuMat> & fisheye_imgs_down
-    );
+    FeatureFrame trackImage_fisheye(double _cur_time, const std::vector<cv::cuda::GpuMat> & fisheye_imgs_up, const std::vector<cv::cuda::GpuMat> & fisheye_imgs_down);
 
     vector<cv::Point2f> opticalflow_track(cv::cuda::GpuMat & cur_img, 
                         cv::cuda::GpuMat & prev_img, vector<cv::Point2f> & prev_pts, 
@@ -159,10 +152,9 @@ public:
     cv::Mat fisheye_mask;
     cv::Mat prev_img, cur_img;
 
-#ifdef USE_CUDA
     cv::cuda::GpuMat prev_gpu_img, cur_gpu_img;
     cv::cuda::GpuMat prev_up_top_img, prev_down_top_img, prev_up_side_img;
-#endif
+
     cv::Mat prev_up_top_img_cpu, prev_down_top_img_cpu, prev_up_side_img_cpu;
     std::vector<cv::Mat> * prev_up_top_pyr = nullptr, * prev_down_top_pyr = nullptr, * prev_up_side_pyr = nullptr;
 

@@ -1363,8 +1363,8 @@ FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time, const std::vec
 
 #ifdef USE_CUDA
 FeatureFrame FeatureTracker::trackImage_fisheye(double _cur_time,   
-        std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
-        std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
+        const std::vector<cv::cuda::GpuMat> & fisheye_imgs_up,
+        const std::vector<cv::cuda::GpuMat> & fisheye_imgs_down) {
     cur_time = _cur_time;
 
     TicToc t_r;

@@ -1,12 +1,7 @@
 #pragma once
 #include <opencv2/opencv.hpp>
 #include <eigen3/Eigen/Dense>
-
-#ifdef USE_CUDA
-#include <opencv2/cudaimgproc.hpp>
-#include <opencv2/cudastereo.hpp>
-#endif
-
+#include "../utility/opencv_cuda.h"
 #include <opencv2/core/eigen.hpp>
 #include <ros/ros.h>
 #include <sensor_msgs/PointCloud.h>
